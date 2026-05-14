@@ -3,6 +3,7 @@ from __future__ import annotations
 import platform
 import re
 import socket
+import struct
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -101,10 +102,47 @@ def _ping(ip: str) -> PingResult:
         return PingResult(ip=ip, reachable=False)
 
 
-def _resolve(host: str) -> DnsResult:
+def _dns_query(host: str, resolver: str, timeout: float = 3.0) -> str | None:
+    """Send a raw UDP DNS A query to resolver; return first A record IP or None."""
+    labels  = host.rstrip(".").split(".")
+    qname   = b"".join(bytes([len(l)]) + l.encode() for l in labels) + b"\x00"
+    query   = struct.pack(">HHHHHH", 0x1A2B, 0x0100, 1, 0, 0, 0) + qname + struct.pack(">HH", 1, 1)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.settimeout(timeout)
+        s.sendto(query, (resolver, 53))
+        resp, _ = s.recvfrom(512)
+    ancount = struct.unpack(">H", resp[6:8])[0]
+    if not ancount:
+        return None
+    # Skip header (12) + question name + QTYPE/QCLASS (4)
+    pos = 12
+    while resp[pos]:
+        pos += (resp[pos] & 0x3F) + 1
+    pos += 5  # null byte + QTYPE + QCLASS
+    for _ in range(ancount):
+        if resp[pos] & 0xC0 == 0xC0:
+            pos += 2
+        else:
+            while resp[pos]:
+                pos += resp[pos] + 1
+            pos += 1
+        rtype, _, _, rdlen = struct.unpack(">HHIH", resp[pos:pos + 10])
+        pos += 10
+        if rtype == 1 and rdlen == 4:
+            return ".".join(str(b) for b in resp[pos:pos + 4])
+        pos += rdlen
+    return None
+
+
+def _resolve(host: str, resolver: str | None = None) -> DnsResult:
     try:
         t0 = time.monotonic()
-        ip = socket.gethostbyname(host)
+        if resolver:
+            ip = _dns_query(host, resolver)
+            if ip is None:
+                return DnsResult(host=host, resolved=False)
+        else:
+            ip = socket.gethostbyname(host)
         return DnsResult(host=host, resolved=True, ip=ip, rtt_ms=(time.monotonic() - t0) * 1000)
     except Exception:
         return DnsResult(host=host, resolved=False)
@@ -127,9 +165,9 @@ def _check_reachability(ips: list[str]) -> list[PingResult]:
         return list(pool.map(_ping, ips))
 
 
-def _check_dns(hosts: list[str]) -> list[DnsResult]:
+def _check_dns(hosts: list[str], resolver: str | None = None) -> list[DnsResult]:
     with ThreadPoolExecutor(max_workers=max(1, len(hosts))) as pool:
-        return list(pool.map(_resolve, hosts))
+        return list(pool.map(lambda h: _resolve(h, resolver), hosts))
 
 
 def _fetch_speed(url: str, token: str | None) -> SpeedResult | None:
@@ -274,14 +312,15 @@ class ConnectivityWidget(DashWidget):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._ips: list[str]             = list(_DEFAULT_IPS)
-        self._hosts: list[str]           = list(_DEFAULT_HOSTS)
-        self._max_down                   = _DEFAULT_MAX_MBPS
-        self._max_up                     = _DEFAULT_MAX_MBPS
-        self._speedtracker_url: str | None  = None
+        self._ips: list[str]              = list(_DEFAULT_IPS)
+        self._hosts: list[str]            = list(_DEFAULT_HOSTS)
+        self._dns_resolver: str | None    = None
+        self._max_down                    = _DEFAULT_MAX_MBPS
+        self._max_up                      = _DEFAULT_MAX_MBPS
+        self._speedtracker_url: str | None   = None
         self._speedtracker_token: str | None = None
-        self._err: str | None            = None
-        self._data_timer: Timer | None   = None
+        self._err: str | None             = None
+        self._data_timer: Timer | None    = None
 
     def compose(self) -> ComposeResult:
         yield Static("[dim]Loading…[/dim]", id="conn-body")
@@ -304,6 +343,7 @@ class ConnectivityWidget(DashWidget):
         except ValueError:
             pass
 
+        self._dns_resolver       = config.get("TUIDASH_DNS_RESOLVER") or None
         self._speedtracker_url   = config.get("TUIDASH_SPEEDTESTTRACKER_URL") or None
         self._speedtracker_token = config.get("TUIDASH_SPEEDTESTTRACKER_TOKEN") or None
 
@@ -317,13 +357,13 @@ class ConnectivityWidget(DashWidget):
     @work(thread=True)
     def _load(self) -> None:
         try:
-            resolver_ip   = _get_resolver_ip()
+            resolver_ip   = self._dns_resolver or _get_resolver_ip()
             speed_enabled = self._speedtracker_url is not None
             n_workers     = 3 if speed_enabled else 2
 
             with ThreadPoolExecutor(max_workers=n_workers) as pool:
                 f_reach = pool.submit(_check_reachability, self._ips)
-                f_dns   = pool.submit(_check_dns, self._hosts)
+                f_dns   = pool.submit(_check_dns, self._hosts, self._dns_resolver)
                 f_speed = (
                     pool.submit(_fetch_speed, self._speedtracker_url, self._speedtracker_token)
                     if speed_enabled else None
