@@ -31,7 +31,7 @@ _COLORS = [
 
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 
-_SCROLL_INTERVAL = 0.12                           # seconds per character step
+_SCROLL_INTERVAL = 0.24                           # seconds per character step
 _PAUSE_L_TICKS   = round(10 / _SCROLL_INTERVAL)  # ticks held at left end  (≈10 s)
 _PAUSE_R_TICKS   = round(3  / _SCROLL_INTERVAL)  # ticks held at right end (≈3 s)
 

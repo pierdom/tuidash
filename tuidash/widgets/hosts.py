@@ -127,7 +127,7 @@ def _monitor_host(name: str, url: str) -> HostData:
 
 # ── rendering ─────────────────────────────────────────────────────────────────
 
-_SCROLL_INTERVAL = 0.12
+_SCROLL_INTERVAL = 0.24
 _PAUSE_L_TICKS   = round(10 / _SCROLL_INTERVAL)  # ticks held at left end  (≈10 s)
 _PAUSE_R_TICKS   = round(3  / _SCROLL_INTERVAL)  # ticks held at right end (≈3 s)
 
