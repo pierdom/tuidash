@@ -1,6 +1,7 @@
 import argparse
 import os
 import selectors
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -209,8 +210,20 @@ def main() -> None:
 
     if args.serve:
         textual_bin = Path(sys.executable).parent / "textual"
+        # When binding to 0.0.0.0, the public URL must use the real LAN IP so
+        # that remote browsers (tablet, etc.) receive a reachable WebSocket URL.
+        public_host = args.host
+        if public_host == "0.0.0.0":
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    s.connect(("8.8.8.8", 80))
+                    public_host = s.getsockname()[0]
+            except Exception:
+                public_host = "localhost"
+        public_url = f"http://{public_host}:{args.port}"
         sys.exit(subprocess.run(
-            [textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app", "-h", args.host, "-p", str(args.port)]
+            [textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app",
+             "-h", args.host, "-p", str(args.port), "-u", public_url]
         ).returncode)
 
     TuidashApp().run()
