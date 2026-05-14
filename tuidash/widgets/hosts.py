@@ -128,8 +128,7 @@ def _monitor_host(name: str, url: str) -> HostData:
 # ── rendering ─────────────────────────────────────────────────────────────────
 
 _SCROLL_INTERVAL = 0.12
-_PAUSE_START     = int(10 / _SCROLL_INTERVAL)  # 10 s pause when first char visible
-_PAUSE_END       = 0
+_PAUSE_TICKS     = round(5 / _SCROLL_INTERVAL)  # ticks held at each end  (≈5 s)
 
 
 def _pct_bar(pct: float | None) -> Text:
@@ -176,10 +175,14 @@ def _scroll_containers(
             t.append(seg, style=style)
         return t
 
-    # Compute scroll offset
-    cycle  = _PAUSE_START + overflow + _PAUSE_END
-    pos    = (tick + phase) % cycle
-    offset = 0 if pos < _PAUSE_START else min(pos - _PAUSE_START, overflow)
+    # Compute scroll offset (boomerang: pause → forward → backward → repeat)
+    cycle = _PAUSE_TICKS + 2 * overflow
+    pos   = (tick + phase) % cycle
+    if pos < _PAUSE_TICKS:
+        offset = 0
+    else:
+        inner  = pos - _PAUSE_TICKS
+        offset = inner if inner <= overflow else 2 * overflow - inner
 
     # Slice [offset, offset+width) across the styled segments
     t       = Text()

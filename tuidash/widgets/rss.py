@@ -31,9 +31,8 @@ _COLORS = [
 
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 
-_SCROLL_INTERVAL = 0.12                         # seconds per character step
-_PAUSE_START     = int(10 / _SCROLL_INTERVAL)  # ticks held at offset 0  (≈10 s)
-_PAUSE_END       = 0                            # loop back to start immediately
+_SCROLL_INTERVAL = 0.12                          # seconds per character step
+_PAUSE_TICKS     = round(5 / _SCROLL_INTERVAL)  # ticks held at each end  (≈5 s)
 
 
 @dataclass
@@ -77,18 +76,17 @@ def _fetch_feed(url: str, color: str) -> FeedData:
 
 
 def _scroll_window(title: str, width: int, tick: int, phase: int) -> str:
-    """Return the visible slice of title for this tick (marquee effect)."""
+    """Return the visible slice of title for this tick (boomerang marquee)."""
     overflow = len(title) - width
     if overflow <= 0:
         return title
-    cycle = _PAUSE_START + overflow + _PAUSE_END
+    cycle = _PAUSE_TICKS + 2 * overflow
     pos   = (tick + phase) % cycle
-    if pos < _PAUSE_START:
+    if pos < _PAUSE_TICKS:
         offset = 0
-    elif pos < _PAUSE_START + overflow:
-        offset = pos - _PAUSE_START
     else:
-        offset = overflow
+        inner  = pos - _PAUSE_TICKS
+        offset = inner if inner <= overflow else 2 * overflow - inner
     return title[offset : offset + width]
 
 
