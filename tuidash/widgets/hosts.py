@@ -150,7 +150,7 @@ def _container_color(c: ContainerInfo) -> str:
         return "green"
     if c.health == "unhealthy":
         return "red"
-    return "blue"
+    return ""
 
 
 def _scroll_containers(
