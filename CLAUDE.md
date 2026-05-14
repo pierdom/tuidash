@@ -7,9 +7,13 @@ Personal terminal dashboard built with [Textual](https://textual.textualize.io/)
 ## Running the project
 
 ```bash
-uv run tuidash          # run the dashboard
-uv run python -m tuidash.app   # alternative
+uv run tuidash                        # terminal
+uv run tuidash --serve                # browser at http://localhost:8080
+uv run tuidash --serve --port 9000    # custom port
+uv run python -m tuidash.app          # alternative (terminal only)
 ```
+
+`--serve` delegates to `textual serve tuidash.app:TuidashApp --port PORT`.
 
 All dependencies are managed with `uv`. Never use `pip` directly.
 
@@ -29,7 +33,8 @@ tuidash/
     ├── weather.py      # Open-Meteo weather + forecast
     ├── ghostfolio.py   # Ghostfolio portfolio tracker
     ├── connectivity.py # Ping / DNS / speed-test connectivity checks
-    ├── rss.py          # RSS feed reader
+    ├── hosts.py        # Host monitoring via ping + Glances (CPU, MEM, Docker)
+    ├── rss.py          # RSS feed reader with horizontal marquee scrolling
     └── vps.py          # VPS status (stub)
 ```
 
@@ -44,7 +49,7 @@ tuidash/
 ```
 Header (Textual built-in, shows app title + clock)
 ├── #row-top  28%  │ ClockWidget(30) │ WeatherWidget(2fr) │ CalendarWidget(1fr) │
-├── #row-mid  44%  │ GhostfolioWidget(50%) │ ConnectivityWidget + HostsWidget(1fr) │
+├── #row-mid  44%  │ GhostfolioWidget(50%) │ Vertical: ConnectivityWidget + HostsWidget(1fr) │
 └── #row-bot  1fr  │ RssWidget(100%)                                              │
 Footer (shows keybindings)
 ```
@@ -190,6 +195,12 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 *Required for that widget to function; missing values show an inline error, not a crash.
 
 Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.env`.
+
+---
+
+## Serving over HTTP
+
+`tuidash --serve [--port PORT]` calls `textual serve tuidash.app:TuidashApp --port PORT` via subprocess. No additional code required — Textual streams the terminal UI to the browser over WebSockets.
 
 ---
 
