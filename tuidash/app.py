@@ -231,10 +231,12 @@ def main() -> None:
         textual_bin = Path(sys.executable).parent / "textual"
         # When binding to 0.0.0.0, the public URL must use the real LAN IP so
         # that remote browsers (tablet, etc.) receive a reachable WebSocket URL.
-        public_host = args.host
-        if public_host == "0.0.0.0":
-            public_host = _detect_serve_ip()
-        public_url = f"http://{public_host}:{args.port}"
+        public_url = config.get("TUIDASH_SERVE_URL") or None
+        if not public_url:
+            public_host = args.host
+            if public_host == "0.0.0.0":
+                public_host = _detect_serve_ip()
+            public_url = f"http://{public_host}:{args.port}"
         sys.exit(subprocess.run(
             [textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app",
              "-h", args.host, "-p", str(args.port), "-u", public_url]
