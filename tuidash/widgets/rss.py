@@ -31,8 +31,9 @@ _COLORS = [
 
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 
-_SCROLL_INTERVAL = 0.12                          # seconds per character step
-_PAUSE_TICKS     = round(5 / _SCROLL_INTERVAL)  # ticks held at each end  (≈5 s)
+_SCROLL_INTERVAL = 0.12                           # seconds per character step
+_PAUSE_L_TICKS   = round(10 / _SCROLL_INTERVAL)  # ticks held at left end  (≈10 s)
+_PAUSE_R_TICKS   = round(3  / _SCROLL_INTERVAL)  # ticks held at right end (≈3 s)
 
 
 @dataclass
@@ -80,13 +81,20 @@ def _scroll_window(title: str, width: int, tick: int, phase: int) -> str:
     overflow = len(title) - width
     if overflow <= 0:
         return title
-    cycle = _PAUSE_TICKS + 2 * overflow
+    cycle = _PAUSE_L_TICKS + overflow + _PAUSE_R_TICKS + overflow
     pos   = (tick + phase) % cycle
-    if pos < _PAUSE_TICKS:
+    if pos < _PAUSE_L_TICKS:
         offset = 0
     else:
-        inner  = pos - _PAUSE_TICKS
-        offset = inner if inner <= overflow else 2 * overflow - inner
+        pos -= _PAUSE_L_TICKS
+        if pos < overflow:
+            offset = pos
+        else:
+            pos -= overflow
+            if pos < _PAUSE_R_TICKS:
+                offset = overflow
+            else:
+                offset = overflow - (pos - _PAUSE_R_TICKS)
     return title[offset : offset + width]
 
 
