@@ -22,7 +22,7 @@ from .. import config
 from .base import DashWidget
 
 
-_TICKER_INTERVAL = 0.10   # seconds per scroll step (≈10 chars/sec)
+_TICKER_INTERVAL = 0.125  # seconds per scroll step (≈8 chars/sec)
 _TICKER_SEP      = "   ◆   "
 
 
@@ -426,8 +426,9 @@ class GhostfolioWidget(DashWidget):
 
     DEFAULT_CSS = """
     GhostfolioWidget { height: 100%; }
-    #gf-body   { height: 1fr; }
-    #gf-ticker { height: 1; }
+    #gf-body        { height: 1fr; }
+    #gf-ticker-rule { height: 1; }
+    #gf-ticker      { height: 1; }
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -441,6 +442,7 @@ class GhostfolioWidget(DashWidget):
 
     def compose(self) -> ComposeResult:
         yield Static("[dim]Loading…[/dim]", id="gf-body")
+        yield Static(Rule(style="dim"), id="gf-ticker-rule")
         yield Static("", id="gf-ticker")
 
     def on_mount(self) -> None:
