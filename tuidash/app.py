@@ -1,6 +1,7 @@
 import argparse
 import subprocess
 import sys
+from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.reactive import reactive
@@ -199,8 +200,9 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.serve:
+        textual_bin = Path(sys.executable).parent / "textual"
         sys.exit(subprocess.run(
-            [sys.executable, "-m", "textual", "serve", f"{__file__}:TuidashApp", "--port", str(args.port)]
+            [textual_bin, "serve", f"{__file__}:TuidashApp", "-p", str(args.port)]
         ).returncode)
 
     TuidashApp().run()
