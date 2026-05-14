@@ -131,7 +131,7 @@ class TuidashApp(App):
         self.query_one(CalendarWidget).border_title  = "  Calendar"
         self.query_one(GhostfolioWidget).border_title = "  Ghostfolio"
         self.query_one(ConnectivityWidget).border_title = "  Connectivity"
-        self.query_one(HostsWidget).border_title     = "  Hosts"
+        self.query_one(HostsWidget).border_title     = "  Servers"
         self.query_one(RssWidget).border_title       = "  News"
 
         theme_name = config.get("TUIDASH_THEME")
