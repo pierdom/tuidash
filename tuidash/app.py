@@ -200,7 +200,7 @@ def main() -> None:
 
     if args.serve:
         sys.exit(subprocess.run(
-            [sys.executable, "-m", "textual", "serve", "tuidash.app:TuidashApp", "--port", str(args.port)]
+            [sys.executable, "-m", "textual", "serve", f"{__file__}:TuidashApp", "--port", str(args.port)]
         ).returncode)
 
     TuidashApp().run()
