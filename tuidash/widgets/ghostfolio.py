@@ -56,6 +56,8 @@ class TickerItem:
 class PortfolioData:
     total_value: float
     currency: str
+    base_currency: str
+    goal: float
     today: PerfStats
     one_year: PerfStats
     mtd: PerfStats
@@ -161,12 +163,13 @@ class GhostfolioClient:
 
     def fetch(self) -> PortfolioData:
         # ── phase 1: portfolio-level parallel calls ───────────────────────────
-        with ThreadPoolExecutor(max_workers=5) as pool:
+        with ThreadPoolExecutor(max_workers=6) as pool:
             f_1d       = pool.submit(self._get, "/api/v2/portfolio/performance", range="1d")
             f_mtd      = pool.submit(self._get, "/api/v2/portfolio/performance", range="mtd")
             f_1y       = pool.submit(self._get, "/api/v2/portfolio/performance", range="1y")
             f_holdings = pool.submit(self._get, "/api/v1/portfolio/holdings")
             f_orders   = pool.submit(self._get, "/api/v1/order")
+            f_user     = pool.submit(self._get, "/api/v1/user")
 
         chart_1d     = f_1d.result().get("chart", [])
         chart_1y     = f_1y.result().get("chart", [])
@@ -231,12 +234,26 @@ class GhostfolioClient:
                 tx_30d     += 1
                 tx_30d_vol += vol
 
+        # ── base currency from user settings ──────────────────────────────────
+        try:
+            base_currency = f_user.result().get("settings", {}).get("baseCurrency", currency)
+        except Exception:
+            base_currency = currency
+
+        # ── goal from config ───────────────────────────────────────────────────
+        try:
+            goal = float(config.get("TUIDASH_GHOSTFOLIO_GOAL") or "1000000")
+        except ValueError:
+            goal = 1_000_000
+
         # ── phase 2: per-symbol daily change for ticker ───────────────────────
         ticker = self._fetch_ticker(holdings_raw)
 
         return PortfolioData(
             total_value=total_value,
             currency=currency,
+            base_currency=base_currency,
+            goal=goal,
             today=perf_today,
             one_year=perf_1y,
             mtd=perf_mtd,
@@ -281,16 +298,23 @@ def _holding_line(h: Holding) -> Text:
     return t
 
 
-_GOAL = 1_000_000
+def _fmt_goal(goal: float) -> str:
+    if goal >= 1_000_000:
+        v = goal / 1_000_000
+        return f"{v:.0f}M" if v == int(v) else f"{v:.1f}M"
+    if goal >= 1_000:
+        v = goal / 1_000
+        return f"{v:.0f}K" if v == int(v) else f"{v:.1f}K"
+    return f"{goal:.0f}"
 
 
 def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
-    cur = d.currency
+    cur = d.base_currency or d.currency
     symbols = {"USD": "$", "EUR": "€", "GBP": "£", "CHF": "Fr "}
     sym = symbols.get(cur, f"{cur} ")
 
     # ── net worth + progress bar ──────────────────────────────────────────────
-    progress_pct = min(d.total_value / _GOAL * 100, 100.0)
+    progress_pct = min(d.total_value / d.goal * 100, 100.0) if d.goal else 0.0
     if abs(d.today.pct) <= 0.1:
         dot_color = "yellow"
     elif d.today.pct > 0:
@@ -310,7 +334,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
         nw,
         ProgressBar(total=100, completed=progress_pct, complete_style="green"),
         Text(f"{progress_pct:.1f}%", style="dim"),
-        Text(f"→ {sym}{_MASK}" if privacy else f"→ {sym}1M", style="dim"),
+        Text(f"→ {sym}{_MASK}" if privacy else f"→ {sym}{_fmt_goal(d.goal)}", style="dim"),
     )
 
     # ── single-row stats: Today | MTD | 1 Year ───────────────────────────────
@@ -318,9 +342,9 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     for _ in range(3):
         grid.add_column(ratio=1)
     grid.add_row(
-        _stat_cell("Today",  d.today,    cur, privacy),
-        _stat_cell("MTD",    d.mtd,      cur, privacy),
-        _stat_cell("1 Year", d.one_year, cur, privacy),
+        _stat_cell("Today",  d.today,    d.base_currency or cur, privacy),
+        _stat_cell("MTD",    d.mtd,      d.base_currency or cur, privacy),
+        _stat_cell("1 Year", d.one_year, d.base_currency or cur, privacy),
     )
 
     # ── gainers / losers + transactions ──────────────────────────────────────
