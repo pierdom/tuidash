@@ -33,6 +33,15 @@ uv run tuidash --serve --port 9000
 
 Copy `.env.example` to `.env` and fill in the values that apply to you.
 
+## Docker
+
+```bash
+cp .env.example .env   # fill in your values
+docker compose up --build
+```
+
+The dashboard is served at `http://localhost:8080`. On subsequent runs `--build` can be omitted. All `TUIDASH_*` settings are read from `.env` at startup.
+
 ## Keybindings
 
 | Key | Action |

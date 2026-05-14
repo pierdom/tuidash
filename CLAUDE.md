@@ -13,7 +13,13 @@ uv run tuidash --serve --port 9000    # custom port
 uv run python -m tuidash.app          # alternative (terminal only)
 ```
 
-`--serve` delegates to `textual serve tuidash.app:TuidashApp --port PORT`.
+`--serve` invokes `textual serve -c "{venv_python} -m tuidash.app" -p PORT` via subprocess. The `textual` binary comes from the `textual-dev` dependency.
+
+```bash
+# Docker (serves on http://localhost:8080)
+docker compose up --build
+docker compose up -d      # detached
+```
 
 All dependencies are managed with `uv`. Never use `pip` directly.
 
@@ -22,6 +28,8 @@ All dependencies are managed with `uv`. Never use `pip` directly.
 ## Project layout
 
 ```
+Dockerfile             # python:3.13-slim + uv, serves on port 8080
+docker-compose.yml     # mounts .env, maps port 8080
 tuidash/
 ├── app.py              # TuidashApp — layout, keybindings, global reactives
 ├── config.py           # Thin wrapper around python-dotenv (get / require)
