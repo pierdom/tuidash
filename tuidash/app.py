@@ -196,13 +196,14 @@ class TuidashApp(App):
 def main() -> None:
     parser = argparse.ArgumentParser(prog="tuidash", description="Personal terminal dashboard")
     parser.add_argument("--serve", action="store_true", help="Serve the dashboard over HTTP")
+    parser.add_argument("--host", default="0.0.0.0", metavar="HOST", help="Host to bind to (default: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8080, metavar="PORT", help="Port to listen on (default: 8080)")
     args = parser.parse_args()
 
     if args.serve:
         textual_bin = Path(sys.executable).parent / "textual"
         sys.exit(subprocess.run(
-            [textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app", "-p", str(args.port)]
+            [textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app", "-h", args.host, "-p", str(args.port)]
         ).returncode)
 
     TuidashApp().run()

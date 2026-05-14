@@ -20,4 +20,4 @@ RUN uv sync --frozen
 
 EXPOSE 8080
 
-CMD ["tuidash", "--serve", "--port", "8080"]
+CMD ["tuidash", "--serve", "--port", "8080", "--host", "0.0.0.0"]
