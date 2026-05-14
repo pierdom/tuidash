@@ -201,6 +201,25 @@ class TuidashApp(App):
             pass
 
 
+def _detect_serve_ip() -> str:
+    """Return the best local IP for the serve public URL.
+
+    Prefers Tailscale (connects to Magic DNS 100.100.100.100) so the dashboard
+    is reachable via Tailscale even when a VPN is also active.  Falls back to
+    the default-route IP, then localhost.
+    """
+    for target in ("100.100.100.100", "8.8.8.8"):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect((target, 80))
+                ip = s.getsockname()[0]
+            if not ip.startswith("127."):
+                return ip
+        except Exception:
+            continue
+    return "localhost"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="tuidash", description="Personal terminal dashboard")
     parser.add_argument("--serve", action="store_true", help="Serve the dashboard over HTTP")
@@ -214,12 +233,7 @@ def main() -> None:
         # that remote browsers (tablet, etc.) receive a reachable WebSocket URL.
         public_host = args.host
         if public_host == "0.0.0.0":
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                    s.connect(("8.8.8.8", 80))
-                    public_host = s.getsockname()[0]
-            except Exception:
-                public_host = "localhost"
+            public_host = _detect_serve_ip()
         public_url = f"http://{public_host}:{args.port}"
         sys.exit(subprocess.run(
             [textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app",
