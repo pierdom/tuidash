@@ -34,6 +34,7 @@ class TuidashApp(App):
 
     privacy:          reactive[bool] = reactive(False)
     refresh_interval: reactive[int]  = reactive(300, always_update=True)
+    _privacy_forced:  bool           = False
 
     CSS = """
     Screen {
@@ -153,6 +154,15 @@ class TuidashApp(App):
             interval = 300
         self.refresh_interval = interval
 
+        def _is_true(key: str) -> bool:
+            return config.get(key, "").strip().lower() in ("1", "true", "yes")
+
+        if _is_true("TUIDASH_PRIVACY_FORCE"):
+            self._privacy_forced = True
+            self.privacy = True
+        elif _is_true("TUIDASH_PRIVACY_DEFAULT"):
+            self.privacy = True
+
     # ── subtitle ──────────────────────────────────────────────────────────────
 
     def _update_subtitle(self) -> None:
@@ -182,7 +192,8 @@ class TuidashApp(App):
     # ── actions ───────────────────────────────────────────────────────────────
 
     def action_toggle_privacy(self) -> None:
-        self.privacy = not self.privacy
+        if not self._privacy_forced:
+            self.privacy = not self.privacy
 
     def action_decrease_refresh(self) -> None:
         self.refresh_interval = max(30, self.refresh_interval - 60)
