@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import selectors
 import socket
 import subprocess
@@ -201,22 +202,54 @@ class TuidashApp(App):
             pass
 
 
+def _local_ips() -> list[str]:
+    """Return all non-loopback IPv4 addresses on this machine."""
+    try:
+        # Linux / Docker
+        out = subprocess.check_output(
+            ["hostname", "-I"], text=True, stderr=subprocess.DEVNULL, timeout=2
+        )
+        ips = [ip for ip in out.split() if not ip.startswith("127.")]
+        if ips:
+            return ips
+    except Exception:
+        pass
+    try:
+        # macOS / BSD
+        out = subprocess.check_output(
+            ["ifconfig"], text=True, stderr=subprocess.DEVNULL, timeout=2
+        )
+        return [
+            m.group(1)
+            for m in re.finditer(r"\binet (\d+\.\d+\.\d+\.\d+)\b", out)
+            if not m.group(1).startswith("127.")
+        ]
+    except Exception:
+        return []
+
+
 def _detect_serve_ip() -> str:
     """Return the best local IP for the serve public URL.
 
-    Prefers Tailscale (connects to Magic DNS 100.100.100.100) so the dashboard
-    is reachable via Tailscale even when a VPN is also active.  Falls back to
-    the default-route IP, then localhost.
+    Priority: Tailscale (100.x.x.x) → LAN (192.168.x.x) → other private → localhost.
+    Avoids picking a VPN tunnel IP when better options exist.
     """
-    for target in ("100.100.100.100", "8.8.8.8"):
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                s.connect((target, 80))
-                ip = s.getsockname()[0]
-            if not ip.startswith("127."):
+    # Tailscale: connecting to Magic DNS gives the Tailscale interface IP
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("100.100.100.100", 80))
+            ip = s.getsockname()[0]
+        if ip.startswith("100."):
+            return ip
+    except Exception:
+        pass
+
+    all_ips = _local_ips()
+    for prefix in ("192.168.", "10.", "172."):
+        for ip in all_ips:
+            if ip.startswith(prefix):
                 return ip
-        except Exception:
-            continue
+
     return "localhost"
 
 
