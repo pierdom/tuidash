@@ -340,4 +340,8 @@ class HostsWidget(DashWidget):
 
 def _name_from_url(url: str) -> str:
     hostname = urlparse(url).hostname or url
-    return hostname.split(".")[0]
+    # Keep full hostname for bare IPs; take first label for proper hostnames
+    parts = hostname.split(".")
+    if len(parts) == 4 and all(p.isdigit() for p in parts):
+        return hostname
+    return parts[0]

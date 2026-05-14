@@ -78,6 +78,8 @@ class GhostfolioClient:
         self._access_token = "".join(access_token.split())
         self._jwt: str | None = None
         self._lock = threading.Lock()
+        # symbol → (date_str, prev_close) — refreshed once per calendar day
+        self._prev_close_cache: dict[str, tuple[str, float]] = {}
 
     def _auth(self) -> str:
         resp = requests.post(
@@ -112,20 +114,25 @@ class GhostfolioClient:
                 return chart[i], chart[i - 1]
         return chart[-1], chart[-2] if len(chart) >= 2 else chart[-1]
 
-    def _daily_change(self, symbol: str, data_source: str) -> float | None:
-        """Return today's % price change for one symbol using the last 2 market data points."""
-        try:
-            md = self._get(f"/api/v1/market-data/{data_source}/{symbol}")
-            pts = md.get("marketData", [])
-            if len(pts) < 2:
+    def _daily_change(self, symbol: str, data_source: str, market_price: float) -> float | None:
+        """Return today's % price change. Fetches market history once per day; uses cache after."""
+        today = date.today().isoformat()
+        cached = self._prev_close_cache.get(symbol)
+        if cached and cached[0] == today:
+            prev = cached[1]
+        else:
+            try:
+                md   = self._get(f"/api/v1/market-data/{data_source}/{symbol}")
+                pts  = md.get("marketData", [])
+                if len(pts) < 2:
+                    return None
+                prev = pts[-2]["marketPrice"]
+                self._prev_close_cache[symbol] = (today, prev)
+            except Exception:
                 return None
-            prev = pts[-2]["marketPrice"]
-            curr = pts[-1]["marketPrice"]
-            if not prev:
-                return None
-            return (curr - prev) / prev * 100
-        except Exception:
+        if not prev:
             return None
+        return (market_price - prev) / prev * 100
 
     def _fetch_ticker(self, holdings_raw: list[dict]) -> list[TickerItem]:
         equities = [
@@ -145,7 +152,9 @@ class GhostfolioClient:
             return []
 
         with ThreadPoolExecutor(max_workers=len(equities)) as pool:
-            changes = list(pool.map(lambda e: self._daily_change(e[0], e[1]), equities))
+            changes = list(pool.map(
+                lambda e: self._daily_change(e[0], e[1], e[4] or 0.0), equities
+            ))
 
         items = [
             TickerItem(

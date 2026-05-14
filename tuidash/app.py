@@ -182,6 +182,7 @@ class TuidashApp(App):
         self._update_subtitle()
         try:
             self.query_one(WeatherWidget).set_refresh_interval(value)
+            self.query_one(CalendarWidget).set_refresh_interval(value)
             self.query_one(GhostfolioWidget).set_refresh_interval(value)
             self.query_one(ConnectivityWidget).set_refresh_interval(value)
             self.query_one(HostsWidget).set_refresh_interval(value)
@@ -205,6 +206,7 @@ class TuidashApp(App):
         self.notify("Refreshing…", severity="information")
         try:
             self.query_one(WeatherWidget)._load()
+            self.query_one(CalendarWidget)._fetch()
             self.query_one(GhostfolioWidget)._load()
             self.query_one(ConnectivityWidget)._load()
             self.query_one(HostsWidget)._load()

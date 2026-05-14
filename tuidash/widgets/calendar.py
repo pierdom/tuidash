@@ -8,6 +8,7 @@ from rich.align import Align
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
+from textual.timer import Timer
 from textual.widgets import Static
 from textual import work
 
@@ -87,6 +88,7 @@ class CalendarWidget(DashWidget):
         super().__init__(**kwargs)
         self._holidays: frozenset[date] = frozenset()
         self._url: str | None = None
+        self._fetch_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         yield Static("", id="cal-body")
@@ -95,9 +97,15 @@ class CalendarWidget(DashWidget):
         self._url = config.get("TUIDASH_HOLIDAY_CALENDAR")
         if self._url:
             self._fetch()
-            self.set_interval(3600.0, self._fetch)
+            self._fetch_timer = self.set_interval(3600.0, self._fetch)
         self._update_calendar()
         self.set_interval(60.0, self._update_calendar)
+
+    def set_refresh_interval(self, seconds: int) -> None:
+        if self._fetch_timer is not None:
+            self._fetch_timer.stop()
+        if self._url:
+            self._fetch_timer = self.set_interval(float(seconds), self._fetch)
 
     @work(thread=True)
     def _fetch(self) -> None:
