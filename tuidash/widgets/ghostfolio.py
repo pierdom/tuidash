@@ -7,7 +7,6 @@ from datetime import date, timedelta
 from typing import Any
 
 import requests
-from rich.align import Align
 from rich.console import Group
 from rich.progress_bar import ProgressBar
 from rich.rule import Rule
@@ -21,6 +20,10 @@ from textual import work
 
 from .. import config
 from .base import DashWidget
+
+
+_TICKER_INTERVAL = 0.10   # seconds per scroll step (≈10 chars/sec)
+_TICKER_SEP      = "   ◆   "
 
 
 # ── data model ────────────────────────────────────────────────────────────────
@@ -41,14 +44,24 @@ class Holding:
 
 
 @dataclass
+class TickerItem:
+    symbol: str
+    name: str
+    change_pct: float   # today's daily % change
+    price: float | None = None
+    currency: str = ""
+
+
+@dataclass
 class PortfolioData:
     total_value: float
     currency: str
     today: PerfStats
     one_year: PerfStats
     mtd: PerfStats
-    gainers: list[Holding] = field(default_factory=list)
-    losers: list[Holding]  = field(default_factory=list)
+    gainers: list[Holding]     = field(default_factory=list)
+    losers: list[Holding]      = field(default_factory=list)
+    ticker: list[TickerItem]   = field(default_factory=list)
     tx_7d: int       = 0
     tx_7d_vol: float = 0.0
     tx_30d: int      = 0
@@ -97,9 +110,57 @@ class GhostfolioClient:
                 return chart[i], chart[i - 1]
         return chart[-1], chart[-2] if len(chart) >= 2 else chart[-1]
 
+    def _daily_change(self, symbol: str, data_source: str) -> float | None:
+        """Return today's % price change for one symbol using the last 2 market data points."""
+        try:
+            md = self._get(f"/api/v1/market-data/{data_source}/{symbol}")
+            pts = md.get("marketData", [])
+            if len(pts) < 2:
+                return None
+            prev = pts[-2]["marketPrice"]
+            curr = pts[-1]["marketPrice"]
+            if not prev:
+                return None
+            return (curr - prev) / prev * 100
+        except Exception:
+            return None
+
+    def _fetch_ticker(self, holdings_raw: list[dict]) -> list[TickerItem]:
+        equities = [
+            (
+                h.get("symbol", ""),
+                h.get("dataSource", "YAHOO"),
+                h.get("name", h.get("symbol", "?")),
+                h.get("currency", ""),
+                h.get("marketPrice"),
+            )
+            for h in holdings_raw
+            if h.get("assetClass") not in ("CASH", "LIQUIDITY")
+            and h.get("symbol") != h.get("currency")
+            and h.get("dataSource", "YAHOO") != "MANUAL"
+        ]
+        if not equities:
+            return []
+
+        with ThreadPoolExecutor(max_workers=len(equities)) as pool:
+            changes = list(pool.map(lambda e: self._daily_change(e[0], e[1]), equities))
+
+        items = [
+            TickerItem(
+                symbol=sym,
+                name=name,
+                change_pct=chg,
+                price=price,
+                currency=cur,
+            )
+            for (sym, _, name, cur, price), chg in zip(equities, changes)
+            if chg is not None
+        ]
+        items.sort(key=lambda x: x.symbol)
+        return items
 
     def fetch(self) -> PortfolioData:
-        # ── parallel API calls ─────────────────────────────────────────────
+        # ── phase 1: portfolio-level parallel calls ───────────────────────────
         with ThreadPoolExecutor(max_workers=5) as pool:
             f_1d       = pool.submit(self._get, "/api/v2/portfolio/performance", range="1d")
             f_mtd      = pool.submit(self._get, "/api/v2/portfolio/performance", range="mtd")
@@ -107,8 +168,8 @@ class GhostfolioClient:
             f_holdings = pool.submit(self._get, "/api/v1/portfolio/holdings")
             f_orders   = pool.submit(self._get, "/api/v1/order")
 
-        chart_1d  = f_1d.result().get("chart", [])
-        chart_1y  = f_1y.result().get("chart", [])
+        chart_1d     = f_1d.result().get("chart", [])
+        chart_1y     = f_1y.result().get("chart", [])
         holdings_raw = f_holdings.result().get("holdings", [])
         if isinstance(holdings_raw, dict):
             holdings_raw = list(holdings_raw.values())
@@ -121,10 +182,10 @@ class GhostfolioClient:
                 abs=last.get("netPerformance", 0.0),
             )
 
-        # ── total value ───────────────────────────────────────────────────
+        # ── total value ───────────────────────────────────────────────────────
         total_value = chart_1y[-1].get("netWorth", 0.0) if chart_1y else 0.0
 
-        # ── today (1d endpoint; fallback to last 1y move outside hours) ──
+        # ── today (1d endpoint; fallback to last 1y move outside hours) ──────
         perf_today = _read_perf(chart_1d)
         if not chart_1d or perf_today.abs == 0.0:
             t_cur, t_prev = self._last_trading_pair(chart_1y) if len(chart_1y) >= 2 else ({}, {})
@@ -137,7 +198,7 @@ class GhostfolioClient:
         perf_mtd = _read_perf(f_mtd.result().get("chart", []))
         perf_1y  = _read_perf(chart_1y)
 
-        # ── holdings: sort by total return ────────────────────────────────
+        # ── holdings: sort by total return ────────────────────────────────────
         currency = holdings_raw[0].get("currency", "") if holdings_raw else ""
         holdings: list[Holding] = []
         for h in holdings_raw:
@@ -153,8 +214,8 @@ class GhostfolioClient:
         gainers = sorted([h for h in equity if h.perf_pct >= 0], key=lambda x: x.perf_pct, reverse=True)[:2]
         losers  = sorted([h for h in equity if h.perf_pct <  0], key=lambda x: x.perf_pct)[:2]
 
-        # ── transaction counts + volumes ──────────────────────────────────
-        today_d   = date.today()
+        # ── transaction counts + volumes ──────────────────────────────────────
+        today_d    = date.today()
         cutoff_7d  = (today_d - timedelta(days=7)).isoformat()
         cutoff_30d = (today_d - timedelta(days=30)).isoformat()
         tx_7d = tx_30d = 0
@@ -170,6 +231,9 @@ class GhostfolioClient:
                 tx_30d     += 1
                 tx_30d_vol += vol
 
+        # ── phase 2: per-symbol daily change for ticker ───────────────────────
+        ticker = self._fetch_ticker(holdings_raw)
+
         return PortfolioData(
             total_value=total_value,
             currency=currency,
@@ -178,6 +242,7 @@ class GhostfolioClient:
             mtd=perf_mtd,
             gainers=gainers,
             losers=losers,
+            ticker=ticker,
             tx_7d=tx_7d,
             tx_7d_vol=tx_7d_vol,
             tx_30d=tx_30d,
@@ -224,7 +289,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     symbols = {"USD": "$", "EUR": "€", "GBP": "£", "CHF": "Fr "}
     sym = symbols.get(cur, f"{cur} ")
 
-    # ── net worth + dot + progress bar (single line) ─────────────────────
+    # ── net worth + progress bar ──────────────────────────────────────────────
     progress_pct = min(d.total_value / _GOAL * 100, 100.0)
     if abs(d.today.pct) <= 0.1:
         dot_color = "yellow"
@@ -248,7 +313,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
         Text(f"→ {sym}{_MASK}" if privacy else f"→ {sym}1M", style="dim"),
     )
 
-    # ── single-row stats: Today | MTD | 1 Year ───────────────────────────
+    # ── single-row stats: Today | MTD | 1 Year ───────────────────────────────
     grid = Table.grid(expand=True, padding=(0, 2))
     for _ in range(3):
         grid.add_column(ratio=1)
@@ -258,7 +323,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
         _stat_cell("1 Year", d.one_year, cur, privacy),
     )
 
-    # ── gainers / losers + transactions ───────────────────────────────────
+    # ── gainers / losers + transactions ──────────────────────────────────────
     def _side(title: str, items: list[Holding]) -> Table:
         t = Table.grid(padding=(0, 0))
         t.add_column()
@@ -268,14 +333,14 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
         return t
 
     def _tx_side() -> Table:
-        symbols = {"USD": "$", "EUR": "€", "GBP": "£", "CHF": "Fr "}
-        sym = symbols.get(d.currency, f"{d.currency} ")
+        sym_map = {"USD": "$", "EUR": "€", "GBP": "£", "CHF": "Fr "}
+        s = sym_map.get(d.currency, f"{d.currency} ")
 
         def _tx_row(count: int, label: str, vol: float) -> Text:
             row = Text()
             row.append(f"{label}", style="")
             row.append(f"  {count}", style="dim")
-            row.append(f"  {_MASK if privacy else f'{sym}{vol:,.0f}'}", style="dim")
+            row.append(f"  {_MASK if privacy else f'{s}{vol:,.0f}'}", style="dim")
             return row
 
         t = Table.grid(padding=(0, 0))
@@ -298,6 +363,60 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     return Group(header, Text(""), grid, Rule(style="dim"), gl)
 
 
+def _ticker_color(pct: float) -> str:
+    if abs(pct) < 0.05:
+        return "yellow"
+    if pct > 2.0:
+        return "bright_green"
+    if pct > 0:
+        return "green"
+    if pct < -2.0:
+        return "bright_red"
+    return "red"
+
+
+def _render_ticker(items: list[TickerItem], tick: int, width: int) -> Text:
+    if not items:
+        return Text()
+
+    segments: list[tuple[str, str]] = []
+    for item in items:
+        pct   = item.change_pct
+        color = _ticker_color(pct)
+        arrow = "▲" if pct > 0.05 else ("▼" if pct < -0.05 else "─")
+
+        segments.append((_TICKER_SEP, "dim"))
+        segments.append((item.symbol, f"bold {color}"))
+        segments.append((" ", ""))
+        segments.append((f"{arrow}{abs(pct):.2f}%", color))
+        if item.price is not None:
+            segments.append((f"  {item.price:.2f}", "dim"))
+
+    segments.append((_TICKER_SEP, "dim"))   # trailing sep → seamless loop
+
+    full_len = sum(len(s) for s, _ in segments)
+    if full_len <= width:
+        t = Text()
+        for seg, style in segments:
+            t.append(seg, style=style)
+        return t
+
+    offset   = tick % full_len
+    t        = Text()
+    char_pos = 0
+    for seg, style in (segments + segments):   # doubled for wrap-around
+        seg_end = char_pos + len(seg)
+        vis_s   = max(offset, char_pos)
+        vis_e   = min(offset + width, seg_end)
+        if vis_s < vis_e:
+            t.append(seg[vis_s - char_pos : vis_e - char_pos], style=style)
+        char_pos = seg_end
+        if char_pos >= offset + width:
+            break
+
+    return t
+
+
 # ── widget ─────────────────────────────────────────────────────────────────────
 
 class GhostfolioWidget(DashWidget):
@@ -307,7 +426,8 @@ class GhostfolioWidget(DashWidget):
 
     DEFAULT_CSS = """
     GhostfolioWidget { height: 100%; }
-    #gf-body { height: 100%; }
+    #gf-body   { height: 1fr; }
+    #gf-ticker { height: 1; }
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -316,9 +436,12 @@ class GhostfolioWidget(DashWidget):
         self._err: str | None = None
         self._privacy: bool = False
         self._data_timer: Timer | None = None
+        self._ticker_tick: int = 0
+        self._ticker_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         yield Static("[dim]Loading…[/dim]", id="gf-body")
+        yield Static("", id="gf-ticker")
 
     def on_mount(self) -> None:
         try:
@@ -328,6 +451,7 @@ class GhostfolioWidget(DashWidget):
         except RuntimeError as exc:
             self._show_error(str(exc))
             return
+        self._ticker_timer = self.set_interval(_TICKER_INTERVAL, self._advance_ticker)
         self._load()
 
     def set_refresh_interval(self, seconds: int) -> None:
@@ -357,7 +481,22 @@ class GhostfolioWidget(DashWidget):
         if self.data is not None and not self._err:
             self.query_one("#gf-body", Static).update(_render_portfolio(self.data, self._privacy))
 
+    def _ticker_width(self) -> int:
+        return max(20, self.content_size.width or 80)
+
+    def _advance_ticker(self) -> None:
+        self._ticker_tick += 1
+        if self.data is not None and self.data.ticker:
+            self._redraw_ticker()
+
+    def _redraw_ticker(self) -> None:
+        if self.data is None:
+            return
+        t = _render_ticker(self.data.ticker, self._ticker_tick, self._ticker_width())
+        self.query_one("#gf-ticker", Static).update(t)
+
     def watch_data(self, data: PortfolioData | None) -> None:
         if data is None or self._err:
             return
         self.query_one("#gf-body", Static).update(_render_portfolio(data, self._privacy))
+        self._redraw_ticker()
