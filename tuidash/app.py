@@ -202,7 +202,7 @@ def main() -> None:
     if args.serve:
         textual_bin = Path(sys.executable).parent / "textual"
         sys.exit(subprocess.run(
-            [textual_bin, "serve", f"{__file__}:TuidashApp", "-p", str(args.port)]
+            [textual_bin, "serve", f"{sys.executable} {__file__}", "-p", str(args.port)]
         ).returncode)
 
     TuidashApp().run()
