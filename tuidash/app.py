@@ -1,7 +1,14 @@
 import argparse
+import os
+import selectors
 import subprocess
 import sys
 from pathlib import Path
+
+# kqueue (macOS default) cannot monitor pipe fds, but textual-serve spawns
+# the app with stdin/stdout as pipes.  SelectSelector works everywhere.
+if os.environ.get("TEXTUAL_DRIVER"):
+    selectors.DefaultSelector = selectors.SelectSelector  # type: ignore[attr-defined]
 
 from textual.app import App, ComposeResult
 from textual.reactive import reactive
