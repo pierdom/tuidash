@@ -29,7 +29,7 @@ _DEFAULT_IPS      = ["1.1.1.1", "8.8.8.8", "192.168.1.1"]
 _DEFAULT_HOSTS    = ["google.com", "amazon.com", "facebook.com"]
 _DEFAULT_MAX_MBPS = 600.0
 _OK_THRESHOLD     = 0.5
-_SPEED_BAR_W      = 10
+_SPEED_BAR_W      = 9
 
 
 # ── data model ────────────────────────────────────────────────────────────────
@@ -260,7 +260,7 @@ def _render_speed(d: ConnectivityData) -> Group:
         t.append(f" {pct * 100:.0f}%", style=f"dim {color}")
         return t
 
-    row = Table.grid(expand=True, padding=(0, 2))
+    row = Table.grid(expand=True, padding=(0, 1))
     row.add_column(ratio=1)
     row.add_column(ratio=1)
     row.add_row(
