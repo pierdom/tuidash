@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time as dt_time, timedelta
 
 import requests
 
@@ -12,6 +12,8 @@ import requests
 class CalEvent:
     date: date
     summary: str
+    start_time: dt_time | None = None
+    end_date: date | None = None  # inclusive last day; None means same as date
 
 
 _cache: dict[str, tuple[float, list[CalEvent]]] = {}
@@ -31,20 +33,46 @@ def _parse_date(value: str) -> date | None:
         return None
 
 
+def _parse_time(value: str) -> dt_time | None:
+    if "T" not in value:
+        return None
+    t_part = value.split("T")[1].rstrip("Z")
+    try:
+        return datetime.strptime(t_part[:6], "%H%M%S").time()
+    except ValueError:
+        return None
+
+
 def _parse(text: str) -> list[CalEvent]:
     text = _unfold(text)
     events: list[CalEvent] = []
     for m in re.finditer(r"BEGIN:VEVENT(.*?)END:VEVENT", text, re.DOTALL):
         block = m.group(1)
         ds = re.search(r"^DTSTART[^:]*:(\S+)", block, re.MULTILINE)
-        sm = re.search(r"^SUMMARY:(.+)", block, re.MULTILINE)
-        if ds:
-            d = _parse_date(ds.group(1))
-            if d:
-                events.append(CalEvent(
-                    date=d,
-                    summary=sm.group(1).strip() if sm else "",
-                ))
+        de = re.search(r"^DTEND[^:]*:(\S+)",   block, re.MULTILINE)
+        sm = re.search(r"^SUMMARY:(.+)",        block, re.MULTILINE)
+        if not ds:
+            continue
+        raw_start = ds.group(1)
+        d = _parse_date(raw_start)
+        if not d:
+            continue
+        end_date: date | None = None
+        if de:
+            raw_end = de.group(1)
+            parsed_end = _parse_date(raw_end)
+            if parsed_end:
+                if "T" not in raw_end:
+                    # All-day DTEND is exclusive per RFC 5545
+                    parsed_end = parsed_end - timedelta(days=1)
+                if parsed_end > d:
+                    end_date = parsed_end
+        events.append(CalEvent(
+            date=d,
+            summary=sm.group(1).strip() if sm else "",
+            start_time=_parse_time(raw_start),
+            end_date=end_date,
+        ))
     return events
 
 

@@ -96,7 +96,14 @@ class DashboardPage(BasePage):
             yield RssWidget()
 
     def on_show(self) -> None:
-        self.refresh(layout=True)
+        self.call_after_refresh(self._sync_scroll)
+
+    def _sync_scroll(self) -> None:
+        try:
+            self.query_one(RssWidget).reset_scroll()
+            self.query_one(HostsWidget).reset_scroll()
+        except Exception:
+            pass
 
     def on_mount(self) -> None:
         self.query_one(ClockWidget).border_title        = "  Clock"

@@ -344,5 +344,6 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 | `textual-dev>=1.7.0` | Provides the `textual serve` binary used by `--serve` |
 | `requests>=2.33.1` | HTTP client (weather, Ghostfolio, Speedtest Tracker, Glances, RSS) |
 | `python-dotenv>=1.2.2` | `.env` file loading |
+| `pillow>=11.0.0` | Half-block pixel art thumbnails in the News page reader |
 
-No other runtime dependencies. Ping, DNS, and IP detection use only the stdlib.
+Ping, DNS, and IP detection use only the stdlib.

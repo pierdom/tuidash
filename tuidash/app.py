@@ -21,16 +21,16 @@ from textual.widgets import ContentSwitcher, Footer, Header
 from . import config
 from .screens import BasePage
 from .screens.dashboard import DashboardPage
-from .screens.immich import ImmichPage
+from .screens.immich import CalendarPage
 from .screens.news import NewsPage
 
 
 # Ordered list of pages: (label, widget-id, class).
 # Add a new entry here to register a new page in the carousel.
 _PAGES: list[tuple[str, str, type]] = [
-    ("Dashboard", "page-dashboard", DashboardPage),
-    ("News",      "page-news",      NewsPage),
-    ("Photos",    "page-photos",    ImmichPage),
+    ("Dashboard", "page-dashboard",  DashboardPage),
+    ("News",      "page-news",       NewsPage),
+    ("Calendar",  "page-calendar",   CalendarPage),
 ]
 
 
@@ -60,8 +60,8 @@ class TuidashApp(App):
         ("p",     "toggle_privacy",   "Privacy"),
         ("[",     "decrease_refresh", "-60s"),
         ("]",     "increase_refresh", "+60s"),
-        ("left",  "prev_page",        ""),
-        ("right", "next_page",        ""),
+        ("left",  "prev_page",        "Prev page"),
+        ("right", "next_page",        "Next page"),
     ]
 
     def compose(self) -> ComposeResult:

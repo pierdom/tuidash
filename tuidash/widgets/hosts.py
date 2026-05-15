@@ -19,6 +19,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
+from ..scroll import SCROLL_INTERVAL, current_tick, scroll_offset
 from .base import DashWidget
 
 
@@ -126,11 +127,6 @@ def _monitor_host(name: str, url: str) -> HostData:
 
 # ── rendering ─────────────────────────────────────────────────────────────────
 
-_SCROLL_INTERVAL = 0.24
-_PAUSE_L_TICKS   = round(15 / _SCROLL_INTERVAL)  # ticks held at left end  (≈15 s)
-_PAUSE_R_TICKS   = round(3  / _SCROLL_INTERVAL)  # ticks held at right end (≈3 s)
-
-
 def _pct_bar(pct: float | None) -> Text:
     if pct is None:
         return Text("?" * _BAR_W, style="dim")
@@ -175,21 +171,7 @@ def _scroll_containers(
             t.append(seg, style=style)
         return t
 
-    # Compute scroll offset (boomerang: left-pause → forward → right-pause → backward)
-    cycle = _PAUSE_L_TICKS + overflow + _PAUSE_R_TICKS + overflow
-    pos   = (tick + phase) % cycle
-    if pos < _PAUSE_L_TICKS:
-        offset = 0
-    else:
-        pos -= _PAUSE_L_TICKS
-        if pos < overflow:
-            offset = pos
-        else:
-            pos -= overflow
-            if pos < _PAUSE_R_TICKS:
-                offset = overflow
-            else:
-                offset = overflow - (pos - _PAUSE_R_TICKS)
+    offset = scroll_offset(tick, phase, overflow)
 
     # Slice [offset, offset+width) across the styled segments
     t       = Text()
@@ -281,6 +263,7 @@ class HostsWidget(DashWidget):
         self._data_timer: Timer | None = None
         self._scroll_timer: Timer | None = None
         self._tick: int = 0
+        self._scroll_epoch: int = 0
 
     def compose(self) -> ComposeResult:
         yield Static("[dim]Loading…[/dim]", id="hosts-body")
@@ -295,7 +278,7 @@ class HostsWidget(DashWidget):
             return
         self._hosts = [(_name_from_url(url), url) for url in urls]
         self._load()
-        self._scroll_timer = self.set_interval(_SCROLL_INTERVAL, self._advance_scroll)
+        self._scroll_timer = self.set_interval(SCROLL_INTERVAL, self._advance_scroll)
 
     def set_refresh_interval(self, seconds: int) -> None:
         if self._data_timer is not None:
@@ -303,7 +286,13 @@ class HostsWidget(DashWidget):
         self._data_timer = self.set_interval(float(seconds), self._load)
 
     def _advance_scroll(self) -> None:
-        self._tick += 1
+        self._tick = current_tick() - self._scroll_epoch
+        if self.data is not None:
+            self._redraw()
+
+    def reset_scroll(self) -> None:
+        self._scroll_epoch = current_tick()
+        self._tick = 0
         if self.data is not None:
             self._redraw()
 
