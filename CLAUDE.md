@@ -31,13 +31,17 @@ All dependencies are managed with `uv`. Never use `pip` directly.
 Dockerfile             # python:3.13-slim + uv, serves on port 8080
 docker-compose.yml     # mounts .env, maps port 8080, sets TUIDASH_SERVE_URL=http://localhost:8080
 tuidash/
-├── app.py              # TuidashApp — layout, keybindings, global reactives, serve entry point
+├── app.py              # TuidashApp — navigation, global reactives, config loading, serve entry point
 ├── config.py           # Thin wrapper around python-dotenv (get / require)
-├── ics.py              # ICS calendar parser (holidays)
+├── ics.py              # ICS calendar parser (events)
+├── screens/
+│   ├── dashboard.py    # Page 1 — overview dashboard (all widgets)
+│   ├── news.py         # Page 2 — expanded news reader (placeholder)
+│   └── immich.py       # Page 3 — Immich photo viewer (placeholder)
 └── widgets/
     ├── base.py         # DashWidget — base class for all widgets
     ├── clock.py        # Pixel-art half-block clock
-    ├── calendar.py     # Monthly calendar with holiday highlighting
+    ├── calendar.py     # Monthly calendar with holiday/family/personal/work highlighting
     ├── weather.py      # Open-Meteo weather + forecast
     ├── ghostfolio.py   # Ghostfolio portfolio tracker + live ticker
     ├── connectivity.py # Ping / DNS / speed-test connectivity checks
@@ -55,14 +59,28 @@ tuidash/
 ### App layout (CSS-driven)
 
 ```
-Header (Textual built-in, shows app title + clock)
-├── #row-top  28%   │ ClockWidget(30) │ WeatherWidget(2fr) │ CalendarWidget(1fr) │
-├── #row-mid  auto  │ GhostfolioWidget(50%) │ Vertical: ConnectivityWidget + HostsWidget │
-└── #row-bot  1fr   │ RssWidget(100%)                                               │
-Footer (shows keybindings)
+TuidashApp (App)                    ← navigation, global reactives, config
+├── DashboardScreen (Screen)        ← page 1 (default)
+│   ├── Header
+│   ├── #row-top  28%   │ ClockWidget(30) │ WeatherWidget(2fr) │ CalendarWidget(1fr) │
+│   ├── #row-mid  auto  │ GhostfolioWidget(50%) │ Vertical: ConnectivityWidget + HostsWidget │
+│   ├── #row-bot  1fr   │ RssWidget(100%)                                               │
+│   └── Footer
+├── NewsScreen (Screen)             ← page 2
+└── ImmichScreen (Screen)           ← page 3
 ```
 
 `#row-mid` and the three widgets it contains (Ghostfolio, Connectivity, Servers) use `height: auto` — they shrink to their content with no blank rows.
+
+### Multi-page navigation
+
+Pages are defined in `_PAGES` in `app.py` as an ordered list of `(label, ScreenClass)` tuples. Add a new entry there to register a new page.
+
+- `←` / `→` arrow keys cycle through pages (wraps around); bindings live on the App so they work on every screen
+- Each `switch_screen()` creates a fresh Screen instance — widgets re-run `_load()` on every visit
+- The app `sub_title` shows `[n/total] PageName  ↻ Xs` and `PRIVATE MODE` when active
+- Screens that support privacy mode implement `set_privacy(value: bool)`
+- Screens that support refresh implement `set_refresh_interval(seconds: int)` and `refresh_all()`; the App delegates to the active screen via `hasattr` checks
 
 Widget border titles set in `app.on_mount()`:
 - Clock, Weather, Calendar, Ghostfolio, Connectivity, **Servers** (HostsWidget), News
@@ -114,10 +132,12 @@ Textual stops all `set_interval` timers automatically on widget unmount — no m
 | Key | Action |
 |---|---|
 | `q` | Quit |
-| `r` | Manual refresh (calls `_load()` on all data widgets) |
+| `r` | Manual refresh (delegates to active screen's `refresh_all()`) |
 | `p` | Toggle privacy mode (no-op when `_privacy_forced` is True) |
 | `[` | Decrease refresh interval by 60 s |
 | `]` | Increase refresh interval by 60 s |
+| `←` | Previous page (wraps) |
+| `→` | Next page (wraps) |
 
 ---
 

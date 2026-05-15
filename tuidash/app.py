@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import os
 import re
@@ -14,17 +16,19 @@ if os.environ.get("TEXTUAL_DRIVER"):
 
 from textual.app import App, ComposeResult
 from textual.reactive import reactive
-from textual.widgets import Header, Footer
-from textual.containers import Container, Horizontal, Vertical
 
 from . import config
-from .widgets.clock import ClockWidget
-from .widgets.weather import WeatherWidget
-from .widgets.calendar import CalendarWidget
-from .widgets.ghostfolio import GhostfolioWidget
-from .widgets.connectivity import ConnectivityWidget
-from .widgets.hosts import HostsWidget
-from .widgets.rss import RssWidget
+from .screens.dashboard import DashboardScreen
+from .screens.news import NewsScreen
+from .screens.immich import ImmichScreen
+
+
+# Ordered list of pages; add new screens here to extend the carousel.
+_PAGES: list[tuple[str, type]] = [
+    ("Dashboard", DashboardScreen),
+    ("News",      NewsScreen),
+    ("Photos",    ImmichScreen),
+]
 
 
 class TuidashApp(App):
@@ -35,104 +39,20 @@ class TuidashApp(App):
     privacy:          reactive[bool] = reactive(False)
     refresh_interval: reactive[int]  = reactive(300, always_update=True)
     _privacy_forced:  bool           = False
-
-    CSS = """
-    Screen {
-        background: $background;
-        layers: base overlay;
-    }
-
-    /* ── rows ── */
-    #row-top {
-        height: 28%;
-    }
-
-    #row-mid {
-        height: auto;
-    }
-
-    #row-bot {
-        height: 1fr;
-    }
-
-    /* ── widget sizing ── */
-    ClockWidget {
-        width: 30;
-        margin: 0 1 0 0;
-    }
-
-    WeatherWidget {
-        width: 2fr;
-        margin: 0 1 0 0;
-    }
-
-    CalendarWidget {
-        width: 1fr;
-    }
-
-    GhostfolioWidget {
-        width: 50%;
-        margin: 0 1 0 0;
-    }
-
-    #conn-hosts-col {
-        width: 1fr;
-        height: auto;
-    }
-
-    ConnectivityWidget {
-        width: 100%;
-        height: auto;
-    }
-
-    HostsWidget {
-        width: 100%;
-        height: auto;
-    }
-
-    RssWidget {
-        width: 100%;
-    }
-
-    /* ── widget chrome ── */
-    DashWidget {
-        border-title-color: $accent;
-        border-title-style: bold;
-        border-subtitle-color: $text-muted;
-    }
-    """
+    _page_idx:        int            = 0
 
     BINDINGS = [
-        ("q", "quit",             "Quit"),
-        ("r", "refresh",          "Refresh"),
-        ("p", "toggle_privacy",   "Privacy"),
-        ("[", "decrease_refresh", "-60s"),
-        ("]", "increase_refresh", "+60s"),
+        ("q",     "quit",             "Quit"),
+        ("r",     "refresh",          "Refresh"),
+        ("p",     "toggle_privacy",   "Privacy"),
+        ("[",     "decrease_refresh", "-60s"),
+        ("]",     "increase_refresh", "+60s"),
+        ("left",  "prev_page",        ""),
+        ("right", "next_page",        ""),
     ]
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        with Horizontal(id="row-top"):
-            yield ClockWidget()
-            yield WeatherWidget()
-            yield CalendarWidget()
-        with Horizontal(id="row-mid"):
-            yield GhostfolioWidget()
-            with Vertical(id="conn-hosts-col"):
-                yield ConnectivityWidget()
-                yield HostsWidget()
-        with Container(id="row-bot"):
-            yield RssWidget()
-        yield Footer()
-
     def on_mount(self) -> None:
-        self.query_one(ClockWidget).border_title     = "  Clock"
-        self.query_one(WeatherWidget).border_title   = "  Weather"
-        self.query_one(CalendarWidget).border_title  = "  Calendar"
-        self.query_one(GhostfolioWidget).border_title = "  Ghostfolio"
-        self.query_one(ConnectivityWidget).border_title = "  Connectivity"
-        self.query_one(HostsWidget).border_title     = "  Servers"
-        self.query_one(RssWidget).border_title       = "  News"
+        self.push_screen(DashboardScreen())
 
         theme_name = config.get("TUIDASH_THEME")
         if theme_name:
@@ -165,7 +85,8 @@ class TuidashApp(App):
     # ── subtitle ──────────────────────────────────────────────────────────────
 
     def _update_subtitle(self) -> None:
-        parts = []
+        page_label = _PAGES[self._page_idx][0]
+        parts = [f"[{self._page_idx + 1}/{len(_PAGES)}] {page_label}"]
         if self.privacy:
             parts.append("PRIVATE MODE")
         parts.append(f"↻ {self.refresh_interval}s")
@@ -175,19 +96,15 @@ class TuidashApp(App):
 
     def watch_privacy(self, value: bool) -> None:
         self._update_subtitle()
-        self.query_one(GhostfolioWidget).set_privacy(value)
+        screen = self.screen
+        if hasattr(screen, "set_privacy"):
+            screen.set_privacy(value)
 
     def watch_refresh_interval(self, value: int) -> None:
         self._update_subtitle()
-        try:
-            self.query_one(WeatherWidget).set_refresh_interval(value)
-            self.query_one(CalendarWidget).set_refresh_interval(value)
-            self.query_one(GhostfolioWidget).set_refresh_interval(value)
-            self.query_one(ConnectivityWidget).set_refresh_interval(value)
-            self.query_one(HostsWidget).set_refresh_interval(value)
-            self.query_one(RssWidget).set_refresh_interval(value)
-        except Exception:
-            pass
+        screen = self.screen
+        if hasattr(screen, "set_refresh_interval"):
+            screen.set_refresh_interval(value)
 
     # ── actions ───────────────────────────────────────────────────────────────
 
@@ -203,15 +120,19 @@ class TuidashApp(App):
 
     def action_refresh(self) -> None:
         self.notify("Refreshing…", severity="information")
-        try:
-            self.query_one(WeatherWidget)._load()
-            self.query_one(CalendarWidget)._fetch()
-            self.query_one(GhostfolioWidget)._load()
-            self.query_one(ConnectivityWidget)._load()
-            self.query_one(HostsWidget)._load()
-            self.query_one(RssWidget)._load()
-        except Exception:
-            pass
+        screen = self.screen
+        if hasattr(screen, "refresh_all"):
+            screen.refresh_all()
+
+    def action_prev_page(self) -> None:
+        self._page_idx = (self._page_idx - 1) % len(_PAGES)
+        self.switch_screen(_PAGES[self._page_idx][1]())
+        self._update_subtitle()
+
+    def action_next_page(self) -> None:
+        self._page_idx = (self._page_idx + 1) % len(_PAGES)
+        self.switch_screen(_PAGES[self._page_idx][1]())
+        self._update_subtitle()
 
 
 def _local_ips() -> list[str]:
