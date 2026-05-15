@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.screen import Screen
-from textual.widgets import Footer, Header, Label
+from textual.widgets import Label
+
+from . import BasePage
 
 
-class NewsScreen(Screen):
+class NewsPage(BasePage):
     """Expanded news reader — page 2 (coming soon)."""
 
-    CSS = """
-    NewsScreen {
+    DEFAULT_CSS = """
+    NewsPage {
+        height: 100%;
         align: center middle;
     }
     #news-placeholder {
@@ -18,6 +20,4 @@ class NewsScreen(Screen):
     """
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
         yield Label("News — coming soon", id="news-placeholder")
-        yield Footer()

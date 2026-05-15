@@ -16,18 +16,21 @@ if os.environ.get("TEXTUAL_DRIVER"):
 
 from textual.app import App, ComposeResult
 from textual.reactive import reactive
+from textual.widgets import ContentSwitcher, Footer, Header
 
 from . import config
-from .screens.dashboard import DashboardScreen
-from .screens.news import NewsScreen
-from .screens.immich import ImmichScreen
+from .screens import BasePage
+from .screens.dashboard import DashboardPage
+from .screens.immich import ImmichPage
+from .screens.news import NewsPage
 
 
-# Ordered list of pages; add new screens here to extend the carousel.
-_PAGES: list[tuple[str, type]] = [
-    ("Dashboard", DashboardScreen),
-    ("News",      NewsScreen),
-    ("Photos",    ImmichScreen),
+# Ordered list of pages: (label, widget-id, class).
+# Add a new entry here to register a new page in the carousel.
+_PAGES: list[tuple[str, str, type]] = [
+    ("Dashboard", "page-dashboard", DashboardPage),
+    ("News",      "page-news",      NewsPage),
+    ("Photos",    "page-photos",    ImmichPage),
 ]
 
 
@@ -35,6 +38,16 @@ class TuidashApp(App):
     """Personal terminal dashboard."""
 
     TITLE = "tuidash"
+
+    CSS = """
+    Screen {
+        background: $background;
+        layers: base overlay;
+    }
+    ContentSwitcher {
+        height: 1fr;
+    }
+    """
 
     privacy:          reactive[bool] = reactive(False)
     refresh_interval: reactive[int]  = reactive(300, always_update=True)
@@ -51,9 +64,14 @@ class TuidashApp(App):
         ("right", "next_page",        ""),
     ]
 
-    def on_mount(self) -> None:
-        self.push_screen(DashboardScreen())
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=True)
+        with ContentSwitcher(initial="page-dashboard"):
+            for _, page_id, cls in _PAGES:
+                yield cls(id=page_id)
+        yield Footer()
 
+    def on_mount(self) -> None:
         theme_name = config.get("TUIDASH_THEME")
         if theme_name:
             if theme_name in self.available_themes:
@@ -96,15 +114,15 @@ class TuidashApp(App):
 
     def watch_privacy(self, value: bool) -> None:
         self._update_subtitle()
-        screen = self.screen
-        if hasattr(screen, "set_privacy"):
-            screen.set_privacy(value)
+        for page in self.query(BasePage):
+            if hasattr(page, "set_privacy"):
+                page.set_privacy(value)
 
     def watch_refresh_interval(self, value: int) -> None:
         self._update_subtitle()
-        screen = self.screen
-        if hasattr(screen, "set_refresh_interval"):
-            screen.set_refresh_interval(value)
+        for page in self.query(BasePage):
+            if hasattr(page, "set_refresh_interval"):
+                page.set_refresh_interval(value)
 
     # ── actions ───────────────────────────────────────────────────────────────
 
@@ -120,18 +138,22 @@ class TuidashApp(App):
 
     def action_refresh(self) -> None:
         self.notify("Refreshing…", severity="information")
-        screen = self.screen
-        if hasattr(screen, "refresh_all"):
-            screen.refresh_all()
+        _, page_id, _ = _PAGES[self._page_idx]
+        try:
+            page = self.query_one(f"#{page_id}", BasePage)
+            if hasattr(page, "refresh_all"):
+                page.refresh_all()
+        except Exception:
+            pass
 
     def action_prev_page(self) -> None:
         self._page_idx = (self._page_idx - 1) % len(_PAGES)
-        self.switch_screen(_PAGES[self._page_idx][1]())
+        self.query_one(ContentSwitcher).current = _PAGES[self._page_idx][1]
         self._update_subtitle()
 
     def action_next_page(self) -> None:
         self._page_idx = (self._page_idx + 1) % len(_PAGES)
-        self.switch_screen(_PAGES[self._page_idx][1]())
+        self.query_one(ContentSwitcher).current = _PAGES[self._page_idx][1]
         self._update_subtitle()
 
 

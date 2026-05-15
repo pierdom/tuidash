@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.screen import Screen
-from textual.widgets import Footer, Header, Label
+from textual.widgets import Label
+
+from . import BasePage
 
 
-class ImmichScreen(Screen):
+class ImmichPage(BasePage):
     """Immich photo viewer — page 3 (coming soon)."""
 
-    CSS = """
-    ImmichScreen {
+    DEFAULT_CSS = """
+    ImmichPage {
+        height: 100%;
         align: center middle;
     }
     #immich-placeholder {
@@ -18,6 +20,4 @@ class ImmichScreen(Screen):
     """
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
         yield Label("Photos — coming soon", id="immich-placeholder")
-        yield Footer()

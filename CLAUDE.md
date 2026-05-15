@@ -60,27 +60,27 @@ tuidash/
 
 ```
 TuidashApp (App)                    ← navigation, global reactives, config
-├── DashboardScreen (Screen)        ← page 1 (default)
-│   ├── Header
-│   ├── #row-top  28%   │ ClockWidget(30) │ WeatherWidget(2fr) │ CalendarWidget(1fr) │
-│   ├── #row-mid  auto  │ GhostfolioWidget(50%) │ Vertical: ConnectivityWidget + HostsWidget │
-│   ├── #row-bot  1fr   │ RssWidget(100%)                                               │
-│   └── Footer
-├── NewsScreen (Screen)             ← page 2
-└── ImmichScreen (Screen)           ← page 3
+├── Header
+├── ContentSwitcher                 ← shows one page at a time (CSS display toggle, no remounting)
+│   ├── DashboardPage (BasePage)    ← page 1 — always mounted
+│   │   ├── #row-top  28%   │ ClockWidget(30) │ WeatherWidget(2fr) │ CalendarWidget(1fr) │
+│   │   ├── #row-mid  auto  │ GhostfolioWidget(50%) │ Vertical: ConnectivityWidget + HostsWidget │
+│   │   └── #row-bot  1fr   │ RssWidget(100%)                                               │
+│   ├── NewsPage (BasePage)         ← page 2 — always mounted
+│   └── ImmichPage (BasePage)       ← page 3 — always mounted
+└── Footer
 ```
 
 `#row-mid` and the three widgets it contains (Ghostfolio, Connectivity, Servers) use `height: auto` — they shrink to their content with no blank rows.
 
 ### Multi-page navigation
 
-Pages are defined in `_PAGES` in `app.py` as an ordered list of `(label, ScreenClass)` tuples. Add a new entry there to register a new page.
+Pages are defined in `_PAGES` in `app.py` as an ordered list of `(label, widget-id, class)` tuples. Add a new entry there to register a new page — no other changes needed.
 
-- `←` / `→` arrow keys cycle through pages (wraps around); bindings live on the App so they work on every screen
-- Each `switch_screen()` creates a fresh Screen instance — widgets re-run `_load()` on every visit
+- All pages are mounted once at startup and kept in the DOM; `ContentSwitcher` hides/shows them via CSS `display`, so navigation is instant with no data reload
+- `←` / `→` arrow keys cycle through pages (wraps); bindings are on the App so they work everywhere
 - The app `sub_title` shows `[n/total] PageName  ↻ Xs` and `PRIVATE MODE` when active
-- Screens that support privacy mode implement `set_privacy(value: bool)`
-- Screens that support refresh implement `set_refresh_interval(seconds: int)` and `refresh_all()`; the App delegates to the active screen via `hasattr` checks
+- Pages extend `BasePage` (`screens/__init__.py`). Pages that support privacy implement `set_privacy(value: bool)`; pages that support refresh implement `set_refresh_interval(seconds: int)` and `refresh_all()`. The App iterates `self.query(BasePage)` to propagate reactive changes to all pages; `action_refresh` targets only the currently visible page by ID.
 
 Widget border titles set in `app.on_mount()`:
 - Clock, Weather, Calendar, Ghostfolio, Connectivity, **Servers** (HostsWidget), News

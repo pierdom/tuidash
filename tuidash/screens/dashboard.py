@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
-from textual.screen import Screen
-from textual.widgets import Footer, Header
 
 from ..widgets.calendar import CalendarWidget
 from ..widgets.clock import ClockWidget
@@ -12,14 +10,15 @@ from ..widgets.ghostfolio import GhostfolioWidget
 from ..widgets.hosts import HostsWidget
 from ..widgets.rss import RssWidget
 from ..widgets.weather import WeatherWidget
+from . import BasePage
 
 
-class DashboardScreen(Screen):
+class DashboardPage(BasePage):
     """Main overview dashboard — page 1."""
 
-    CSS = """
-    Screen {
-        background: $background;
+    DEFAULT_CSS = """
+    DashboardPage {
+        height: 100%;
         layers: base overlay;
     }
 
@@ -84,7 +83,6 @@ class DashboardScreen(Screen):
     """
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
         with Horizontal(id="row-top"):
             yield ClockWidget()
             yield WeatherWidget()
@@ -96,7 +94,6 @@ class DashboardScreen(Screen):
                 yield HostsWidget()
         with Container(id="row-bot"):
             yield RssWidget()
-        yield Footer()
 
     def on_mount(self) -> None:
         self.query_one(ClockWidget).border_title        = "  Clock"
