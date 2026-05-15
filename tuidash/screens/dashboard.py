@@ -95,6 +95,9 @@ class DashboardPage(BasePage):
         with Container(id="row-bot"):
             yield RssWidget()
 
+    def on_show(self) -> None:
+        self.refresh(layout=True)
+
     def on_mount(self) -> None:
         self.query_one(ClockWidget).border_title        = "  Clock"
         self.query_one(WeatherWidget).border_title      = "  Weather"
