@@ -209,10 +209,10 @@ def _render_host(
     if hd.cpu_pct is not None or hd.mem_pct is not None:
         right.append("CPU ", style="dim")
         right.append_text(_pct_bar(hd.cpu_pct))
-        right.append(f" {hd.cpu_pct:.0f}%" if hd.cpu_pct is not None else " ?%", style="dim")
+        right.append(f"{hd.cpu_pct:3.0f}%" if hd.cpu_pct is not None else "  ?%", style="dim")
         right.append("   MEM ", style="dim")
         right.append_text(_pct_bar(hd.mem_pct))
-        right.append(f" {hd.mem_pct:.0f}%" if hd.mem_pct is not None else " ?%", style="dim")
+        right.append(f"{hd.mem_pct:3.0f}%" if hd.mem_pct is not None else "  ?%", style="dim")
     elif hd.glances_err:
         right.append("glances unavailable", style="dim red")
 

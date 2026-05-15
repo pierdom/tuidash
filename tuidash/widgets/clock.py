@@ -60,7 +60,7 @@ class ClockWidget(DashWidget):
 
     DEFAULT_CSS = """
     ClockWidget { height: 100%; }
-    #clock-body { height: 100%; content-align: center top; text-align: center; }
+    #clock-body { height: 100%; content-align: center middle; text-align: center; }
     """
 
     def compose(self) -> ComposeResult:

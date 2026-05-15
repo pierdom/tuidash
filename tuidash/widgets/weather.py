@@ -290,7 +290,7 @@ def _fetch_weather(location: str, units: str) -> WeatherData:
 
 # ── rendering ──────────────────────────────────────────────────────────────────
 
-_BAR_W = 16  # horizontal bar width in characters
+_BAR_W = 17  # horizontal bar width in characters
 
 
 def _bar_color(temp_c: float) -> str:
@@ -359,8 +359,9 @@ def _render_weather(d: WeatherData) -> Table:
     # ── two-column layout ─────────────────────────────────────────────────
     layout = Table.grid(padding=(0, 1))
     layout.add_column(width=14, no_wrap=True)
+    layout.add_column(width=2)
     layout.add_column()
-    layout.add_row(left, right)
+    layout.add_row(left, Text(""), right)
     return Align.center(layout)
 
 
