@@ -161,7 +161,7 @@ class EventsWidget(DashWidget):
 
     def _col_w(self) -> int:
         total = self.content_size.width or 80
-        return max(10, (total - 3 * 2) // 3)
+        return max(10, (total - 4 * 2) // 4)
 
     def _advance_scroll(self) -> None:
         self._tick = current_tick() - self._scroll_epoch
@@ -178,7 +178,7 @@ class EventsWidget(DashWidget):
         if self.data is None:
             return
         today = date.today()
-        days = [today + timedelta(days=i) for i in range(3)]
+        days = [today + timedelta(days=i) for i in range(4)]
         self.query_one("#events-body", Static).update(
             _render_events(self.data, days, today, self._col_w(), self._tick)
         )
