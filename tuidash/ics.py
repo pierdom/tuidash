@@ -14,6 +14,7 @@ class CalEvent:
     summary: str
     start_time: dt_time | None = None
     end_date: date | None = None  # inclusive last day; None means same as date
+    end_time: dt_time | None = None
 
 
 _cache: dict[str, tuple[float, list[CalEvent]]] = {}
@@ -58,9 +59,11 @@ def _parse(text: str) -> list[CalEvent]:
         if not d:
             continue
         end_date: date | None = None
+        end_time: dt_time | None = None
         if de:
             raw_end = de.group(1)
             parsed_end = _parse_date(raw_end)
+            end_time = _parse_time(raw_end)
             if parsed_end:
                 if "T" not in raw_end:
                     # All-day DTEND is exclusive per RFC 5545
@@ -72,6 +75,7 @@ def _parse(text: str) -> list[CalEvent]:
             summary=sm.group(1).strip() if sm else "",
             start_time=_parse_time(raw_start),
             end_date=end_date,
+            end_time=end_time,
         ))
     return events
 

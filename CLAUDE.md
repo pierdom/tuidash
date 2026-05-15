@@ -273,6 +273,7 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_WORK_ICS` | — | ICS URL for work calendar events |
 | `TUIDASH_WORK_COLOR` | `green` | Rich color name for work event days |
 | `TUIDASH_RSS_FEEDS` | — | Comma-separated RSS feed URLs |
+| `TUIDASH_NEWS_PICTURES` | `false` | Show article thumbnails in the News page; `true` enables image downloads |
 | `TUIDASH_HOSTS` | — | Comma-separated Glances URLs (widget title: "Servers") |
 | `TUIDASH_REACHABILITY_IPS` | `1.1.1.1,8.8.8.8,192.168.1.1` | IPs to ping |
 | `TUIDASH_RESOLVE_HOSTS` | `google.com,amazon.com,facebook.com` | Hosts to DNS-resolve |

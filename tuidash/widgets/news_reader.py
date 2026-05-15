@@ -45,7 +45,7 @@ def _render_image(data: bytes) -> Text | None:
         return None
 
 
-def _article_renderable(fd: FeedData, art: Article):
+def _article_renderable(fd: FeedData, art: Article, show_pictures: bool = True):
     header = Text()
     header.append("● ", style=fd.color)
     header.append(fd.source.upper(), style=f"bold {fd.color}")
@@ -60,7 +60,7 @@ def _article_renderable(fd: FeedData, art: Article):
             raw += "…"
         desc_text = Text(raw, style="dim")
 
-    img = _render_image(art.image_data) if art.image_data else None
+    img = _render_image(art.image_data) if (show_pictures and art.image_data) else None
 
     if img is not None:
         grid = Table.grid(padding=(0, 1))
@@ -90,7 +90,7 @@ def _article_renderable(fd: FeedData, art: Article):
 _DT_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
 
 
-def _render_articles(feeds: list[FeedData]) -> Group:
+def _render_articles(feeds: list[FeedData], show_pictures: bool = True) -> Group:
     if not any(fd.articles for fd in feeds) and not any(fd.error for fd in feeds):
         return Group(Text("No articles — configure TUIDASH_RSS_FEEDS", style="dim"))
 
@@ -112,10 +112,10 @@ def _render_articles(feeds: list[FeedData]) -> Group:
         left_fd,  left_art  = all_articles[i]
         if i + 1 < len(all_articles):
             right_fd, right_art = all_articles[i + 1]
-            row.add_row(_article_renderable(left_fd, left_art),
-                        _article_renderable(right_fd, right_art))
+            row.add_row(_article_renderable(left_fd, left_art, show_pictures),
+                        _article_renderable(right_fd, right_art, show_pictures))
         else:
-            row.add_row(_article_renderable(left_fd, left_art), Text(""))
+            row.add_row(_article_renderable(left_fd, left_art, show_pictures), Text(""))
         parts.append(row)
         parts.append(Rule(style="dim"))
 
@@ -167,12 +167,14 @@ class NewsReaderWidget(DashWidget):
         super().__init__(**kwargs)
         self._feeds: list[tuple[str, str]] = []
         self._data_timer: Timer | None = None
+        self._show_pictures: bool = True
 
     def compose(self) -> ComposeResult:
         with ScrollableContainer(id="news-reader-scroll"):
             yield Static("[dim]Loading…[/dim]", id="news-reader-body")
 
     def on_mount(self) -> None:
+        self._show_pictures = (config.get("TUIDASH_NEWS_PICTURES", "false") or "false").lower() in ("true", "1", "yes")
         raw = config.get("TUIDASH_RSS_FEEDS", "") or ""
         urls = [u.strip() for u in raw.split(",") if u.strip()]
         if not urls:
@@ -203,12 +205,13 @@ class NewsReaderWidget(DashWidget):
         self.app.call_from_thread(self._show_data, results)
 
         # Phase 2: download images and re-render
-        articles_with_images = [
-            art for fd in results for art in fd.articles if art.image_url
-        ]
-        if articles_with_images:
-            _download_images(articles_with_images)
-            self.app.call_from_thread(self._show_data, results)
+        if self._show_pictures:
+            articles_with_images = [
+                art for fd in results for art in fd.articles if art.image_url
+            ]
+            if articles_with_images:
+                _download_images(articles_with_images)
+                self.app.call_from_thread(self._show_data, results)
 
     def _show_data(self, feeds: list[FeedData]) -> None:
         self.data = feeds
@@ -216,7 +219,7 @@ class NewsReaderWidget(DashWidget):
     def watch_data(self, feeds: list[FeedData] | None) -> None:
         if feeds is None:
             return
-        self.query_one("#news-reader-body", Static).update(_render_articles(feeds))
+        self.query_one("#news-reader-body", Static).update(_render_articles(feeds, self._show_pictures))
         n_articles = sum(len(fd.articles) for fd in feeds)
         n_sources = sum(1 for fd in feeds if not fd.error)
         self.border_subtitle = f"{n_sources} feeds · {n_articles} articles"
