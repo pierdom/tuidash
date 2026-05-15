@@ -10,7 +10,6 @@ from urllib.parse import urlparse
 
 import requests
 from rich.console import Group
-from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
@@ -260,8 +259,6 @@ def _render_hosts(
 ) -> Group:
     parts: list[Any] = []
     for i, hd in enumerate(hosts):
-        if i > 0:
-            parts.append(Rule(style="dim"))
         parts.append(_render_host(hd, tick, i, cont_width))
     return Group(*parts)
 
@@ -274,8 +271,8 @@ class HostsWidget(DashWidget):
     data: reactive[list[HostData] | None] = reactive(None, always_update=True)
 
     DEFAULT_CSS = """
-    HostsWidget { height: 1fr; }
-    #hosts-body { height: 100%; }
+    HostsWidget { height: auto; }
+    #hosts-body { height: auto; }
     """
 
     def __init__(self, **kwargs: Any) -> None:

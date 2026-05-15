@@ -393,7 +393,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
         _tx_side(),
     )
 
-    return Group(header, Text(""), grid, Rule(style="dim"), gl)
+    return Group(header, Rule(style="dim"), grid, Rule(style="dim"), gl)
 
 
 def _ticker_color(pct: float) -> str:
@@ -458,8 +458,8 @@ class GhostfolioWidget(DashWidget):
     data: reactive[PortfolioData | None] = reactive(None, always_update=True)
 
     DEFAULT_CSS = """
-    GhostfolioWidget { height: 100%; }
-    #gf-body        { height: 1fr; }
+    GhostfolioWidget { height: auto; }
+    #gf-body        { height: auto; }
     #gf-ticker-rule { height: 1; }
     #gf-ticker      { height: 1; }
     """

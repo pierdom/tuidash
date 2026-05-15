@@ -45,12 +45,10 @@ class TuidashApp(App):
     /* ── rows ── */
     #row-top {
         height: 28%;
-        margin: 0 0 1 0;
     }
 
     #row-mid {
-        height: 44%;
-        margin: 0 0 1 0;
+        height: auto;
     }
 
     #row-bot {
@@ -79,6 +77,7 @@ class TuidashApp(App):
 
     #conn-hosts-col {
         width: 1fr;
+        height: auto;
     }
 
     ConnectivityWidget {
@@ -88,7 +87,7 @@ class TuidashApp(App):
 
     HostsWidget {
         width: 100%;
-        height: 1fr;
+        height: auto;
     }
 
     RssWidget {
