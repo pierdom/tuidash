@@ -16,13 +16,14 @@ if os.environ.get("TEXTUAL_DRIVER"):
 
 from textual.app import App, ComposeResult
 from textual.reactive import reactive
-from textual.widgets import ContentSwitcher, Footer, Header
+from textual.widgets import ContentSwitcher, Footer
 
 from . import config
 from .screens import BasePage
 from .screens.dashboard import DashboardPage
 from .screens.immich import CalendarPage
 from .screens.news import NewsPage
+from .widgets.net_header import DashHeader
 
 
 # Ordered list of pages: (label, widget-id, class).
@@ -65,7 +66,7 @@ class TuidashApp(App):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        yield DashHeader()
         with ContentSwitcher(initial="page-dashboard"):
             for _, page_id, cls in _PAGES:
                 yield cls(id=page_id)
@@ -108,7 +109,12 @@ class TuidashApp(App):
         if self.privacy:
             parts.append("PRIVATE MODE")
         parts.append(f"↻ {self.refresh_interval}s")
-        self.sub_title = "  ".join(parts)
+        text = "  ".join(parts)
+        self.sub_title = text
+        try:
+            self.query_one(DashHeader).set_subtitle(text)
+        except Exception:
+            pass
 
     # ── reactives ─────────────────────────────────────────────────────────────
 
