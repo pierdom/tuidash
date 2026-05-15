@@ -16,7 +16,9 @@ A personal terminal dashboard built with [Textual](https://textual.textualize.io
 | Portfolio | [Ghostfolio](https://ghostfolio.app/) — net worth, daily/MTD/1Y performance, live ticker |
 | Connectivity | Ping reachability, DNS resolution, download/upload speed via [Speedtest Tracker](https://github.com/alexjustesen/speedtest-tracker) |
 | Servers | Per-host ping, CPU, RAM and Docker container health via [Glances](https://github.com/nicolargo/glances) |
-| News | RSS feeds with horizontal marquee scrolling |
+| Events | 4-day calendar view (today + 3) from ICS feeds |
+| News ticker | Full-width single-row continuous scroll of RSS headlines from the last 6 hours |
+| News reader | Full-page RSS reader (page 2) with article thumbnails |
 
 ## Running
 
@@ -76,9 +78,10 @@ Key variables:
 | Key | Action |
 |---|---|
 | `q` | Quit |
-| `r` | Refresh all widgets |
+| `r` | Refresh all widgets on the current page |
 | `p` | Toggle privacy mode (masks monetary values) |
 | `[` / `]` | Decrease / increase refresh interval by 60 s |
+| `←` / `→` | Navigate between pages (wraps) |
 
 ## Serve mode
 

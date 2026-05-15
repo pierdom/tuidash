@@ -303,7 +303,7 @@ class NetStatusWidget(Widget):
     }
     """
 
-    _info: reactive[NetInfo] = reactive(NetInfo, repaint=True)
+    _info: reactive[NetInfo] = reactive(NetInfo(), repaint=True)
 
     def on_mount(self) -> None:
         self._poll()

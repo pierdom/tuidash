@@ -22,8 +22,9 @@ from .. import config
 from .base import DashWidget
 
 
-_TICKER_INTERVAL = 0.125  # seconds per scroll step (≈8 chars/sec)
-_TICKER_SEP      = "   ◆   "
+_TICKER_INTERVAL   = 0.125  # seconds per scroll step (≈8 chars/sec)
+_TICKER_SEP        = "   ◆   "
+_CURRENCY_SYMBOLS  = {"USD": "$", "EUR": "€", "GBP": "£", "CHF": "Fr "}
 
 
 # ── data model ────────────────────────────────────────────────────────────────
@@ -279,8 +280,7 @@ class GhostfolioClient:
 # ── Rich helpers ───────────────────────────────────────────────────────────────
 
 def _fmt(value: float, currency: str) -> str:
-    symbols = {"USD": "$", "EUR": "€", "GBP": "£", "CHF": "Fr "}
-    sym = symbols.get(currency, f"{currency} ")
+    sym = _CURRENCY_SYMBOLS.get(currency, f"{currency} ")
     sign = "+" if value > 0 else ""
     return f"{sign}{sym}{abs(value):,.2f}"
 
@@ -319,8 +319,7 @@ def _fmt_goal(goal: float) -> str:
 
 def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     cur = d.base_currency or d.currency
-    symbols = {"USD": "$", "EUR": "€", "GBP": "£", "CHF": "Fr "}
-    sym = symbols.get(cur, f"{cur} ")
+    sym = _CURRENCY_SYMBOLS.get(cur, f"{cur} ")
 
     # ── net worth + progress bar ──────────────────────────────────────────────
     progress_pct = min(d.total_value / d.goal * 100, 100.0) if d.goal else 0.0
@@ -366,8 +365,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
         return t
 
     def _tx_side() -> Table:
-        sym_map = {"USD": "$", "EUR": "€", "GBP": "£", "CHF": "Fr "}
-        s = sym_map.get(d.currency, f"{d.currency} ")
+        s = _CURRENCY_SYMBOLS.get(d.currency, f"{d.currency} ")
 
         def _tx_row(count: int, label: str, vol: float) -> Text:
             row = Text()

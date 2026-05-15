@@ -46,8 +46,11 @@ tuidash/
     ├── ghostfolio.py   # Ghostfolio portfolio tracker + live ticker
     ├── connectivity.py # Ping / DNS / speed-test connectivity checks
     ├── hosts.py        # Server monitoring via ping + Glances (CPU, MEM, Docker)
-    ├── rss.py          # RSS feed reader with horizontal marquee scrolling
-    └── vps.py          # VPS status (stub, unused)
+    ├── events.py       # 4-day calendar event list (today + 3 days) from ICS feeds
+    ├── news_ticker.py  # Single-row continuous news ticker (last 6 h, all RSS sources)
+    ├── news_reader.py  # Full-page news reader used on page 2
+    ├── net_header.py   # Custom header bar: network status + title + clock
+    └── rss.py          # RSS feed-fetching library (FeedData, _fetch_feed, _parse_dt)
 ```
 
 `main.py` in the repo root is an unused stub — the real entry point is `tuidash.app:main`.
@@ -65,13 +68,16 @@ TuidashApp (App)                    ← navigation, global reactives, config
 │   ├── DashboardPage (BasePage)    ← page 1 — always mounted
 │   │   ├── #row-top  28%   │ ClockWidget(30) │ WeatherWidget(2fr) │ CalendarWidget(1fr) │
 │   │   ├── #row-mid  auto  │ GhostfolioWidget(50%) │ Vertical: ConnectivityWidget + HostsWidget │
-│   │   └── #row-bot  1fr   │ RssWidget(100%)                                               │
+│   │   ├── #row-bot  1fr   │ EventsWidget(100%)                                            │
+│   │   └── (sibling)  3    │ NewsTickerWidget(100%) — full-width, 1-row ticker             │
 │   ├── NewsPage (BasePage)         ← page 2 — always mounted
 │   └── ImmichPage (BasePage)       ← page 3 — always mounted
 └── Footer
 ```
 
 `#row-mid` and the three widgets it contains (Ghostfolio, Connectivity, Servers) use `height: auto` — they shrink to their content with no blank rows.
+
+`NewsTickerWidget` is a **sibling of `#row-bot`** at the `DashboardPage` level (not nested inside it). This lets `EventsWidget` keep `height: 100%` inside `#row-bot`, while `#row-bot`'s `1fr` naturally leaves 3 rows at the bottom for the ticker.
 
 ### Multi-page navigation
 
@@ -82,8 +88,8 @@ Pages are defined in `_PAGES` in `app.py` as an ordered list of `(label, widget-
 - The app `sub_title` shows `[n/total] PageName  ↻ Xs` and `PRIVATE MODE` when active
 - Pages extend `BasePage` (`screens/__init__.py`). Pages that support privacy implement `set_privacy(value: bool)`; pages that support refresh implement `set_refresh_interval(seconds: int)` and `refresh_all()`. The App iterates `self.query(BasePage)` to propagate reactive changes to all pages; `action_refresh` targets only the currently visible page by ID.
 
-Widget border titles set in `app.on_mount()`:
-- Clock, Weather, Calendar, Ghostfolio, Connectivity, **Servers** (HostsWidget), News
+Widget border titles set in `dashboard.on_mount()`:
+- Clock, Weather, Calendar, Ghostfolio, Connectivity, **Servers** (HostsWidget), Events, **News** (NewsTickerWidget)
 
 ### Widget contract
 
@@ -316,7 +322,22 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - Day highlight priority: today > holiday (red) > family > personal > work > weekend; each custom calendar has its own configurable Rich color
 - All ICS feeds refresh at the same rate as `TUIDASH_REFRESH` (wired to `set_refresh_interval`)
 - Calendar grid updates every 60 s regardless of refresh interval (no network dependency)
-- Manual `r` triggers `_fetch()` for holiday data
+- Manual `r` triggers the holiday ICS re-fetch (internal method `_fetch()`; note: CalendarWidget uses `_fetch()` rather than `_load()` as its primary data method — `dashboard.refresh_all()` calls `_fetch()` accordingly)
+
+### EventsWidget
+
+- Shows upcoming events from the three user ICS feeds (family/personal/work) in a 4-day view: today + next 3 days
+- Each day column scrolls long event names using boomerang scroll (same `scroll_window` helper as `RssWidget`)
+- Uses `TUIDASH_FAMILY_ICS`, `TUIDASH_PERSONAL_ICS`, `TUIDASH_WORK_ICS` and their corresponding `_COLOR` vars
+- Occupies `#row-bot` (full width, `1fr` height) on the dashboard
+
+### NewsTickerWidget
+
+- Reads the same `TUIDASH_RSS_FEEDS` as `rss.py`; imports `FeedData`, `_fetch_feed`, `_parse_dt` from `rss.py`
+- Filters to articles published in the last 6 hours; shows nothing if no recent articles
+- Continuous left-scroll: `tick % full_len` offset over a doubled segment list — same technique as Ghostfolio ticker
+- Format per item: `◆   SourceName  Headline title`; source name is `bold {color}`, title is `{color}`
+- `height: 3` (border + 1 content row); sits as a sibling of `#row-bot` at the `DashboardPage` level
 
 ---
 
@@ -327,12 +348,12 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 3. Implement `_load()` with `@work(thread=True)`; call `call_from_thread` on completion
 4. Implement `watch_data()` to call the render function and update the Static
 5. Implement `set_refresh_interval(seconds: int)` — stop old timer, start new one
-6. Import and add to `app.py`:
+6. Import and add to `dashboard.py` (or the relevant screen):
    - `compose()` — yield the widget
-   - CSS sizing in `CSS`
+   - CSS sizing in `DEFAULT_CSS`
    - `border_title` in `on_mount()`
-   - `query_one(MyWidget)._load()` in `action_refresh()`
-   - `query_one(MyWidget).set_refresh_interval(value)` in `watch_refresh_interval()`
+   - `query_one(MyWidget)._load()` in `refresh_all()`
+   - `query_one(MyWidget).set_refresh_interval(value)` in `set_refresh_interval()`
 7. Add new `TUIDASH_*` env vars to `.env.example` and the table above
 
 ---
