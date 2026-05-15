@@ -36,7 +36,7 @@ tuidash/
 ├── ics.py              # ICS calendar parser (events)
 ├── screens/
 │   ├── dashboard.py    # Page 1 — overview dashboard (all widgets)
-│   ├── news.py         # Page 2 — expanded news reader (placeholder)
+│   ├── news.py         # Page 2 — RelayWidget (left) + NewsReaderWidget (right), side by side
 │   └── immich.py       # Page 3 — Immich photo viewer (placeholder)
 └── widgets/
     ├── base.py         # DashWidget — base class for all widgets
@@ -49,6 +49,7 @@ tuidash/
     ├── events.py       # 4-day calendar event list (today + 3 days) from ICS feeds
     ├── news_ticker.py  # Single-row continuous news ticker (last 6 h, all RSS sources)
     ├── news_reader.py  # Full-page news reader used on page 2
+    ├── relay.py        # Generic relay server feed widget (SSE + REST, per-topic)
     ├── net_header.py   # Custom header bar: network status + title + clock
     └── rss.py          # RSS feed-fetching library (FeedData, _fetch_feed, _parse_dt)
 ```
@@ -71,6 +72,7 @@ TuidashApp (App)                    ← navigation, global reactives, config
 │   │   ├── #row-bot  1fr   │ EventsWidget(100%)                                            │
 │   │   └── (sibling)  3    │ NewsTickerWidget(100%) — full-width, 1-row ticker             │
 │   ├── NewsPage (BasePage)         ← page 2 — always mounted
+│   │   └── Horizontal              │ RelayWidget("news", 1fr) │ NewsReaderWidget(1fr) │
 │   └── ImmichPage (BasePage)       ← page 3 — always mounted
 └── Footer
 ```
@@ -90,6 +92,8 @@ Pages are defined in `_PAGES` in `app.py` as an ordered list of `(label, widget-
 
 Widget border titles set in `dashboard.on_mount()`:
 - Clock, Weather, Calendar, Ghostfolio, Connectivity, **Servers** (HostsWidget), Events, **News** (NewsTickerWidget)
+
+`RelayWidget` sets its own `border_title` in `on_mount()` as `"  Relay ({topic})"` — no external assignment needed.
 
 ### Widget contract
 
@@ -288,6 +292,8 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_NETSPEED_UP` | `600` | Max Mbps for upload bar scaling |
 | `TUIDASH_SPEEDTESTTRACKER_URL` | — | Speedtest Tracker URL; hides speed section if unset |
 | `TUIDASH_SPEEDTESTTRACKER_TOKEN` | — | Bearer token for Speedtest Tracker API |
+| `TUIDASH_RELAY_URL` | — | Base URL of the relay server instance (required for RelayWidget) |
+| `TUIDASH_RELAY_TOKEN` | — | Bearer token for the relay API (required for RelayWidget) |
 
 Missing values for widget-specific vars show an inline error — they do not crash the app.
 
@@ -338,6 +344,18 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - Continuous left-scroll: `tick % full_len` offset over a doubled segment list — same technique as Ghostfolio ticker
 - Format per item: `◆   SourceName  Headline title`; source name is `bold {color}`, title is `{color}`
 - `height: 3` (border + 1 content row); sits as a sibling of `#row-bot` at the `DashboardPage` level
+
+### RelayWidget
+
+- Generic Markdown feed widget backed by a self-hosted relay server (see [pierdom/relay](https://github.com/pierdom/relay))
+- Instantiated with a `topic` (tag name) and an optional `title`; border title defaults to `Relay ({topic})`
+- Multiple instances with different topics can coexist on the same page
+- **Live updates via SSE**: connects to `GET /events?tag={topic}`, parses the stream with `iter_content` (so blank-line event delimiters are never swallowed), and calls `call_from_thread` on each `post` event
+- **Seed + fallback via REST**: `GET /posts?tag={topic}&limit=20` on mount and on each periodic refresh tick; response shape is `{"items": [...], "total": N, ...}`
+- Both paths merge through `_merge_posts` (dedup by `id`, sorted newest-first) on the main thread
+- SSE reconnects with exponential backoff (2 s → 60 s cap); sends `Last-Event-ID` header on reconnect to replay missed posts
+- Missing `TUIDASH_RELAY_URL` or `TUIDASH_RELAY_TOKEN`: `_load()` shows an inline error; `_listen()` exits immediately without retrying
+- Currently placed on **NewsPage** (page 2) as a `1fr`-wide left panel beside `NewsReaderWidget`
 
 ---
 
