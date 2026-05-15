@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any
 
@@ -18,7 +19,7 @@ from textual import work
 
 from .. import config
 from .base import DashWidget
-from .rss import _COLORS, _fetch_feed, _relative_time, FeedData, Article
+from .rss import _COLORS, _fetch_feed, _parse_dt, _relative_time, FeedData, Article
 
 
 _THUMB_COLS = 20   # characters wide
@@ -86,26 +87,48 @@ def _article_renderable(fd: FeedData, art: Article):
     return t
 
 
+_DT_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
+
+
 def _render_articles(feeds: list[FeedData]) -> Group:
+    if not any(fd.articles for fd in feeds) and not any(fd.error for fd in feeds):
+        return Group(Text("No articles — configure TUIDASH_RSS_FEEDS", style="dim"))
+
     parts: list = []
+
+    # Flatten all articles and sort newest-first; undated articles go last.
+    all_articles: list[tuple[FeedData, Article]] = [
+        (fd, art) for fd in feeds for art in fd.articles
+    ]
+    all_articles.sort(
+        key=lambda fa: _parse_dt(fa[1].pub_date) or _DT_EPOCH,
+        reverse=True,
+    )
+    # Render in pairs — 2-column grid per row.
+    for i in range(0, len(all_articles), 2):
+        row = Table.grid(expand=True, padding=(0, 2))
+        row.add_column(ratio=1)
+        row.add_column(ratio=1)
+        left_fd,  left_art  = all_articles[i]
+        if i + 1 < len(all_articles):
+            right_fd, right_art = all_articles[i + 1]
+            row.add_row(_article_renderable(left_fd, left_art),
+                        _article_renderable(right_fd, right_art))
+        else:
+            row.add_row(_article_renderable(left_fd, left_art), Text(""))
+        parts.append(row)
+        parts.append(Rule(style="dim"))
+
+    # Status line for feeds that returned no articles or errored.
     for fd in feeds:
         if not fd.articles:
             line = Text()
             line.append(f"● {fd.source.upper()}", style=f"bold {fd.color}")
-            if fd.error:
-                line.append(f"  {fd.error}", style="dim red")
-            else:
-                line.append("  no articles", style="dim")
+            line.append(f"  {fd.error}" if fd.error else "  no articles",
+                        style="dim red" if fd.error else "dim")
             parts.append(line)
             parts.append(Rule(style="dim"))
-            continue
 
-        for art in fd.articles:
-            parts.append(_article_renderable(fd, art))
-            parts.append(Rule(style="dim"))
-
-    if not parts:
-        return Group(Text("No articles — configure TUIDASH_RSS_FEEDS", style="dim"))
     return Group(*parts)
 
 

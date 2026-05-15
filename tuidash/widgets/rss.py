@@ -89,19 +89,24 @@ def _strip_html(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _relative_time(pub_date: str) -> str:
+def _parse_dt(pub_date: str) -> datetime | None:
+    """Parse an RSS/Atom date string into a timezone-aware datetime, or None."""
     if not pub_date:
-        return ""
-    dt: datetime | None = None
+        return None
     try:
-        dt = parsedate_to_datetime(pub_date)
+        return parsedate_to_datetime(pub_date)
     except Exception:
         pass
+    try:
+        return datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _relative_time(pub_date: str) -> str:
+    dt = _parse_dt(pub_date)
     if dt is None:
-        try:
-            dt = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
-        except Exception:
-            return ""
+        return ""
     try:
         delta = datetime.now(timezone.utc) - dt
         secs = int(delta.total_seconds())
