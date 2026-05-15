@@ -9,6 +9,7 @@ from ..widgets.connectivity import ConnectivityWidget
 from ..widgets.events import EventsWidget
 from ..widgets.ghostfolio import GhostfolioWidget
 from ..widgets.hosts import HostsWidget
+from ..widgets.news_ticker import NewsTickerWidget
 from ..widgets.weather import WeatherWidget
 from . import BasePage
 
@@ -94,6 +95,7 @@ class DashboardPage(BasePage):
                 yield HostsWidget()
         with Container(id="row-bot"):
             yield EventsWidget()
+        yield NewsTickerWidget()
 
     def on_show(self) -> None:
         self.call_after_refresh(self._sync_scroll)
@@ -112,7 +114,8 @@ class DashboardPage(BasePage):
         self.query_one(GhostfolioWidget).border_title   = "  Ghostfolio"
         self.query_one(ConnectivityWidget).border_title = "  Connectivity"
         self.query_one(HostsWidget).border_title        = "  Servers"
-        self.query_one(EventsWidget).border_title       = "  Events"
+        self.query_one(EventsWidget).border_title        = "  Events"
+        self.query_one(NewsTickerWidget).border_title   = "  News"
 
         self.set_privacy(self.app.privacy)
         self.set_refresh_interval(self.app.refresh_interval)
@@ -128,6 +131,7 @@ class DashboardPage(BasePage):
             self.query_one(ConnectivityWidget).set_refresh_interval(value)
             self.query_one(HostsWidget).set_refresh_interval(value)
             self.query_one(EventsWidget).set_refresh_interval(value)
+            self.query_one(NewsTickerWidget).set_refresh_interval(value)
         except Exception:
             pass
 
@@ -139,5 +143,6 @@ class DashboardPage(BasePage):
             self.query_one(ConnectivityWidget)._load()
             self.query_one(HostsWidget)._load()
             self.query_one(EventsWidget)._load()
+            self.query_one(NewsTickerWidget)._load()
         except Exception:
             pass
