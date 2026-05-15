@@ -56,11 +56,13 @@ tuidash/
 
 ```
 Header (Textual built-in, shows app title + clock)
-├── #row-top  28%  │ ClockWidget(30) │ WeatherWidget(2fr) │ CalendarWidget(1fr) │
-├── #row-mid  44%  │ GhostfolioWidget(50%) │ Vertical: ConnectivityWidget + HostsWidget(1fr) │
-└── #row-bot  1fr  │ RssWidget(100%)                                              │
+├── #row-top  28%   │ ClockWidget(30) │ WeatherWidget(2fr) │ CalendarWidget(1fr) │
+├── #row-mid  auto  │ GhostfolioWidget(50%) │ Vertical: ConnectivityWidget + HostsWidget │
+└── #row-bot  1fr   │ RssWidget(100%)                                               │
 Footer (shows keybindings)
 ```
+
+`#row-mid` and the three widgets it contains (Ghostfolio, Connectivity, Servers) use `height: auto` — they shrink to their content with no blank rows.
 
 Widget border titles set in `app.on_mount()`:
 - Clock, Weather, Calendar, Ghostfolio, Connectivity, **Servers** (HostsWidget), News
@@ -244,6 +246,12 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_GHOSTFOLIO_TOKEN` | — | Ghostfolio anonymous access token |
 | `TUIDASH_GHOSTFOLIO_GOAL` | `1000000` | Portfolio goal for the progress bar (uses Ghostfolio base currency) |
 | `TUIDASH_HOLIDAY_CALENDAR` | — | ICS URL for public holidays |
+| `TUIDASH_FAMILY_ICS` | — | ICS URL for family calendar events |
+| `TUIDASH_FAMILY_COLOR` | `yellow` | Rich color name for family event days |
+| `TUIDASH_PERSONAL_ICS` | — | ICS URL for personal calendar events |
+| `TUIDASH_PERSONAL_COLOR` | `teal` | Rich color name for personal event days |
+| `TUIDASH_WORK_ICS` | — | ICS URL for work calendar events |
+| `TUIDASH_WORK_COLOR` | `green` | Rich color name for work event days |
 | `TUIDASH_RSS_FEEDS` | — | Comma-separated RSS feed URLs |
 | `TUIDASH_HOSTS` | — | Comma-separated Glances URLs (widget title: "Servers") |
 | `TUIDASH_REACHABILITY_IPS` | `1.1.1.1,8.8.8.8,192.168.1.1` | IPs to ping |
@@ -283,7 +291,9 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 
 ### CalendarWidget
 
-- ICS holidays refresh at the same rate as `TUIDASH_REFRESH` (wired to `set_refresh_interval`)
+- Supports up to four ICS feeds: public holidays (`TUIDASH_HOLIDAY_CALENDAR`), family (`TUIDASH_FAMILY_ICS`), personal (`TUIDASH_PERSONAL_ICS`), work (`TUIDASH_WORK_ICS`)
+- Day highlight priority: today > holiday (red) > family > personal > work > weekend; each custom calendar has its own configurable Rich color
+- All ICS feeds refresh at the same rate as `TUIDASH_REFRESH` (wired to `set_refresh_interval`)
 - Calendar grid updates every 60 s regardless of refresh interval (no network dependency)
 - Manual `r` triggers `_fetch()` for holiday data
 

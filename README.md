@@ -12,7 +12,7 @@ A personal terminal dashboard built with [Textual](https://textual.textualize.io
 |---|---|
 | Clock | System time, pixel-art half-block font |
 | Weather | [Open-Meteo](https://open-meteo.com/) — current conditions + 6-day forecast |
-| Calendar | Month view with public-holiday highlighting via ICS feed |
+| Calendar | Month view with public-holiday, family, personal and work event highlighting via ICS feeds |
 | Portfolio | [Ghostfolio](https://ghostfolio.app/) — net worth, daily/MTD/1Y performance, live ticker |
 | Connectivity | Ping reachability, DNS resolution, download/upload speed via [Speedtest Tracker](https://github.com/alexjustesen/speedtest-tracker) |
 | Servers | Per-host ping, CPU, RAM and Docker container health via [Glances](https://github.com/nicolargo/glances) |
@@ -59,6 +59,12 @@ Key variables:
 | `TUIDASH_GHOSTFOLIO_TOKEN` | — | Ghostfolio anonymous access token |
 | `TUIDASH_GHOSTFOLIO_GOAL` | `1000000` | Portfolio goal for the progress bar |
 | `TUIDASH_HOLIDAY_CALENDAR` | — | ICS URL for public holidays (e.g. officeholidays.com) |
+| `TUIDASH_FAMILY_ICS` | — | ICS URL for family calendar events |
+| `TUIDASH_FAMILY_COLOR` | `yellow` | Rich color name for family event days |
+| `TUIDASH_PERSONAL_ICS` | — | ICS URL for personal calendar events |
+| `TUIDASH_PERSONAL_COLOR` | `teal` | Rich color name for personal event days |
+| `TUIDASH_WORK_ICS` | — | ICS URL for work calendar events |
+| `TUIDASH_WORK_COLOR` | `green` | Rich color name for work event days |
 | `TUIDASH_RSS_FEEDS` | — | Comma-separated RSS feed URLs |
 | `TUIDASH_HOSTS` | — | Comma-separated Glances URLs |
 | `TUIDASH_DNS_RESOLVER` | system | Custom DNS server IP for connectivity checks |
