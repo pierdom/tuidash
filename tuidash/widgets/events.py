@@ -22,18 +22,19 @@ from .base import DashWidget
 @dataclass
 class _Source:
     color: str
+    priority: int = 0
     events: list[ics.CalEvent] = field(default_factory=list)
 
 
 def _events_for_day(sources: list[_Source], day: date) -> list[tuple[str, ics.CalEvent]]:
-    result: list[tuple[str, ics.CalEvent]] = []
+    result: list[tuple[int, str, ics.CalEvent]] = []
     for src in sources:
         for ev in src.events:
             end = ev.end_date or ev.date
             if ev.date <= day <= end:
-                result.append((src.color, ev))
-    result.sort(key=lambda ce: (ce[1].start_time is not None, ce[1].start_time or dt_time.min))
-    return result
+                result.append((src.priority, src.color, ev))
+    result.sort(key=lambda t: (t[2].start_time is not None, t[2].start_time or dt_time.min, t[0]))
+    return [(color, ev) for _, color, ev in result]
 
 
 def _render_events(
@@ -88,9 +89,6 @@ def _render_events(
             col.append(prefix, style="dim")
             col.append(scroll_window(ev.summary, available, tick, phase), style=color)
 
-        if all_day and timed:
-            col.append("\n")
-
         for ei, (color, ev) in enumerate(timed):
             if not first:
                 col.append("\n")
@@ -122,7 +120,7 @@ class EventsWidget(DashWidget):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._sources: list[tuple[str, str]] = []  # (url, color)
+        self._sources: list[tuple[str, str, int]] = []  # (url, color, priority)
         self._data_timer:   Timer | None = None
         self._scroll_timer: Timer | None = None
         self._tick: int = 0
@@ -142,13 +140,13 @@ class EventsWidget(DashWidget):
         work_color     = config.get("TUIDASH_WORK_COLOR")     or "green"
 
         if holiday_url:
-            self._sources.append((holiday_url, "red"))
+            self._sources.append((holiday_url, "red", 0))
         if family_url:
-            self._sources.append((family_url, family_color))
-        if personal_url:
-            self._sources.append((personal_url, personal_color))
+            self._sources.append((family_url, family_color, 1))
         if work_url:
-            self._sources.append((work_url, work_color))
+            self._sources.append((work_url, work_color, 2))
+        if personal_url:
+            self._sources.append((personal_url, personal_color, 3))
 
         if not self._sources:
             self.query_one("#events-body", Static).update(
@@ -193,11 +191,11 @@ class EventsWidget(DashWidget):
     def _load(self) -> None:
         if not self._sources:
             return
-        results = [_Source(color=color) for _, color in self._sources]
+        results = [_Source(color=color, priority=prio) for _, color, prio in self._sources]
         with ThreadPoolExecutor(max_workers=len(self._sources)) as pool:
             future_to_idx = {
                 pool.submit(ics.fetch_events, url): i
-                for i, (url, _) in enumerate(self._sources)
+                for i, (url, _color, _prio) in enumerate(self._sources)
             }
         for f, idx in future_to_idx.items():
             try:

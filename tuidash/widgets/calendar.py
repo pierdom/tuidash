@@ -105,8 +105,8 @@ class CalendarWidget(DashWidget):
     """Monthly calendar with weekend, public-holiday, and family-event highlighting."""
 
     DEFAULT_CSS = """
-    CalendarWidget { height: 100%; }
-    #cal-body { height: 100%; content-align: center top; }
+    CalendarWidget { height: auto; }
+    #cal-body { height: auto; content-align: center top; }
     """
 
     def __init__(self, **kwargs: Any) -> None:

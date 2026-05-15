@@ -373,8 +373,8 @@ class WeatherWidget(DashWidget):
     data: reactive[WeatherData | None] = reactive(None, always_update=True)
 
     DEFAULT_CSS = """
-    WeatherWidget { height: 100%; }
-    #wx-body { height: 100%; }
+    WeatherWidget { height: auto; }
+    #wx-body { height: auto; }
     """
 
     def __init__(self, **kwargs: Any) -> None:

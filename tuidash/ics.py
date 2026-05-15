@@ -82,12 +82,13 @@ def _parse(text: str) -> list[CalEvent]:
 
 def fetch_events(url: str) -> list[CalEvent]:
     """Fetch and parse an ICS URL, returning all events. Results cached for 1 hour."""
+    url = url.replace("webcal://", "https://", 1).replace("webcal+https://", "https://", 1)
     now = time.monotonic()
     if url in _cache:
         ts, cached = _cache[url]
         if now - ts < _TTL:
             return cached
-    resp = requests.get(url, timeout=15)
+    resp = requests.get(url, timeout=15, headers={"User-Agent": "tuidash/1.0"})
     resp.raise_for_status()
     events = _parse(resp.text)
     _cache[url] = (now, events)

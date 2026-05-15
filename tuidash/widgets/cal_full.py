@@ -243,10 +243,10 @@ class CalFullWidget(DashWidget):
     @work(thread=True)
     def _load(self) -> None:
         sources = [
-            (self._holiday_url, "red", 0),
-            (self._family_url,   self._family_color,   1),
-            (self._personal_url, self._personal_color, 2),
-            (self._work_url,     self._work_color,     3),
+            (self._holiday_url,  "red",                 0),
+            (self._family_url,   self._family_color,    1),
+            (self._work_url,     self._work_color,      2),
+            (self._personal_url, self._personal_color,  3),
         ]
 
         def _fetch(args: tuple) -> list[tuple[date, _Event]]:
@@ -274,7 +274,7 @@ class CalFullWidget(DashWidget):
             for d, ev in results:
                 events_by_date[d].append(ev)
         for d in events_by_date:
-            events_by_date[d].sort(key=lambda e: e.priority)
+            events_by_date[d].sort(key=lambda e: (e.priority, e.start_time is not None, e.start_time or dt_time.min))
 
         self.app.call_from_thread(self._show_data, dict(events_by_date))
 

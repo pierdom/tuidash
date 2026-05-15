@@ -25,7 +25,7 @@ class DashboardPage(BasePage):
 
     /* ── rows ── */
     #row-top {
-        height: 28%;
+        height: auto;
     }
 
     #row-mid {
