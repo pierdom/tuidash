@@ -26,6 +26,13 @@ class _Source:
     events: list[ics.CalEvent] = field(default_factory=list)
 
 
+@dataclass
+class _Slot:
+    day: date
+    events: list[tuple[str, ics.CalEvent]]
+    is_overflow: bool = False
+
+
 def _events_for_day(sources: list[_Source], day: date) -> list[tuple[str, ics.CalEvent]]:
     result: list[tuple[int, str, ics.CalEvent]] = []
     for src in sources:
@@ -37,37 +44,68 @@ def _events_for_day(sources: list[_Source], day: date) -> list[tuple[str, ics.Ca
     return [(color, ev) for _, color, ev in result]
 
 
-def _render_events(
+def _build_slots(
     sources: list[_Source],
     days: list[date],
+    avail_h: int,
+) -> list[_Slot]:
+    """Distribute days into at most 4 column slots, overflowing busy days into extra slots."""
+    slots: list[_Slot] = []
+    chunk_size = max(1, avail_h)
+    for day in days:
+        if len(slots) >= 4:
+            break
+        pairs = _events_for_day(sources, day)
+        if not pairs:
+            slots.append(_Slot(day=day, events=[]))
+            continue
+        for chunk_start in range(0, len(pairs), chunk_size):
+            if len(slots) >= 4:
+                break
+            slots.append(_Slot(
+                day=day,
+                events=pairs[chunk_start:chunk_start + chunk_size],
+                is_overflow=(chunk_start > 0),
+            ))
+    return slots
+
+
+def _render_events(
+    slots: list[_Slot],
     today: date,
     col_w: int,
     tick: int,
 ) -> Table:
     t = Table.grid(expand=True, padding=(0, 1))
-    for _ in days:
+    for _ in slots:
         t.add_column(ratio=1)
 
     # Header row
     headers: list[Text] = []
-    for day in days:
-        delta = (day - today).days
-        if delta == 0:
-            label = "Today"
-        elif delta == 1:
-            label = "Tomorrow"
+    for slot in slots:
+        if slot.is_overflow:
+            h = Text()
+            h.append("  ↳", style="dim")
+            headers.append(h)
         else:
-            label = day.strftime("%A")
-        h = Text()
-        h.append(label, style="bold")
-        h.append("  " + day.strftime("%d %b"), style="dim")
-        headers.append(h)
+            day = slot.day
+            delta = (day - today).days
+            if delta == 0:
+                label = "Today"
+            elif delta == 1:
+                label = "Tomorrow"
+            else:
+                label = day.strftime("%A")
+            h = Text()
+            h.append(label, style="bold")
+            h.append("  " + day.strftime("%d %b"), style="dim")
+            headers.append(h)
     t.add_row(*headers)
 
-    # Content column per day
+    # Content column per slot
     col_texts: list[Text] = []
-    for ci, day in enumerate(days):
-        pairs = _events_for_day(sources, day)
+    for ci, slot in enumerate(slots):
+        pairs = slot.events
         col = Text()
 
         if not pairs:
@@ -157,9 +195,12 @@ class EventsWidget(DashWidget):
         self._load()
         self._scroll_timer = self.set_interval(SCROLL_INTERVAL, self._advance_scroll)
 
-    def _col_w(self) -> int:
+    def _avail_h(self) -> int:
+        return max(1, (self.content_size.height or 10) - 1)
+
+    def _col_w(self, n_cols: int) -> int:
         total = self.content_size.width or 80
-        return max(10, (total - 4 * 2) // 4)
+        return max(10, (total - n_cols * 2) // n_cols)
 
     def _advance_scroll(self) -> None:
         self._tick = current_tick() - self._scroll_epoch
@@ -177,8 +218,9 @@ class EventsWidget(DashWidget):
             return
         today = date.today()
         days = [today + timedelta(days=i) for i in range(4)]
+        slots = _build_slots(self.data, days, self._avail_h())
         self.query_one("#events-body", Static).update(
-            _render_events(self.data, days, today, self._col_w(), self._tick)
+            _render_events(slots, today, self._col_w(len(slots)), self._tick)
         )
         self.border_subtitle = "  ".join(d.strftime("%a %d %b") for d in days)
 
