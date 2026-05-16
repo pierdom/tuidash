@@ -473,7 +473,7 @@ class PrevEpisodeButton(Widget):
         self.refresh()
 
     def render(self) -> Text:
-        return Text(" ◀ ", style="" if self._enabled else "dim")
+        return Text(" ← ", style="" if self._enabled else "dim")
 
     def on_click(self) -> None:
         if self._enabled:
@@ -487,7 +487,7 @@ class PrevEpisodeButton(Widget):
 
 
 class NextEpisodeButton(Widget):
-    """▶ — show newer episode in the same card."""
+    """→ — show newer episode in the same card."""
 
     class Pressed(Message):
         def __init__(self, feed_id: int) -> None:
@@ -510,7 +510,7 @@ class NextEpisodeButton(Widget):
         self.refresh()
 
     def render(self) -> Text:
-        return Text(" ▶ ", style="" if self._enabled else "dim")
+        return Text(" → ", style="" if self._enabled else "dim")
 
     def on_click(self) -> None:
         if self._enabled:
@@ -666,8 +666,8 @@ class PodcastCard(Widget):
                     yield ResetEpisodeButton(self._feed_id, id=f"reset-{self._feed_id}")
                 yield Static("", id=f"info-{self._feed_id}", classes="card-info")
                 with Horizontal(classes="card-play"):
-                    yield PrevEpisodeButton(self._feed_id, id=f"ep-prev-{self._feed_id}")
                     yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}")
+                    yield PrevEpisodeButton(self._feed_id, id=f"ep-prev-{self._feed_id}")
                     yield NextEpisodeButton(self._feed_id, id=f"ep-next-{self._feed_id}")
 
     def update_data(self, pd: PodcastData) -> None:
