@@ -35,52 +35,6 @@ _API_BASE = "https://api.podcastindex.org/api/1.0"
 _COVER_COLS = 14
 _COVER_ROWS = 7   # half-block rows → 14 pixel rows (square-ish)
 
-# ── pixel art grids (8 tall; rendered as 4 half-block rows) ───────────────────
-
-# Play ► — right-pointing triangle
-_PLAY_PIXELS: list[list[int]] = [
-    [1, 0, 0, 0, 0, 0, 0, 0],
-    [1, 1, 0, 0, 0, 0, 0, 0],
-    [1, 1, 1, 0, 0, 0, 0, 0],
-    [1, 1, 1, 1, 0, 0, 0, 0],
-    [1, 1, 1, 1, 0, 0, 0, 0],
-    [1, 1, 1, 0, 0, 0, 0, 0],
-    [1, 1, 0, 0, 0, 0, 0, 0],
-    [1, 0, 0, 0, 0, 0, 0, 0],
-]
-
-# Pause ⏸ — two vertical bars
-_PAUSE_PIXELS: list[list[int]] = [
-    [1, 1, 0, 0, 0, 1, 1, 0],
-    [1, 1, 0, 0, 0, 1, 1, 0],
-    [1, 1, 0, 0, 0, 1, 1, 0],
-    [1, 1, 0, 0, 0, 1, 1, 0],
-    [1, 1, 0, 0, 0, 1, 1, 0],
-    [1, 1, 0, 0, 0, 1, 1, 0],
-    [1, 1, 0, 0, 0, 1, 1, 0],
-    [1, 1, 0, 0, 0, 1, 1, 0],
-]
-
-
-def _pixel_art(pixels: list[list[int]], color: str) -> Text:
-    """Render a pixel grid as half-block art using ▀/▄/█/space."""
-    t = Text()
-    for row in range(0, len(pixels), 2):
-        top_row = pixels[row]
-        bot_row = pixels[row + 1] if row + 1 < len(pixels) else [0] * len(top_row)
-        for col in range(len(top_row)):
-            top, bot = top_row[col], bot_row[col]
-            if top and bot:
-                t.append("█", style=f"{color} on black")
-            elif top:
-                t.append("▀", style=f"{color} on black")
-            elif bot:
-                t.append("▄", style=f"{color} on black")
-            else:
-                t.append(" ", style="on black")
-        t.append("\n")
-    return t
-
 
 def _render_cover(data: bytes) -> Text | None:
     """Decode image bytes → half-block art Text, same technique as news_reader.py."""
@@ -306,7 +260,7 @@ class _MpvPlayer:
 # ── interactive sub-widgets ───────────────────────────────────────────────────
 
 class PlayPauseButton(Widget):
-    """Global half-block pixel art ▶ / ⏸ toggle for whatever is currently playing."""
+    """Global ▶ / ⏸ toggle for whatever is currently playing."""
 
     class Toggled(Message):
         pass
@@ -315,8 +269,9 @@ class PlayPauseButton(Widget):
     PlayPauseButton {
         width: auto;
         height: 4;
-        padding: 0 1;
         border: round $panel;
+        padding: 0 1;
+        content-align: center middle;
     }
     PlayPauseButton:hover { background: $boost; }
     PlayPauseButton:focus { border: round $accent; }
@@ -328,8 +283,8 @@ class PlayPauseButton(Widget):
 
     def render(self) -> Text:
         if self._playing:
-            return _pixel_art(_PAUSE_PIXELS, "bright_yellow")
-        return _pixel_art(_PLAY_PIXELS, "bright_green")
+            return Text("⏸", style="bright_yellow bold")
+        return Text("▶", style="bright_green bold")
 
     def set_playing(self, value: bool) -> None:
         self._playing = value
