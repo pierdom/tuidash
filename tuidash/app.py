@@ -64,7 +64,8 @@ class TuidashApp(App):
     .mobile CalendarWidget { width: 100%; }
     .mobile GhostfolioWidget { width: 100%; margin: 0; }
     .mobile #conn-hosts-col { width: 100%; }
-    .mobile EventsWidget { height: 14; }
+    .mobile EventsWidget { height: auto; }
+    .mobile #events-body  { height: auto; }
 
     /* News page */
     .mobile NewsPage Horizontal { layout: vertical; }
