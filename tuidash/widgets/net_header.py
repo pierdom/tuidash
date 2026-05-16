@@ -323,9 +323,9 @@ class PlayStatusWidget(Widget):
 
     DEFAULT_CSS = """
     PlayStatusWidget {
-        width: auto;
+        width: 3;
         height: 1;
-        padding: 0 1;
+        content-align: center middle;
     }
     PlayStatusWidget:hover { background: $boost; }
     """
@@ -342,7 +342,7 @@ class PlayStatusWidget(Widget):
 
     def render(self) -> Text:
         if not self._playing:
-            return Text("")
+            return Text(" ")
         if self._paused:
             return Text("⏸", style="bright_yellow")
         return Text("▶", style="bright_green")
@@ -371,9 +371,6 @@ class DashHeader(Widget):
         height: 1;
         text-align: center;
         content-align: center middle;
-    }
-    DashHeader > PlayStatusWidget {
-        height: 1;
     }
     DashHeader > #clock-right {
         width: auto;
