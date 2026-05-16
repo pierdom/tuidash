@@ -32,6 +32,19 @@ class NewsPage(BasePage):
         border-title-style: bold;
         border-subtitle-color: $text-muted;
     }
+
+    /* ── mobile mode ── */
+    .mobile NewsPage Horizontal {
+        layout: vertical;
+    }
+    .mobile NewsPage RelayWidget {
+        width: 100%;
+        height: auto;
+    }
+    .mobile NewsPage NewsReaderWidget {
+        width: 100%;
+        height: 1fr;
+    }
     """
 
     def compose(self) -> ComposeResult:

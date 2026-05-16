@@ -81,6 +81,44 @@ class DashboardPage(BasePage):
         border-title-style: bold;
         border-subtitle-color: $text-muted;
     }
+
+    /* ── mobile mode (narrow terminal) ── */
+    .mobile DashboardPage {
+        overflow-y: auto;
+    }
+    .mobile #row-top {
+        layout: vertical;
+        height: auto;
+    }
+    .mobile #row-mid {
+        layout: vertical;
+        height: auto;
+    }
+    .mobile #row-bot {
+        height: auto;
+    }
+    .mobile ClockWidget {
+        width: 100%;
+        height: 6;
+        margin: 0;
+    }
+    .mobile WeatherWidget {
+        width: 100%;
+        margin: 0;
+    }
+    .mobile CalendarWidget {
+        width: 100%;
+    }
+    .mobile GhostfolioWidget {
+        width: 100%;
+        margin: 0;
+    }
+    .mobile #conn-hosts-col {
+        width: 100%;
+    }
+    .mobile EventsWidget {
+        height: auto;
+    }
     """
 
     def compose(self) -> ComposeResult:

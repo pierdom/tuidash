@@ -75,6 +75,14 @@ class TuidashApp(App):
         ],
     ]
 
+    _MOBILE_THRESHOLD = 90
+
+    def on_resize(self, event) -> None:
+        if event.size.width < self._MOBILE_THRESHOLD:
+            self.add_class("mobile")
+        else:
+            self.remove_class("mobile")
+
     async def _shutdown(self) -> None:
         # Terminal is already restored by _process_messages → driver.stop_application_mode()
         # before this method is called. Skip the slow widget-pump drain and exit now.
