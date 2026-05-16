@@ -318,9 +318,18 @@ def main() -> None:
         # that remote browsers (tablet, etc.) receive a reachable WebSocket URL.
         public_url = config.get("TUIDASH_SERVE_URL") or None
         if not public_url:
-            public_host = args.host
-            if public_host == "0.0.0.0":
+            mdns = config.get("TUIDASH_SERVE_MDNS", "").strip().lower() in ("1", "true", "yes")
+            if mdns:
+                try:
+                    raw = socket.gethostname()
+                    # Use bare hostname + .local; skip if gethostname already returned an FQDN
+                    public_host = raw.split(".")[0] + ".local"
+                except Exception:
+                    public_host = _detect_serve_ip()
+            elif args.host == "0.0.0.0":
                 public_host = _detect_serve_ip()
+            else:
+                public_host = args.host
             public_url = f"http://{public_host}:{args.port}"
         sys.exit(subprocess.run(
             [textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app",
