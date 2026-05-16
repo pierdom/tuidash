@@ -427,13 +427,11 @@ class ToggleStatusButton(Widget):
 
     DEFAULT_CSS = """
     ToggleStatusButton {
-        width: auto;
-        height: auto;
-        padding: 0 1;
-        border: round $panel;
+        width: 3;
+        height: 1;
     }
     ToggleStatusButton:hover { background: $boost; }
-    ToggleStatusButton:focus { border: round $accent; }
+    ToggleStatusButton:focus { background: $boost; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -449,8 +447,8 @@ class ToggleStatusButton(Widget):
 
     def render(self) -> Text:
         if self._status == "completed":
-            return Text("↩ Set as new", style="dim")
-        return Text("✓ Mark listened", style="dim green")
+            return Text(" ↺ ", style="dim")
+        return Text(" ✓ ", style="dim green")
 
     def on_click(self) -> None:
         if self._episode_id:
