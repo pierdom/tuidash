@@ -449,6 +449,43 @@ class ResetEpisodeButton(Widget):
                 self.post_message(self.Pressed(self.feed_id, self._episode_id))
 
 
+class LatestEpisodeButton(Widget):
+    """● — jump back to the latest (newest) episode."""
+
+    class Pressed(Message):
+        def __init__(self, feed_id: int) -> None:
+            super().__init__()
+            self.feed_id = feed_id
+
+    DEFAULT_CSS = """
+    LatestEpisodeButton { width: 3; height: 1; }
+    LatestEpisodeButton:hover { background: $boost; }
+    LatestEpisodeButton:focus { background: $boost; }
+    """
+
+    def __init__(self, feed_id: int, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.feed_id = feed_id
+        self._enabled = False
+
+    def set_enabled(self, value: bool) -> None:
+        self._enabled = value
+        self.refresh()
+
+    def render(self) -> Text:
+        return Text(" ● ", style="" if self._enabled else "dim")
+
+    def on_click(self) -> None:
+        if self._enabled:
+            self.post_message(self.Pressed(self.feed_id))
+
+    def on_key(self, event) -> None:
+        if event.key in ("enter", "space"):
+            event.stop()
+            if self._enabled:
+                self.post_message(self.Pressed(self.feed_id))
+
+
 class PrevEpisodeButton(Widget):
     """◀ — show older episode in the same card."""
 
@@ -670,6 +707,7 @@ class PodcastCard(Widget):
                 with Horizontal(classes="card-play"):
                     yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}")
                     yield Static("", classes="card-play-spacer")
+                    yield LatestEpisodeButton(self._feed_id, id=f"ep-latest-{self._feed_id}")
                     yield PrevEpisodeButton(self._feed_id, id=f"ep-prev-{self._feed_id}")
                     yield NextEpisodeButton(self._feed_id, id=f"ep-next-{self._feed_id}")
 
@@ -734,10 +772,14 @@ class PodcastCard(Widget):
             pass
 
         try:
+            self.query_one(f"#ep-latest-{self._feed_id}", LatestEpisodeButton).set_enabled(idx > 0)
             self.query_one(f"#ep-prev-{self._feed_id}", PrevEpisodeButton).set_enabled(idx < len(episodes) - 1)
             self.query_one(f"#ep-next-{self._feed_id}", NextEpisodeButton).set_enabled(idx > 0)
         except Exception:
             pass
+
+    def on_latest_episode_button_pressed(self, event: LatestEpisodeButton.Pressed) -> None:
+        self._show_episode(0)
 
     def on_prev_episode_button_pressed(self, event: PrevEpisodeButton.Pressed) -> None:
         self._show_episode(self._ep_idx + 1)
