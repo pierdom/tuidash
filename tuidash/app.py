@@ -62,10 +62,10 @@ class TuidashApp(App):
         ("p",                "toggle_privacy",   "Privacy"),
         ("[",                "decrease_refresh", "-60s"),
         ("]",                "increase_refresh", "+60s"),
-        Binding("comma",     "prev_month",       "Prev month", priority=True),
-        Binding("full_stop", "next_month",       "Next month", priority=True),
         Binding("left",      "prev_page",        "Prev page",  priority=True),
         Binding("right",     "next_page",        "Next page",  priority=True),
+        Binding("comma",     "prev_month",       "Prev month", priority=True),
+        Binding("full_stop", "next_month",       "Next month", priority=True),
     ]
 
     async def _shutdown(self) -> None:
