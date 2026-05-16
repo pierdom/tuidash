@@ -239,7 +239,11 @@ class _MpvPlayer:
 
     def _kill(self) -> None:
         if self._proc and self._proc.poll() is None:
-            self._proc.terminate()
+            self._proc.kill()  # SIGKILL — cannot be caught or ignored
+            try:
+                self._proc.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                pass
         self._proc = None
         self._paused = False
 
