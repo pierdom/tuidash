@@ -458,7 +458,7 @@ class PrevEpisodeButton(Widget):
             self.feed_id = feed_id
 
     DEFAULT_CSS = """
-    PrevEpisodeButton { width: auto; height: 1; }
+    PrevEpisodeButton { width: 3; height: 1; }
     PrevEpisodeButton:hover { background: $boost; }
     PrevEpisodeButton:focus { background: $boost; }
     """
@@ -495,7 +495,7 @@ class NextEpisodeButton(Widget):
             self.feed_id = feed_id
 
     DEFAULT_CSS = """
-    NextEpisodeButton { width: auto; height: 1; }
+    NextEpisodeButton { width: 3; height: 1; }
     NextEpisodeButton:hover { background: $boost; }
     NextEpisodeButton:focus { background: $boost; }
     """
@@ -648,6 +648,7 @@ class PodcastCard(Widget):
         width: 1fr;
         align: left middle;
     }
+    PodcastCard .card-play EpisodePlayButton { width: auto; }
     PodcastCard .card-play-spacer { width: 1fr; height: 1; }
     """
 
