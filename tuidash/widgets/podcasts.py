@@ -513,13 +513,13 @@ class PodcastCard(Widget):
 
     DEFAULT_CSS = """
     PodcastCard {
-        height: auto;
+        height: 9;
         padding: 0 1 0 1;
         margin: 0 0 1 0;
         border: round $panel;
     }
     PodcastCard .card-main {
-        height: auto;
+        height: 100%;
     }
     PodcastCard .card-cover {
         width: 16;
@@ -527,24 +527,24 @@ class PodcastCard(Widget):
     }
     PodcastCard .card-right {
         width: 1fr;
-        height: auto;
+        height: 100%;
         padding: 0 1;
     }
     PodcastCard .card-title-row {
         width: 1fr;
-        height: auto;
+        height: 1;
         align: left top;
     }
     PodcastCard .card-title {
         width: 1fr;
-        height: auto;
+        height: 1;
     }
     PodcastCard .card-info {
         width: 1fr;
-        height: auto;
+        height: 1fr;
     }
     PodcastCard .card-controls {
-        height: auto;
+        height: 1;
         align: left middle;
     }
     """
