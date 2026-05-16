@@ -138,7 +138,7 @@ class DashboardPage(BasePage):
     def refresh_all(self) -> None:
         try:
             self.query_one(WeatherWidget)._load()
-            self.query_one(CalendarWidget)._fetch()
+            self.query_one(CalendarWidget)._load()
             self.query_one(GhostfolioWidget)._load()
             self.query_one(ConnectivityWidget)._load()
             self.query_one(HostsWidget)._load()

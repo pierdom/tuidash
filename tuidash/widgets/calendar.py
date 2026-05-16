@@ -154,6 +154,17 @@ class CalendarWidget(DashWidget):
         self._update_calendar()
         self.set_interval(60.0, self._update_calendar)
 
+    def _load(self) -> None:
+        """Refresh all ICS feeds (holiday + family + personal + work)."""
+        if self._url:
+            self._fetch()
+        if self._family_url:
+            self._fetch_family()
+        if self._personal_url:
+            self._fetch_personal()
+        if self._work_url:
+            self._fetch_work()
+
     def set_refresh_interval(self, seconds: int) -> None:
         if self._fetch_timer is not None:
             self._fetch_timer.stop()

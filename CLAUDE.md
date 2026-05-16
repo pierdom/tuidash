@@ -376,7 +376,7 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - Day highlight priority: today > holiday (red) > family > personal > work > weekend; each custom calendar has its own configurable Rich color
 - All ICS feeds refresh at the same rate as `TUIDASH_REFRESH` (wired to `set_refresh_interval`)
 - Calendar grid updates every 60 s regardless of refresh interval (no network dependency)
-- Manual `r` triggers the holiday ICS re-fetch (internal method `_fetch()`; note: CalendarWidget uses `_fetch()` rather than `_load()` as its primary data method — `dashboard.refresh_all()` calls `_fetch()` accordingly)
+- Manual `r` triggers `_load()`, which re-fetches all four ICS feeds in parallel (holiday, family, personal, work)
 
 ### EventsWidget
 
