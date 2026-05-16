@@ -257,6 +257,9 @@ class _MpvPlayer:
             pass
 
 
+# Module-level singleton — killed on app shutdown via app.py's _shutdown().
+player = _MpvPlayer()
+
 # ── interactive sub-widgets ───────────────────────────────────────────────────
 
 class PlayPauseButton(Widget):
@@ -639,7 +642,6 @@ class PodcastsWidget(DashWidget):
         self._feed_ids: list[int] = []
         self._key     = ""
         self._secret  = ""
-        self._player  = _MpvPlayer()
         self._playing_id: int | None = None
         self._playing_episode_id: int | None = None  # PodcastIndex episode ID for progress tracking
         self._data_timer: Timer | None = None
@@ -689,7 +691,7 @@ class PodcastsWidget(DashWidget):
         self._data_timer = self.set_interval(float(seconds), self._load)
 
     def on_unmount(self) -> None:
-        self._player.stop()
+        player.stop()
 
     # ── data loading ──────────────────────────────────────────────────────────
 
@@ -734,7 +736,7 @@ class PodcastsWidget(DashWidget):
     # ── playback polling ──────────────────────────────────────────────────────
 
     def _trigger_poll(self) -> None:
-        if self._player.running:
+        if player.running:
             self._poll_worker()
         elif self._playing_id is not None:
             # mpv exited naturally — reset global button and bar
@@ -747,8 +749,8 @@ class PodcastsWidget(DashWidget):
 
     @work(thread=True)
     def _poll_worker(self) -> None:
-        pos = self._player.get_property("time-pos")
-        dur = self._player.get_property("duration")
+        pos = player.get_property("time-pos")
+        dur = player.get_property("duration")
         status = None
         if pos is not None and dur and self._playing_episode_id:
             status = _progress.update(self._playing_episode_id, pos, dur)
@@ -776,11 +778,11 @@ class PodcastsWidget(DashWidget):
 
     def on_play_pause_button_toggled(self, event: PlayPauseButton.Toggled) -> None:
         """Global ▶/⏸ button in the bar — toggle pause on whatever is playing."""
-        if not self._player.running:
+        if not player.running:
             self.app.notify("Nothing is playing", severity="warning")
             return
-        self._player.pause_toggle()
-        self._set_global_playing(not self._player.paused)
+        player.pause_toggle()
+        self._set_global_playing(not player.paused)
 
     def on_episode_play_button_pressed(self, event: EpisodePlayButton.Pressed) -> None:
         """Per-card ▶ Play button — start (or switch to) that episode."""
@@ -814,7 +816,7 @@ class PodcastsWidget(DashWidget):
             self._playing_episode_id = None
             start_pos = 0.0
 
-        self._player.play(url, start_pos=start_pos)
+        player.play(url, start_pos=start_pos)
         self._playing_id = feed_id
 
         bar = self.query_one(PlaybackBar)
@@ -824,8 +826,8 @@ class PodcastsWidget(DashWidget):
         self._set_global_playing(True)
 
     def on_seek_button_pressed(self, event: SeekButton.Pressed) -> None:
-        if self._player.running:
-            self._player.seek(event.delta)
+        if player.running:
+            player.seek(event.delta)
         else:
             self.app.notify("Nothing is playing", severity="warning")
 
@@ -846,8 +848,8 @@ class PodcastsWidget(DashWidget):
             pass
 
     def on_playback_bar_seek_to(self, event: PlaybackBar.SeekTo) -> None:
-        if self._player.running:
-            self._player.seek_abs(event.position)
+        if player.running:
+            player.seek_abs(event.position)
             self.query_one(PlaybackBar).position = event.position
         else:
             self.app.notify("Nothing is playing", severity="warning")

@@ -75,6 +75,11 @@ class TuidashApp(App):
         # before this method is called. Skip the slow widget-pump drain and exit now.
         # We must close the driver (joins the writer thread) so its queued escape sequences
         # are flushed before os._exit kills the process.
+        try:
+            from .widgets.podcasts import player as _podcast_player
+            _podcast_player.stop()
+        except Exception:
+            pass
         if self._driver is not None:
             try:
                 self._driver.close()
