@@ -338,7 +338,7 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 
 ### HostsWidget (border title: "Servers")
 
-- `_name_from_url` returns the first hostname label for FQDN hosts (e.g. `bespin` from `bespin.local`); returns the full IP string for bare IP addresses (e.g. `192.168.1.1`, not `192`)
+- `_name_from_url` returns the first hostname label for FQDN hosts (e.g. `myserver` from `myserver.local`); returns the full IP string for bare IP addresses (e.g. `192.168.1.1`, not `192`)
 - Glances API: tries v4 (`/api/4/`) first, falls back to v3 (`/api/3/`)
 - Container colours: `green` (healthy), `red` (unhealthy), `dim` (not running), `""` default (running, no healthcheck)
 
