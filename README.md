@@ -54,11 +54,12 @@ Copy `.env.example` to `.env` and fill in the values that apply to you.
 ## Docker
 
 ```bash
+docker pull ghcr.io/pierdom/tuidash:latest
 cp .env.example .env   # fill in your values
 docker compose up -d
 ```
 
-The dashboard is served at `http://localhost:8080`. The image is pulled automatically from `ghcr.io/pierdom/tuidash:latest`.
+The dashboard is served at `http://localhost:8080`.
 
 ## Configuration
 
