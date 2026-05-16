@@ -306,26 +306,24 @@ class _MpvPlayer:
 # ── interactive sub-widgets ───────────────────────────────────────────────────
 
 class PlayPauseButton(Widget):
-    """Half-block pixel art ▶ / ⏸ button."""
+    """Global half-block pixel art ▶ / ⏸ toggle for whatever is currently playing."""
 
-    class Pressed(Message):
-        def __init__(self, feed_id: int) -> None:
-            super().__init__()
-            self.feed_id = feed_id
+    class Toggled(Message):
+        pass
 
     DEFAULT_CSS = """
     PlayPauseButton {
         width: auto;
-        height: auto;
+        height: 4;
         padding: 0 1;
+        border: round $panel;
     }
     PlayPauseButton:hover { background: $boost; }
-    PlayPauseButton:focus { border: tall $accent; }
+    PlayPauseButton:focus { border: round $accent; }
     """
 
-    def __init__(self, feed_id: int, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.feed_id = feed_id
         self._playing = False
 
     def render(self) -> Text:
@@ -336,6 +334,41 @@ class PlayPauseButton(Widget):
     def set_playing(self, value: bool) -> None:
         self._playing = value
         self.refresh()
+
+    def on_click(self) -> None:
+        self.post_message(self.Toggled())
+
+    def on_key(self, event) -> None:
+        if event.key in ("enter", "space"):
+            event.stop()
+            self.post_message(self.Toggled())
+
+
+class EpisodePlayButton(Widget):
+    """Small per-card ▶ button — selects this episode and starts playing."""
+
+    class Pressed(Message):
+        def __init__(self, feed_id: int) -> None:
+            super().__init__()
+            self.feed_id = feed_id
+
+    DEFAULT_CSS = """
+    EpisodePlayButton {
+        width: auto;
+        height: auto;
+        padding: 0 1;
+        border: round $panel;
+    }
+    EpisodePlayButton:hover { background: $boost; }
+    EpisodePlayButton:focus { border: round $accent; }
+    """
+
+    def __init__(self, feed_id: int, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.feed_id = feed_id
+
+    def render(self) -> Text:
+        return Text("▶ Play", style="bright_green bold")
 
     def on_click(self) -> None:
         self.post_message(self.Pressed(self.feed_id))
@@ -506,7 +539,7 @@ class PodcastCard(Widget):
             yield Static("", id=f"cover-{self._feed_id}", classes="card-cover")
             yield Static("[dim]Loading…[/dim]", id=f"info-{self._feed_id}", classes="card-info")
         with Horizontal(classes="card-controls"):
-            yield PlayPauseButton(self._feed_id, id=f"play-{self._feed_id}")
+            yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}")
 
     def update_data(self, pd: PodcastData) -> None:
         self._data = pd
@@ -545,12 +578,6 @@ class PodcastCard(Widget):
             info.append("\nNo episodes found", style="dim")
 
         self.query_one(f"#info-{self._feed_id}", Static).update(info)
-
-    def set_playing(self, value: bool) -> None:
-        try:
-            self.query_one(f"#play-{self._feed_id}", PlayPauseButton).set_playing(value)
-        except Exception:
-            pass
 
     @property
     def enclosure_url(self) -> str:
@@ -607,6 +634,7 @@ class PodcastsWidget(DashWidget):
                 yield Static("[dim]Loading…[/dim]", id="podcasts-placeholder")
             with Horizontal(id="podcasts-controls"):
                 yield SeekButton(-10)
+                yield PlayPauseButton(id="podcasts-playpause")
                 yield PlaybackBar(id="podcasts-bar")
                 yield SeekButton(+10)
 
@@ -689,13 +717,10 @@ class PodcastsWidget(DashWidget):
         if self._player.running:
             self._poll_worker()
         elif self._playing_id is not None:
-            # mpv exited naturally — reset play button
-            try:
-                self.query_one(f"#card-{self._playing_id}", PodcastCard).set_playing(False)
-            except Exception:
-                pass
+            # mpv exited naturally — reset global button and bar
             self._playing_id = None
             self._playing_episode_id = None
+            self.query_one(PlayPauseButton).set_playing(False)
             bar = self.query_one(PlaybackBar)
             bar.position = 0.0
             bar.label = ""
@@ -719,32 +744,27 @@ class PodcastsWidget(DashWidget):
         # Refresh the card's status badge if it changed
         if status and self._playing_id is not None:
             try:
-                self.query_one(f"#card-{self._playing_id}", PodcastCard).update_data(
-                    self.query_one(f"#card-{self._playing_id}", PodcastCard)._data
-                )
+                card = self.query_one(f"#card-{self._playing_id}", PodcastCard)
+                card.update_data(card._data)
             except Exception:
                 pass
+
+    def _set_global_playing(self, value: bool) -> None:
+        self.query_one(PlayPauseButton).set_playing(value)
 
     # ── playback message handlers ─────────────────────────────────────────────
 
-    def on_play_pause_button_pressed(self, event: PlayPauseButton.Pressed) -> None:
-        feed_id = event.feed_id
-
-        if self._playing_id == feed_id and self._player.running:
-            self._player.pause_toggle()
-            is_playing = not self._player.paused
-            try:
-                self.query_one(f"#card-{feed_id}", PodcastCard).set_playing(is_playing)
-            except Exception:
-                pass
+    def on_play_pause_button_toggled(self, event: PlayPauseButton.Toggled) -> None:
+        """Global ▶/⏸ button in the bar — toggle pause on whatever is playing."""
+        if not self._player.running:
+            self.app.notify("Nothing is playing", severity="warning")
             return
+        self._player.pause_toggle()
+        self._set_global_playing(not self._player.paused)
 
-        # Switch to a different (or stopped) podcast
-        if self._playing_id is not None:
-            try:
-                self.query_one(f"#card-{self._playing_id}", PodcastCard).set_playing(False)
-            except Exception:
-                pass
+    def on_episode_play_button_pressed(self, event: EpisodePlayButton.Pressed) -> None:
+        """Per-card ▶ Play button — start (or switch to) that episode."""
+        feed_id = event.feed_id
 
         try:
             card = self.query_one(f"#card-{feed_id}", PodcastCard)
@@ -778,14 +798,10 @@ class PodcastsWidget(DashWidget):
         self._playing_id = feed_id
 
         bar = self.query_one(PlaybackBar)
-        bar.position = 0.0
+        bar.position = start_pos
         bar.duration = 0.0
         bar.label    = self._now_playing
-
-        try:
-            self.query_one(f"#card-{feed_id}", PodcastCard).set_playing(True)
-        except Exception:
-            pass
+        self._set_global_playing(True)
 
     def on_seek_button_pressed(self, event: SeekButton.Pressed) -> None:
         if self._player.running:
@@ -796,7 +812,6 @@ class PodcastsWidget(DashWidget):
     def on_playback_bar_seek_to(self, event: PlaybackBar.SeekTo) -> None:
         if self._player.running:
             self._player.seek_abs(event.position)
-            # Optimistic update so the bar moves instantly before next poll
             self.query_one(PlaybackBar).position = event.position
         else:
             self.app.notify("Nothing is playing", severity="warning")
