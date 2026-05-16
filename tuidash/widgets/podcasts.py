@@ -507,8 +507,6 @@ class PodcastCard(Widget):
             yield Static("[dim]Loading…[/dim]", id=f"info-{self._feed_id}", classes="card-info")
         with Horizontal(classes="card-controls"):
             yield PlayPauseButton(self._feed_id, id=f"play-{self._feed_id}")
-            yield SeekButton(-10)
-            yield SeekButton(+10)
 
     def update_data(self, pd: PodcastData) -> None:
         self._data = pd
@@ -568,12 +566,24 @@ class PodcastsWidget(DashWidget):
     PodcastsWidget { height: 100%; }
     PodcastsWidget > Vertical { height: 100%; }
     #podcasts-scroll { height: 1fr; padding: 0 1; }
+    #podcasts-controls {
+        height: 4;
+        margin: 0 1 0 1;
+        align: left middle;
+    }
     #podcasts-bar {
+        width: 1fr;
         height: 4;
         border: round $panel;
         border-title-color: $accent;
         border-title-style: bold;
-        margin: 0 1 0 1;
+        margin: 0 1;
+    }
+    #podcasts-controls SeekButton {
+        height: 4;
+        border: round $panel;
+        padding: 1 1;
+        width: auto;
     }
     """
 
@@ -594,7 +604,10 @@ class PodcastsWidget(DashWidget):
             with ScrollableContainer(id="podcasts-scroll") as sc:
                 sc.can_focus = False
                 yield Static("[dim]Loading…[/dim]", id="podcasts-placeholder")
-            yield PlaybackBar(id="podcasts-bar")
+            with Horizontal(id="podcasts-controls"):
+                yield SeekButton(-10)
+                yield PlaybackBar(id="podcasts-bar")
+                yield SeekButton(+10)
 
     def on_mount(self) -> None:
         self._key    = config.get("TUIDASH_PODCASTINDEX_KEY",    "") or ""
