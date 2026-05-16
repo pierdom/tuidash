@@ -652,6 +652,13 @@ class PodcastsWidget(DashWidget):
     PodcastsWidget { height: 100%; }
     PodcastsWidget > Vertical { height: 100%; }
     #podcasts-scroll { height: 1fr; padding: 0 1; }
+    #podcasts-grid {
+        layout: grid;
+        grid-size: 2;
+        grid-gutter: 1;
+        height: auto;
+        width: 100%;
+    }
     #podcasts-controls {
         height: 4;
         margin: 0 1 0 1;
@@ -690,7 +697,8 @@ class PodcastsWidget(DashWidget):
         with Vertical():
             with ScrollableContainer(id="podcasts-scroll") as sc:
                 sc.can_focus = False
-                yield Static("[dim]Loading…[/dim]", id="podcasts-placeholder")
+                with Widget(id="podcasts-grid"):
+                    yield Static("[dim]Loading…[/dim]", id="podcasts-placeholder")
             with Horizontal(id="podcasts-controls"):
                 yield SeekButton(-10)
                 yield PlayPauseButton(id="podcasts-playpause")
@@ -758,13 +766,13 @@ class PodcastsWidget(DashWidget):
         except Exception:
             pass
 
-        scroll = self.query_one("#podcasts-scroll", ScrollableContainer)
+        grid = self.query_one("#podcasts-grid")
         for pd in feeds:
             try:
                 card = self.query_one(f"#card-{pd.feed_id}", PodcastCard)
             except Exception:
                 card = PodcastCard(pd.feed_id, id=f"card-{pd.feed_id}")
-                scroll.mount(card)
+                grid.mount(card)
             card.update_data(pd)
 
         n_ok = sum(1 for pd in feeds if not pd.error)
