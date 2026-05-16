@@ -69,6 +69,10 @@ class TuidashApp(App):
         Binding("space",     "toggle_playback",  "⏯ Play/Pause", priority=True),
         Binding("comma",     "prev_month",       "Prev month", priority=True),
         Binding("full_stop", "next_month",       "Next month", priority=True),
+        *[
+            Binding(str(i + 1), f"go_page({i})", f"Page {i + 1}", show=False)
+            for i in range(len(_PAGES))
+        ],
     ]
 
     async def _shutdown(self) -> None:
@@ -215,6 +219,12 @@ class TuidashApp(App):
         self._page_idx = (self._page_idx + 1) % len(_PAGES)
         self.query_one(ContentSwitcher).current = _PAGES[self._page_idx][1]
         self._update_subtitle()
+
+    def action_go_page(self, idx: int) -> None:
+        if 0 <= idx < len(_PAGES):
+            self._page_idx = idx
+            self.query_one(ContentSwitcher).current = _PAGES[idx][1]
+            self._update_subtitle()
 
 
 def _local_ips() -> list[str]:
