@@ -4,7 +4,11 @@ A personal terminal dashboard built with [Textual](https://textual.textualize.io
 
 > **This is a side project.** It is built around the things that matter to me — my weather, my servers, my portfolio, my feeds. Configuration is intentionally minimal; it is not designed as a general-purpose dashboard framework.
 
-![screenshot placeholder]
+![Dashboard](screenshots/tuidash_main.png)
+
+![News](screenshots/tuidash_news.png)
+
+![Calendar](screenshots/tuidash_calendar.png)
 
 ## What it shows
 
