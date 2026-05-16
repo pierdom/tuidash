@@ -122,7 +122,8 @@ def _render_full_month(
     WN_WIDTH = 4
     PADDING  = 1   # chars per side
     # Total non-content cols: WN + 8 cols × 2-pad + 7 dividers (│)
-    day_col_w = max(6, (content_width - WN_WIDTH - 8 * PADDING * 2 - 7) // 7)
+    _min_col = 2 if mobile else 6
+    day_col_w = max(_min_col, (content_width - WN_WIDTH - 8 * PADDING * 2 - 7) // 7)
     # Fixed lines: 1 header row + 1 header-sep + (num_weeks-1) row-seps + 1 closing line = num_weeks + 2
     avail_h  = content_height - num_weeks - 2
     ch_base  = max(2, avail_h // num_weeks)
