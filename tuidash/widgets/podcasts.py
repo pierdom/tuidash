@@ -536,7 +536,7 @@ class PodcastCard(Widget):
     }
     PodcastCard .card-info {
         width: 1fr;
-        height: auto;
+        height: 5;
     }
     PodcastCard .card-play {
         height: 1;
