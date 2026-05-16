@@ -49,6 +49,23 @@ class ProgressStore:
             return 0.0   # replay completed episodes from the beginning
         return float(entry.get("position", 0.0))
 
+    def mark_completed(self, episode_id: int, duration: float = 0.0) -> None:
+        """Manually mark an episode as completed."""
+        with self._lock:
+            self._data[str(episode_id)] = {
+                "status":       "completed",
+                "position":     round(duration, 1),
+                "duration":     round(duration, 1),
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+        self._save_unlocked()
+
+    def reset(self, episode_id: int) -> None:
+        """Remove an episode's progress entry (reverts to 'new' if recently published)."""
+        with self._lock:
+            self._data.pop(str(episode_id), None)
+        self._save_unlocked()
+
     def update(self, episode_id: int, position: float, duration: float) -> str:
         """Record playback progress; returns the resulting status string."""
         key = str(episode_id)
