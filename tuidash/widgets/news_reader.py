@@ -170,7 +170,8 @@ class NewsReaderWidget(DashWidget):
         self._show_pictures: bool = True
 
     def compose(self) -> ComposeResult:
-        with ScrollableContainer(id="news-reader-scroll"):
+        with ScrollableContainer(id="news-reader-scroll") as sc:
+            sc.can_focus = False
             yield Static("[dim]Loading…[/dim]", id="news-reader-body")
 
     def on_mount(self) -> None:

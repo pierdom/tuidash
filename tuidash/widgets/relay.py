@@ -123,7 +123,8 @@ class RelayWidget(DashWidget):
         self._sse_resp: requests.Response | None = None
 
     def compose(self) -> ComposeResult:
-        with ScrollableContainer():
+        with ScrollableContainer() as sc:
+            sc.can_focus = False
             yield Static("[dim]Loading…[/dim]")
 
     def on_mount(self) -> None:
