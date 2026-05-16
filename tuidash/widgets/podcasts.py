@@ -315,11 +315,6 @@ class EpisodePlayButton(Widget):
             self.feed_id = feed_id
 
     DEFAULT_CSS = """
-    EpisodePlayButton {
-        width: auto;
-        height: 1;
-        padding: 0 1;
-    }
     EpisodePlayButton:hover { background: $boost; }
     EpisodePlayButton:focus { background: $accent 20%; }
     """
@@ -512,8 +507,8 @@ class PodcastCard(Widget):
 
     DEFAULT_CSS = """
     PodcastCard {
-        height: 9;
-        padding: 0 1 0 1;
+        height: auto;
+        padding: 0 1 1 1;
         margin: 0 0 1 0;
         border: round $panel;
     }
@@ -526,7 +521,7 @@ class PodcastCard(Widget):
     }
     PodcastCard .card-right {
         width: 1fr;
-        height: 7;
+        height: auto;
         padding: 0 1;
     }
     PodcastCard .card-title-row {
@@ -540,10 +535,13 @@ class PodcastCard(Widget):
     }
     PodcastCard .card-info {
         width: 1fr;
-        height: 5;
+        height: auto;
     }
-    PodcastCard .card-controls {
+    PodcastCard .card-play {
+        dock: bottom;
         height: 1;
+        width: auto;
+        padding: 0 1;
     }
     """
 
@@ -553,6 +551,7 @@ class PodcastCard(Widget):
         self._data: PodcastData | None = None
 
     def compose(self) -> ComposeResult:
+        yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}", classes="card-play")
         with Horizontal(classes="card-main"):
             yield Static("", id=f"cover-{self._feed_id}", classes="card-cover")
             with Vertical(classes="card-right"):
@@ -560,7 +559,6 @@ class PodcastCard(Widget):
                     yield Static("[dim]Loading…[/dim]", id=f"title-{self._feed_id}", classes="card-title")
                     yield ToggleStatusButton(self._feed_id, id=f"toggle-{self._feed_id}")
                 yield Static("", id=f"info-{self._feed_id}", classes="card-info")
-                yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}", classes="card-controls")
 
     def update_data(self, pd: PodcastData) -> None:
         self._data = pd
