@@ -60,6 +60,22 @@ class ProgressStore:
             }
         self._save_unlocked()
 
+    def latest_started(self) -> tuple[int, float] | None:
+        """Return (episode_id, position) for the most-recently-updated 'started' episode, or None."""
+        with self._lock:
+            best_key = None
+            best_ts  = ""
+            for key, entry in self._data.items():
+                if entry.get("status") == "started":
+                    ts = entry.get("last_updated", "")
+                    if ts > best_ts:
+                        best_ts  = ts
+                        best_key = key
+            if best_key is None:
+                return None
+            entry = self._data[best_key]
+            return int(best_key), float(entry.get("position", 0.0))
+
     def reset(self, episode_id: int) -> None:
         """Remove an episode's progress entry (reverts to 'new' if recently published)."""
         with self._lock:

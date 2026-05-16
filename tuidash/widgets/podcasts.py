@@ -173,7 +173,7 @@ class _MpvPlayer:
 
     # ── public ──
 
-    def play(self, url: str, start_pos: float = 0.0) -> None:
+    def play(self, url: str, start_pos: float = 0.0, paused: bool = False) -> None:
         with self._lock:
             self._kill()
             try:
@@ -184,11 +184,13 @@ class _MpvPlayer:
                     f"--input-ipc-server={self._SOCK}"]
             if start_pos > 0:
                 args += [f"--start={start_pos}"]
+            if paused:
+                args += ["--pause"]
             args.append(url)
             self._proc = subprocess.Popen(
                 args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
-            self._paused = False
+            self._paused = paused
 
     def pause_toggle(self) -> None:
         self._cmd({"command": ["cycle", "pause"]})
@@ -688,6 +690,7 @@ class PodcastsWidget(DashWidget):
         self._data_timer: Timer | None = None
         self._poll_timer: Timer | None = None
         self._now_playing = ""
+        self._auto_resumed = False
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -773,6 +776,26 @@ class PodcastsWidget(DashWidget):
 
         n_ok = sum(1 for pd in feeds if not pd.error)
         self.border_subtitle = f"{n_ok}/{len(feeds)} podcasts"
+
+        # Auto-resume the most recently started episode (paused) on first load only.
+        if not player.running and not self._auto_resumed:
+            self._auto_resumed = True
+            started = _progress.latest_started()
+            if started:
+                ep_id, pos = started
+                for pd in feeds:
+                    if pd.episode and pd.episode.id == ep_id and pd.episode.enclosure_url:
+                        ep = pd.episode
+                        self._now_playing = f"{pd.title} — {ep.title}"
+                        self._playing_episode_id = ep_id
+                        self._playing_id = pd.feed_id
+                        player.play(ep.enclosure_url, start_pos=pos, paused=True)
+                        bar = self.query_one(PlaybackBar)
+                        bar.position = pos
+                        bar.duration = float(ep.duration) if ep.duration else 0.0
+                        bar.label    = self._now_playing
+                        self._set_global_playing(False)
+                        break
 
     # ── playback polling ──────────────────────────────────────────────────────
 
