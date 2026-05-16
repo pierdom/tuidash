@@ -663,7 +663,7 @@ class PodcastCard(Widget):
     PodcastCard {
         height: 9;
         padding: 0 1 0 1;
-        margin: 0 0 1 0;
+        margin: 0;
         border: round $panel;
     }
     PodcastCard .card-main {
@@ -820,8 +820,8 @@ class PodcastsWidget(DashWidget):
     #podcasts-grid {
         layout: grid;
         grid-size: 2;
-        grid-rows: 10;
-        grid-gutter: 1;
+        grid-rows: 9;
+        grid-gutter: 0;
         height: auto;
         width: 100%;
     }
