@@ -739,6 +739,7 @@ class PodcastCard(Widget):
         idx = max(0, min(idx, len(episodes) - 1))
         self._ep_idx = idx
         ep = episodes[idx]
+        is_latest = idx == 0
         is_last = idx == len(episodes) - 1
 
         info = Text()
@@ -760,6 +761,8 @@ class PodcastCard(Widget):
         elif status == "completed":
             info.append("  ✓", style="dim green")
 
+        if is_latest:
+            info.append("  [latest]", style="dim")
         if is_last:
             info.append("  [last]", style="dim")
 
