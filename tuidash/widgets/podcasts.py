@@ -530,6 +530,15 @@ class PodcastCard(Widget):
         height: auto;
         padding: 0 1;
     }
+    PodcastCard .card-title-row {
+        width: 1fr;
+        height: auto;
+        align: left top;
+    }
+    PodcastCard .card-title {
+        width: 1fr;
+        height: auto;
+    }
     PodcastCard .card-info {
         width: 1fr;
         height: auto;
@@ -550,27 +559,30 @@ class PodcastCard(Widget):
         with Horizontal(classes="card-main"):
             yield Static("", id=f"cover-{self._feed_id}", classes="card-cover")
             with Vertical(classes="card-right"):
-                yield Static("[dim]Loading…[/dim]", id=f"info-{self._feed_id}", classes="card-info")
+                with Horizontal(classes="card-title-row"):
+                    yield Static("[dim]Loading…[/dim]", id=f"title-{self._feed_id}", classes="card-title")
+                    yield ToggleStatusButton(self._feed_id, id=f"toggle-{self._feed_id}")
+                yield Static("", id=f"info-{self._feed_id}", classes="card-info")
                 with Horizontal(classes="card-controls"):
                     yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}")
-                    yield ToggleStatusButton(self._feed_id, id=f"toggle-{self._feed_id}")
 
     def update_data(self, pd: PodcastData) -> None:
         self._data = pd
 
-        cover = self.query_one(f"#cover-{self._feed_id}", Static)
         if pd.image_data:
             art = _render_cover(pd.image_data)
             if art:
-                cover.update(art)
+                self.query_one(f"#cover-{self._feed_id}", Static).update(art)
+
+        title = Text(pd.title, style="bold")
+        self.query_one(f"#title-{self._feed_id}", Static).update(title)
 
         info = Text()
-        info.append(pd.title, style="bold")
         if pd.error and not pd.episode:
-            info.append(f"\n{pd.error}", style="dim red")
+            info.append(pd.error, style="dim red")
         elif pd.episode:
             ep = pd.episode
-            info.append(f"\n{ep.title}")
+            info.append(ep.title)
             parts: list[str] = []
             if ep.date_published:
                 parts.append(_fmt_date(ep.date_published))
@@ -594,7 +606,7 @@ class PodcastCard(Widget):
             except Exception:
                 pass
         else:
-            info.append("\nNo episodes found", style="dim")
+            info.append("No episodes found", style="dim")
 
         self.query_one(f"#info-{self._feed_id}", Static).update(info)
 
