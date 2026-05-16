@@ -775,7 +775,7 @@ class PodcastCard(Widget):
 
         if is_latest:
             info.append("  ● LAST", style="bold orange1")
-        if is_last:
+        elif is_last:
             info.append("  ● LAST", style="bold orange1")
 
         self.query_one(f"#info-{self._feed_id}", Static).update(info)
@@ -947,13 +947,13 @@ class PodcastsWidget(DashWidget):
 
         # Auto-resume the most recently started episode (paused) on first load only.
         if not player.running and not self._auto_resumed:
-            self._auto_resumed = True
             started = _progress.latest_started()
             if started:
                 ep_id, pos = started
                 for pd in feeds:
                     ep = next((e for e in pd.episodes if e.id == ep_id), None)
                     if ep and ep.enclosure_url:
+                        self._auto_resumed = True   # only lock once a match is found
                         ep_idx = pd.episodes.index(ep)
                         self._now_playing = f"{pd.title} — {ep.title}"
                         self._playing_episode_id = ep_id
