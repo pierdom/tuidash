@@ -648,6 +648,7 @@ class PodcastCard(Widget):
         width: 1fr;
         align: left middle;
     }
+    PodcastCard .card-play-spacer { width: 1fr; height: 1; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -667,6 +668,7 @@ class PodcastCard(Widget):
                 yield Static("", id=f"info-{self._feed_id}", classes="card-info")
                 with Horizontal(classes="card-play"):
                     yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}")
+                    yield Static("", classes="card-play-spacer")
                     yield PrevEpisodeButton(self._feed_id, id=f"ep-prev-{self._feed_id}")
                     yield NextEpisodeButton(self._feed_id, id=f"ep-next-{self._feed_id}")
 
