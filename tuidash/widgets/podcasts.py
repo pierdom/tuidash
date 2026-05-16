@@ -762,9 +762,9 @@ class PodcastCard(Widget):
             info.append("  ✓", style="dim green")
 
         if is_latest:
-            info.append("  [latest]", style="dim")
+            info.append("  ■ latest", style="bold orange1")
         if is_last:
-            info.append("  [last]", style="dim")
+            info.append("  ■ last", style="bold orange1")
 
         self.query_one(f"#info-{self._feed_id}", Static).update(info)
 
