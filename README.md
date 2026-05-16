@@ -1,5 +1,7 @@
 # tuidash
 
+[![Docker](https://github.com/pierdom/tuidash/actions/workflows/docker.yml/badge.svg)](https://github.com/pierdom/tuidash/actions/workflows/docker.yml)
+
 A personal terminal dashboard built with [Textual](https://textual.textualize.io/) and [Rich](https://rich.readthedocs.io/).
 
 ## Why this exists
