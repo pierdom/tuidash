@@ -967,10 +967,20 @@ class PodcastsWidget(DashWidget):
                             card = self.query_one(f"#card-{pd.feed_id}", PodcastCard)
                             card._ep_idx = ep_idx
                             card._show_episode(ep_idx)
-                            self.query_one(f"#play-{pd.feed_id}", EpisodePlayButton).set_playing(True, paused=True)
                         except Exception:
                             pass
                         break
+
+        # Normalise every episode play button from the single source of truth.
+        # This prevents stale state from being shown on cards that aren't playing.
+        for pd in feeds:
+            is_active = (pd.feed_id == self._playing_id) and player.running
+            try:
+                self.query_one(f"#play-{pd.feed_id}", EpisodePlayButton).set_playing(
+                    is_active, is_active and player.paused
+                )
+            except Exception:
+                pass
 
     # ── playback polling ──────────────────────────────────────────────────────
 
