@@ -55,10 +55,10 @@ Copy `.env.example` to `.env` and fill in the values that apply to you.
 
 ```bash
 cp .env.example .env   # fill in your values
-docker compose up --build
+docker compose up -d
 ```
 
-The dashboard is served at `http://localhost:8080`. On subsequent runs `--build` can be omitted.
+The dashboard is served at `http://localhost:8080`. The image is pulled automatically from `ghcr.io/pierdom/tuidash:latest`.
 
 ## Configuration
 

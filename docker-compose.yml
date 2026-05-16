@@ -1,6 +1,6 @@
 services:
   tuidash:
-    build: .
+    image: ghcr.io/pierdom/tuidash:latest
     env_file:
       - .env
     environment:
