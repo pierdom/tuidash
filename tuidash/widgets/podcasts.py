@@ -507,14 +507,13 @@ class PodcastCard(Widget):
 
     DEFAULT_CSS = """
     PodcastCard {
-        height: 10;
-        layout: vertical;
+        height: 9;
         padding: 0 1 0 1;
         margin: 0 0 1 0;
         border: round $panel;
     }
     PodcastCard .card-main {
-        height: auto;
+        height: 7;
     }
     PodcastCard .card-cover {
         width: 16;
@@ -522,7 +521,7 @@ class PodcastCard(Widget):
     }
     PodcastCard .card-right {
         width: 1fr;
-        height: auto;
+        height: 7;
         padding: 0 1;
     }
     PodcastCard .card-title-row {
@@ -542,6 +541,7 @@ class PodcastCard(Widget):
         height: 1;
         width: auto;
         padding: 0 1;
+        margin: 0;
     }
     """
 
@@ -558,7 +558,7 @@ class PodcastCard(Widget):
                     yield Static("[dim]Loading…[/dim]", id=f"title-{self._feed_id}", classes="card-title")
                     yield ToggleStatusButton(self._feed_id, id=f"toggle-{self._feed_id}")
                 yield Static("", id=f"info-{self._feed_id}", classes="card-info")
-        yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}", classes="card-play")
+                yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}", classes="card-play")
 
     def update_data(self, pd: PodcastData) -> None:
         self._data = pd
@@ -621,7 +621,7 @@ class PodcastsWidget(DashWidget):
     #podcasts-grid {
         layout: grid;
         grid-size: 2;
-        grid-rows: 11;
+        grid-rows: 10;
         grid-gutter: 1;
         height: auto;
         width: 100%;
