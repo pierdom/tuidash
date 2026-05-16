@@ -514,7 +514,7 @@ class PodcastCard(Widget):
     DEFAULT_CSS = """
     PodcastCard {
         height: auto;
-        padding: 1 1 0 1;
+        padding: 0 1 0 1;
         margin: 0 0 1 0;
         border: round $panel;
     }
@@ -545,7 +545,6 @@ class PodcastCard(Widget):
     }
     PodcastCard .card-controls {
         height: auto;
-        padding: 1 0 0 0;
         align: left middle;
     }
     """
