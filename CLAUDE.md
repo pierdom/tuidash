@@ -17,9 +17,11 @@ uv run python -m tuidash.app          # alternative (terminal only)
 
 ```bash
 # Docker (serves on http://localhost:8080)
-docker compose up --build
-docker compose up -d      # detached
+docker pull ghcr.io/pierdom/tuidash:latest
+docker compose up -d
 ```
+
+The published image is `ghcr.io/pierdom/tuidash:latest` (multi-arch: `amd64` + `arm64`), built automatically by GitHub Actions on every push to `main`. `docker-compose.yml` pulls it directly — no local build needed.
 
 All dependencies are managed with `uv`. Never use `pip` directly.
 
