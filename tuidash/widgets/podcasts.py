@@ -14,14 +14,16 @@ from io import BytesIO
 from typing import Any
 
 import requests
+from rich.console import Group
 from rich.text import Text
+from textual import events, work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.message import Message
+from textual.reactive import reactive
 from textual.timer import Timer
 from textual.widget import Widget
 from textual.widgets import Static
-from textual import work
 
 from .. import config
 from .base import DashWidget
@@ -238,6 +240,32 @@ class _MpvPlayer:
     def seek(self, delta: int) -> None:
         self._cmd({"command": ["seek", delta, "relative"]})
 
+    def seek_abs(self, position: float) -> None:
+        self._cmd({"command": ["seek", position, "absolute"]})
+
+    def get_property(self, prop: str) -> float | None:
+        """Query an mpv property via IPC. Returns None on error or if not running."""
+        if not os.path.exists(self._SOCK):
+            return None
+        try:
+            with _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM) as s:
+                s.settimeout(0.5)
+                s.connect(self._SOCK)
+                s.sendall(json.dumps({"command": ["get_property", prop]}).encode() + b"\n")
+                data = b""
+                while b"\n" not in data:
+                    chunk = s.recv(4096)
+                    if not chunk:
+                        break
+                    data += chunk
+                result = json.loads(data.split(b"\n")[0])
+                if result.get("error") == "success":
+                    val = result.get("data")
+                    return float(val) if val is not None else None
+        except Exception:
+            pass
+        return None
+
     def stop(self) -> None:
         with self._lock:
             self._kill()
@@ -351,6 +379,89 @@ class SeekButton(Widget):
             self.post_message(self.Pressed(self.delta))
 
 
+# ── playback progress bar ─────────────────────────────────────────────────────
+
+def _fmt_time(seconds: float) -> str:
+    s = int(seconds)
+    h, r = divmod(s, 3600)
+    m, s = divmod(r, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+class PlaybackBar(Widget):
+    """Clickable / draggable playback progress bar.
+
+    Click or drag anywhere on the bar to seek to that position.
+    """
+
+    class SeekTo(Message):
+        def __init__(self, position: float) -> None:
+            super().__init__()
+            self.position = position
+
+    position: reactive[float] = reactive(0.0)
+    duration: reactive[float] = reactive(0.0)
+    label:    reactive[str]   = reactive("")
+
+    DEFAULT_CSS = """
+    PlaybackBar {
+        height: 4;
+        border: round $panel;
+        padding: 0 1;
+    }
+    PlaybackBar:hover { background: $boost; }
+    """
+
+    def render(self) -> Group:
+        w = self.content_size.width or 1
+
+        # ── label line ──
+        if self.label:
+            line1 = Text(self.label[:w], style="bold", no_wrap=True)
+        else:
+            line1 = Text("No podcast playing", style="dim", no_wrap=True)
+
+        # ── bar line ──
+        time_str = f" {_fmt_time(self.position)} / {_fmt_time(self.duration)}"
+        bar_w = max(1, w - len(time_str))
+        # store for seek calculation
+        self._bar_w = bar_w
+
+        if self.duration > 0:
+            filled = round(bar_w * min(self.position, self.duration) / self.duration)
+        else:
+            filled = 0
+
+        bar = Text(no_wrap=True)
+        bar.append("█" * filled,           style="bright_green")
+        bar.append("░" * (bar_w - filled), style="dim green")
+        bar.append(time_str,               style="dim")
+
+        return Group(line1, bar)
+
+    # ── mouse interaction ────────────────────────────────────────────────────
+
+    def on_mouse_down(self, event: events.MouseDown) -> None:
+        self.capture_mouse()
+        self._seek_from_x(event.x)
+
+    def on_mouse_move(self, event: events.MouseMove) -> None:
+        if event.button:   # any button held
+            self._seek_from_x(event.x)
+
+    def on_mouse_up(self, event: events.MouseUp) -> None:
+        self.release_mouse()
+
+    def _seek_from_x(self, x: int) -> None:
+        if self.duration <= 0:
+            return
+        # content starts at x=2 (1 border + 1 padding); bar_w set at last render
+        bar_x = x - 2
+        bar_w = getattr(self, "_bar_w", self.content_size.width)
+        ratio = max(0.0, min(1.0, bar_x / max(1, bar_w - 1)))
+        self.post_message(self.SeekTo(ratio * self.duration))
+
+
 # ── podcast card ──────────────────────────────────────────────────────────────
 
 class PodcastCard(Widget):
@@ -442,27 +553,41 @@ class PodcastsWidget(DashWidget):
 
     DEFAULT_CSS = """
     PodcastsWidget { height: 100%; }
-    #podcasts-scroll { height: 100%; padding: 0 1; }
+    PodcastsWidget > Vertical { height: 100%; }
+    #podcasts-scroll { height: 1fr; padding: 0 1; }
+    #podcasts-bar {
+        height: 4;
+        border: round $panel;
+        border-title-color: $accent;
+        border-title-style: bold;
+        margin: 0 1 0 1;
+    }
     """
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._feed_ids: list[int] = []
-        self._key    = ""
-        self._secret = ""
-        self._player = _MpvPlayer()
+        self._key     = ""
+        self._secret  = ""
+        self._player  = _MpvPlayer()
         self._playing_id: int | None = None
         self._data_timer: Timer | None = None
+        self._poll_timer: Timer | None = None
+        self._now_playing = ""
 
     def compose(self) -> ComposeResult:
-        with ScrollableContainer(id="podcasts-scroll") as sc:
-            sc.can_focus = False
-            yield Static("[dim]Loading…[/dim]", id="podcasts-placeholder")
+        with Vertical():
+            with ScrollableContainer(id="podcasts-scroll") as sc:
+                sc.can_focus = False
+                yield Static("[dim]Loading…[/dim]", id="podcasts-placeholder")
+            yield PlaybackBar(id="podcasts-bar")
 
     def on_mount(self) -> None:
         self._key    = config.get("TUIDASH_PODCASTINDEX_KEY",    "") or ""
         self._secret = config.get("TUIDASH_PODCASTINDEX_SECRET", "") or ""
         raw_ids      = config.get("TUIDASH_PODCASTINDEX_IDS",    "") or ""
+
+        self.query_one(PlaybackBar).border_title = "  Now Playing"
 
         if not self._key or not self._secret:
             self._error("Configure TUIDASH_PODCASTINDEX_KEY and TUIDASH_PODCASTINDEX_SECRET")
@@ -475,6 +600,8 @@ class PodcastsWidget(DashWidget):
         if not self._feed_ids:
             self._error("No podcasts configured — set TUIDASH_PODCASTINDEX_IDS")
             return
+
+        self._poll_timer = self.set_interval(0.5, self._trigger_poll)
         self._load()
 
     def _error(self, msg: str) -> None:
@@ -487,6 +614,8 @@ class PodcastsWidget(DashWidget):
 
     def on_unmount(self) -> None:
         self._player.stop()
+
+    # ── data loading ──────────────────────────────────────────────────────────
 
     @work(thread=True)
     def _load(self) -> None:
@@ -526,6 +655,36 @@ class PodcastsWidget(DashWidget):
         n_ok = sum(1 for pd in feeds if not pd.error)
         self.border_subtitle = f"{n_ok}/{len(feeds)} podcasts"
 
+    # ── playback polling ──────────────────────────────────────────────────────
+
+    def _trigger_poll(self) -> None:
+        if self._player.running:
+            self._poll_worker()
+        elif self._playing_id is not None:
+            # mpv exited naturally — reset play button
+            try:
+                self.query_one(f"#card-{self._playing_id}", PodcastCard).set_playing(False)
+            except Exception:
+                pass
+            self._playing_id = None
+            bar = self.query_one(PlaybackBar)
+            bar.position = 0.0
+            bar.label = ""
+
+    @work(thread=True)
+    def _poll_worker(self) -> None:
+        pos = self._player.get_property("time-pos")
+        dur = self._player.get_property("duration")
+        self.app.call_from_thread(self._update_bar, pos, dur)
+
+    def _update_bar(self, pos: float | None, dur: float | None) -> None:
+        bar = self.query_one(PlaybackBar)
+        if pos is not None:
+            bar.position = pos
+        if dur is not None and dur > 0:
+            bar.duration = dur
+        bar.label = self._now_playing
+
     # ── playback message handlers ─────────────────────────────────────────────
 
     def on_play_pause_button_pressed(self, event: PlayPauseButton.Pressed) -> None:
@@ -533,8 +692,9 @@ class PodcastsWidget(DashWidget):
 
         if self._playing_id == feed_id and self._player.running:
             self._player.pause_toggle()
+            is_playing = not self._player.paused
             try:
-                self.query_one(f"#card-{feed_id}", PodcastCard).set_playing(not self._player.paused)
+                self.query_one(f"#card-{feed_id}", PodcastCard).set_playing(is_playing)
             except Exception:
                 pass
             return
@@ -547,7 +707,8 @@ class PodcastsWidget(DashWidget):
                 pass
 
         try:
-            url = self.query_one(f"#card-{feed_id}", PodcastCard).enclosure_url
+            card = self.query_one(f"#card-{feed_id}", PodcastCard)
+            url  = card.enclosure_url
         except Exception:
             url = ""
 
@@ -563,6 +724,19 @@ class PodcastsWidget(DashWidget):
 
         self._player.play(url)
         self._playing_id = feed_id
+
+        try:
+            pd = card._data
+            ep_title = pd.episode.title if (pd and pd.episode) else ""
+            self._now_playing = f"{pd.title} — {ep_title}" if (pd and ep_title) else (pd.title if pd else "")
+        except Exception:
+            self._now_playing = ""
+
+        bar = self.query_one(PlaybackBar)
+        bar.position = 0.0
+        bar.duration = 0.0
+        bar.label    = self._now_playing
+
         try:
             self.query_one(f"#card-{feed_id}", PodcastCard).set_playing(True)
         except Exception:
@@ -571,5 +745,13 @@ class PodcastsWidget(DashWidget):
     def on_seek_button_pressed(self, event: SeekButton.Pressed) -> None:
         if self._player.running:
             self._player.seek(event.delta)
+        else:
+            self.app.notify("Nothing is playing", severity="warning")
+
+    def on_playback_bar_seek_to(self, event: PlaybackBar.SeekTo) -> None:
+        if self._player.running:
+            self._player.seek_abs(event.position)
+            # Optimistic update so the bar moves instantly before next poll
+            self.query_one(PlaybackBar).position = event.position
         else:
             self.app.notify("Nothing is playing", severity="warning")
