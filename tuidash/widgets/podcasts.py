@@ -621,6 +621,7 @@ class PodcastsWidget(DashWidget):
     #podcasts-grid {
         layout: grid;
         grid-size: 2;
+        grid-rows: 10;
         grid-gutter: 1;
         height: auto;
         width: 100%;
