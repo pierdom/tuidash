@@ -508,6 +508,7 @@ class PodcastCard(Widget):
     DEFAULT_CSS = """
     PodcastCard {
         height: auto;
+        layout: vertical;
         padding: 0 1 0 1;
         margin: 0 0 1 0;
         border: round $panel;
