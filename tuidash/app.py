@@ -24,6 +24,7 @@ from .screens import BasePage
 from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
 from .screens.news import NewsPage
+from .screens.podcasts import PodcastsPage
 from .widgets.net_header import DashHeader
 
 
@@ -33,6 +34,7 @@ _PAGES: list[tuple[str, str, type]] = [
     ("Dashboard", "page-dashboard",  DashboardPage),
     ("News",      "page-news",       NewsPage),
     ("Calendar",  "page-calendar",   CalendarPage),
+    ("Podcasts",  "page-podcasts",   PodcastsPage),
 ]
 
 
