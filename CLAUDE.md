@@ -127,6 +127,26 @@ Use `ThreadPoolExecutor` for parallelising multiple I/O calls within a single `_
 
 Textual stops all `set_interval` timers automatically on widget unmount — no manual `on_unmount` cleanup needed.
 
+### Shutdown pattern
+
+`TuidashApp` overrides `_shutdown()` to exit instantly instead of waiting for in-flight HTTP requests:
+
+```python
+async def _shutdown(self) -> None:
+    if self._driver is not None:
+        try:
+            self._driver.close()  # joins writer thread → flushes queued escape sequences
+        except Exception:
+            pass
+    os._exit(0)
+```
+
+**Why:** Textual's `@work(thread=True)` workers run via `asyncio`'s default executor (`run_in_executor`). On quit, `_shutdown()` calls `_close_all()` which waits for every widget's message pump to drain — but pumps can't close until in-flight workers stop posting messages, which can take as long as the longest HTTP timeout. `os._exit(0)` bypasses this entirely.
+
+**Why it's safe:** The terminal is restored by `driver.stop_application_mode()` inside `_process_messages()` *before* `_shutdown()` is called. We only need to join the writer thread (`driver.close()`) so the queued alt-screen-off escape sequences are actually flushed to the terminal before the process dies.
+
+Widgets with long-lived background threads (e.g. `RelayWidget`'s SSE listener) should still implement `on_unmount` to set a stop event and close any open response, so those threads exit cleanly if Textual ever manages to drain the pumps (e.g. in test mode).
+
 ### Global reactives (app.py)
 
 | Reactive | Type | Purpose |
