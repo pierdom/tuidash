@@ -508,7 +508,7 @@ class PodcastCard(Widget):
     DEFAULT_CSS = """
     PodcastCard {
         height: auto;
-        padding: 0 1 1 1;
+        padding: 0 1 0 1;
         margin: 0 0 1 0;
         border: round $panel;
     }
@@ -538,7 +538,6 @@ class PodcastCard(Widget):
         height: auto;
     }
     PodcastCard .card-play {
-        dock: bottom;
         height: 1;
         width: auto;
         padding: 0 1;
@@ -551,7 +550,6 @@ class PodcastCard(Widget):
         self._data: PodcastData | None = None
 
     def compose(self) -> ComposeResult:
-        yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}", classes="card-play")
         with Horizontal(classes="card-main"):
             yield Static("", id=f"cover-{self._feed_id}", classes="card-cover")
             with Vertical(classes="card-right"):
@@ -559,6 +557,7 @@ class PodcastCard(Widget):
                     yield Static("[dim]Loading…[/dim]", id=f"title-{self._feed_id}", classes="card-title")
                     yield ToggleStatusButton(self._feed_id, id=f"toggle-{self._feed_id}")
                 yield Static("", id=f"info-{self._feed_id}", classes="card-info")
+        yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}", classes="card-play")
 
     def update_data(self, pd: PodcastData) -> None:
         self._data = pd
