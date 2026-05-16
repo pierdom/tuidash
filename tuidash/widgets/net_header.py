@@ -344,8 +344,8 @@ class PlayStatusWidget(Widget):
         if not self._playing:
             return Text(" ")
         if self._paused:
-            return Text("⏸", style="bright_yellow")
-        return Text("▶", style="bright_green")
+            return Text("▶", style="bright_green")
+        return Text("⏸", style="bright_yellow")
 
     def on_click(self) -> None:
         if self._playing:
