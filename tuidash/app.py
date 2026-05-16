@@ -77,11 +77,18 @@ class TuidashApp(App):
 
     _MOBILE_THRESHOLD = 90
 
+    def _apply_mobile(self) -> None:
+        width = self.size.width
+        try:
+            if width < self._MOBILE_THRESHOLD:
+                self.screen.add_class("mobile")
+            else:
+                self.screen.remove_class("mobile")
+        except Exception:
+            pass
+
     def on_resize(self, event) -> None:
-        if event.size.width < self._MOBILE_THRESHOLD:
-            self.add_class("mobile")
-        else:
-            self.remove_class("mobile")
+        self._apply_mobile()
 
     async def _shutdown(self) -> None:
         # Terminal is already restored by _process_messages → driver.stop_application_mode()
@@ -108,6 +115,7 @@ class TuidashApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
+        self._apply_mobile()
         theme_name = config.get("TUIDASH_THEME")
         if theme_name:
             if theme_name in self.available_themes:
