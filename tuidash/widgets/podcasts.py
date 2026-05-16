@@ -28,6 +28,7 @@ from textual.widgets import Static
 from .. import config
 from ..podcast_progress import store as _progress
 from .base import DashWidget
+from .net_header import DashHeader
 
 
 _API_BASE = "https://api.podcastindex.org/api/1.0"
@@ -996,6 +997,10 @@ class PodcastsWidget(DashWidget):
             self._playing_id = None
             self._playing_episode_id = None
             self.query_one(PlayPauseButton).set_playing(False)
+            try:
+                self.app.query_one(DashHeader).set_playback(False, False)
+            except Exception:
+                pass
             bar = self.query_one(PlaybackBar)
             bar.position = 0.0
             bar.label = ""
@@ -1026,6 +1031,10 @@ class PodcastsWidget(DashWidget):
 
     def _set_global_playing(self, value: bool) -> None:
         self.query_one(PlayPauseButton).set_playing(value)
+        try:
+            self.app.query_one(DashHeader).set_playback(player.running, player.paused)
+        except Exception:
+            pass
 
     # ── playback message handlers ─────────────────────────────────────────────
 

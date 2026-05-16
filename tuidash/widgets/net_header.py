@@ -318,8 +318,42 @@ class NetStatusWidget(Widget):
         self.app.call_from_thread(setattr, self, "_info", info)
 
 
+class PlayStatusWidget(Widget):
+    """▶ / ⏸ indicator in the header — visible while a podcast is playing or paused."""
+
+    DEFAULT_CSS = """
+    PlayStatusWidget {
+        width: auto;
+        height: 1;
+        padding: 0 1;
+    }
+    PlayStatusWidget:hover { background: $boost; }
+    """
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._playing = False
+        self._paused  = False
+
+    def set_playback(self, playing: bool, paused: bool) -> None:
+        self._playing = playing
+        self._paused  = paused
+        self.refresh()
+
+    def render(self) -> Text:
+        if not self._playing:
+            return Text("")
+        if self._paused:
+            return Text("⏸", style="bright_yellow")
+        return Text("▶", style="bright_green")
+
+    def on_click(self) -> None:
+        if self._playing:
+            self.app.action_toggle_playback()
+
+
 class DashHeader(Widget):
-    """App header: net status (left) · title + subtitle (center) · clock (right)."""
+    """App header: net status (left) · title + subtitle (center) · play status + clock (right)."""
 
     DEFAULT_CSS = """
     DashHeader {
@@ -338,6 +372,9 @@ class DashHeader(Widget):
         text-align: center;
         content-align: center middle;
     }
+    DashHeader > PlayStatusWidget {
+        height: 1;
+    }
     DashHeader > #clock-right {
         width: auto;
         min-width: 9;
@@ -352,6 +389,7 @@ class DashHeader(Widget):
     def compose(self) -> ComposeResult:
         yield NetStatusWidget()
         yield Static("", id="title-center")
+        yield PlayStatusWidget()
         yield Static("", id="clock-right")
 
     def on_mount(self) -> None:
@@ -374,3 +412,9 @@ class DashHeader(Widget):
 
     def set_subtitle(self, text: str) -> None:
         self._refresh_title(text)
+
+    def set_playback(self, playing: bool, paused: bool) -> None:
+        try:
+            self.query_one(PlayStatusWidget).set_playback(playing, paused)
+        except Exception:
+            pass
