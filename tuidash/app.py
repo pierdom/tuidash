@@ -51,6 +51,28 @@ class TuidashApp(App):
     ContentSwitcher {
         height: 1fr;
     }
+
+    /* ── mobile mode (narrow terminal / phone browser) ── */
+
+    /* Dashboard page */
+    .mobile DashboardPage { overflow-y: auto; }
+    .mobile #row-top { layout: vertical; height: auto; }
+    .mobile #row-mid { layout: vertical; height: auto; }
+    .mobile #row-bot { height: auto; }
+    .mobile ClockWidget   { width: 100%; height: 6; margin: 0; }
+    .mobile WeatherWidget { width: 100%; margin: 0; }
+    .mobile CalendarWidget { width: 100%; }
+    .mobile GhostfolioWidget { width: 100%; margin: 0; }
+    .mobile #conn-hosts-col { width: 100%; }
+    .mobile EventsWidget { height: auto; }
+
+    /* News page */
+    .mobile NewsPage Horizontal { layout: vertical; }
+    .mobile NewsPage RelayWidget { width: 100%; height: auto; }
+    .mobile NewsPage NewsReaderWidget { width: 100%; height: 1fr; }
+
+    /* Podcasts page */
+    .mobile #podcasts-grid { grid-size: 1; }
     """
 
     privacy:          reactive[bool] = reactive(False)

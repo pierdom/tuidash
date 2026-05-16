@@ -846,11 +846,6 @@ class PodcastsWidget(DashWidget):
         width: auto;
         content-align: center middle;
     }
-
-    /* ── mobile mode ── */
-    .mobile #podcasts-grid {
-        grid-size: 1;
-    }
     """
 
     def __init__(self, **kwargs: Any) -> None:
