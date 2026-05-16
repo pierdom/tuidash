@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -118,6 +119,8 @@ class RelayWidget(DashWidget):
         self._last_id: int | None      = None
         self._err:     str | None      = None
         self._data_timer: Timer | None = None
+        self._stop     = threading.Event()
+        self._sse_resp: requests.Response | None = None
 
     def compose(self) -> ComposeResult:
         with ScrollableContainer():
@@ -127,6 +130,15 @@ class RelayWidget(DashWidget):
         self.border_title = f"  {self._title}"
         self._load()
         self._listen()
+
+    def on_unmount(self) -> None:
+        self._stop.set()
+        resp = self._sse_resp
+        if resp is not None:
+            try:
+                resp.close()
+            except Exception:
+                pass
 
     def set_refresh_interval(self, seconds: int) -> None:
         if self._data_timer is not None:
@@ -168,12 +180,12 @@ class RelayWidget(DashWidget):
         if not _BASE_URL or not _TOKEN:
             return  # _load() already surfaced the config error
         retry_delay = 2.0
-        while True:
+        while not self._stop.is_set():
             try:
                 self._connect_sse()
                 retry_delay = 2.0
             except Exception:
-                time.sleep(retry_delay)
+                self._stop.wait(retry_delay)
                 retry_delay = min(retry_delay * 2, 60.0)
 
     def _connect_sse(self) -> None:
@@ -191,14 +203,17 @@ class RelayWidget(DashWidget):
             params={"tag": self._topic},
             headers=headers,
             stream=True,
-            timeout=(10, None),
+            timeout=(10, 30),
         ) as resp:
+            self._sse_resp = resp
             resp.raise_for_status()
             event_type: str | None = None
             data_lines: list[str]  = []
             buf                    = b""
 
             for chunk in resp.iter_content(chunk_size=1024):
+                if self._stop.is_set():
+                    return
                 buf += chunk
                 while b"\n" in buf:
                     raw_line, buf = buf.split(b"\n", 1)
@@ -219,11 +234,13 @@ class RelayWidget(DashWidget):
                                 post = RelayPost.from_dict(
                                     json.loads("\n".join(data_lines))
                                 )
-                                self.app.call_from_thread(self._on_sse_post, post)
+                                if not self._stop.is_set():
+                                    self.app.call_from_thread(self._on_sse_post, post)
                             except Exception:
                                 pass
                         event_type = None
                         data_lines = []
+        self._sse_resp = None
 
     def _on_sse_post(self, post: RelayPost) -> None:
         if any(p.id == post.id for p in self._posts):

@@ -65,6 +65,18 @@ class TuidashApp(App):
         ("right", "next_page",        "Next page"),
     ]
 
+    async def _shutdown(self) -> None:
+        # Terminal is already restored by _process_messages → driver.stop_application_mode()
+        # before this method is called. Skip the slow widget-pump drain and exit now.
+        # We must close the driver (joins the writer thread) so its queued escape sequences
+        # are flushed before os._exit kills the process.
+        if self._driver is not None:
+            try:
+                self._driver.close()
+            except Exception:
+                pass
+        os._exit(0)
+
     def compose(self) -> ComposeResult:
         yield DashHeader()
         with ContentSwitcher(initial="page-dashboard"):
