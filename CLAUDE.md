@@ -37,7 +37,7 @@ tuidash/
 ├── screens/
 │   ├── dashboard.py    # Page 1 — overview dashboard (all widgets)
 │   ├── news.py         # Page 2 — RelayWidget (left) + NewsReaderWidget (right), side by side
-│   └── immich.py       # Page 3 — Immich photo viewer (placeholder)
+│   └── calendar.py     # Page 3 — Full-page monthly calendar with events
 └── widgets/
     ├── base.py         # DashWidget — base class for all widgets
     ├── clock.py        # Pixel-art half-block clock
@@ -73,7 +73,7 @@ TuidashApp (App)                    ← navigation, global reactives, config
 │   │   └── (sibling)  3    │ NewsTickerWidget(100%) — full-width, 1-row ticker             │
 │   ├── NewsPage (BasePage)         ← page 2 — always mounted
 │   │   └── Horizontal              │ RelayWidget("news", 1fr) │ NewsReaderWidget(1fr) │
-│   └── ImmichPage (BasePage)       ← page 3 — always mounted
+│   └── CalendarPage (BasePage)     ← page 3 — always mounted
 └── Footer
 ```
 

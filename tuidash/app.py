@@ -22,7 +22,7 @@ from textual.widgets import ContentSwitcher, Footer
 from . import config
 from .screens import BasePage
 from .screens.dashboard import DashboardPage
-from .screens.immich import CalendarPage
+from .screens.calendar import CalendarPage
 from .screens.news import NewsPage
 from .widgets.net_header import DashHeader
 
