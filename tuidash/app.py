@@ -66,9 +66,9 @@ class TuidashApp(App):
         ("]",                "increase_refresh", "+60s"),
         Binding("left",      "prev_page",        "Prev page",  priority=True),
         Binding("right",     "next_page",        "Next page",  priority=True),
+        Binding("space",     "toggle_playback",  "⏯ Play/Pause", priority=True),
         Binding("comma",     "prev_month",       "Prev month", priority=True),
         Binding("full_stop", "next_month",       "Next month", priority=True),
-        Binding("space",     "toggle_playback",  "⏯ Play/Pause", priority=True),
     ]
 
     async def _shutdown(self) -> None:
