@@ -26,6 +26,7 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 from .. import config
+from ..podcast_progress import store as _progress
 from .base import DashWidget
 
 
@@ -218,18 +219,20 @@ class _MpvPlayer:
 
     # ── public ──
 
-    def play(self, url: str) -> None:
+    def play(self, url: str, start_pos: float = 0.0) -> None:
         with self._lock:
             self._kill()
             try:
                 os.unlink(self._SOCK)
             except FileNotFoundError:
                 pass
+            args = ["mpv", "--no-video", "--really-quiet",
+                    f"--input-ipc-server={self._SOCK}"]
+            if start_pos > 0:
+                args += [f"--start={start_pos}"]
+            args.append(url)
             self._proc = subprocess.Popen(
-                ["mpv", "--no-video", "--really-quiet",
-                 f"--input-ipc-server={self._SOCK}", url],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
             self._paused = False
 
@@ -530,6 +533,16 @@ class PodcastCard(Widget):
                 parts.append(_fmt_duration(ep.duration))
             if parts:
                 info.append(f"\n{' · '.join(parts)}", style="dim")
+
+            # ── status badge ──
+            status = _progress.get_status(ep.id, ep.date_published)
+            if status == "new":
+                info.append("  ● NEW", style="bold bright_green")
+            elif status == "started":
+                saved_pos = _progress.get_position(ep.id)
+                info.append(f"  ▶ {_fmt_time(saved_pos)}", style="bright_yellow")
+            elif status == "completed":
+                info.append("  ✓", style="dim green")
         else:
             info.append("\nNo episodes found", style="dim")
 
@@ -571,6 +584,7 @@ class PodcastsWidget(DashWidget):
         self._secret  = ""
         self._player  = _MpvPlayer()
         self._playing_id: int | None = None
+        self._playing_episode_id: int | None = None  # PodcastIndex episode ID for progress tracking
         self._data_timer: Timer | None = None
         self._poll_timer: Timer | None = None
         self._now_playing = ""
@@ -667,6 +681,7 @@ class PodcastsWidget(DashWidget):
             except Exception:
                 pass
             self._playing_id = None
+            self._playing_episode_id = None
             bar = self.query_one(PlaybackBar)
             bar.position = 0.0
             bar.label = ""
@@ -675,15 +690,26 @@ class PodcastsWidget(DashWidget):
     def _poll_worker(self) -> None:
         pos = self._player.get_property("time-pos")
         dur = self._player.get_property("duration")
-        self.app.call_from_thread(self._update_bar, pos, dur)
+        status = None
+        if pos is not None and dur and self._playing_episode_id:
+            status = _progress.update(self._playing_episode_id, pos, dur)
+        self.app.call_from_thread(self._update_bar, pos, dur, status)
 
-    def _update_bar(self, pos: float | None, dur: float | None) -> None:
+    def _update_bar(self, pos: float | None, dur: float | None, status: str | None) -> None:
         bar = self.query_one(PlaybackBar)
         if pos is not None:
             bar.position = pos
         if dur is not None and dur > 0:
             bar.duration = dur
         bar.label = self._now_playing
+        # Refresh the card's status badge if it changed
+        if status and self._playing_id is not None:
+            try:
+                self.query_one(f"#card-{self._playing_id}", PodcastCard).update_data(
+                    self.query_one(f"#card-{self._playing_id}", PodcastCard)._data
+                )
+            except Exception:
+                pass
 
     # ── playback message handlers ─────────────────────────────────────────────
 
@@ -722,15 +748,20 @@ class PodcastsWidget(DashWidget):
             self.app.notify("mpv not found — install it to play podcasts", severity="error")
             return
 
-        self._player.play(url)
-        self._playing_id = feed_id
-
         try:
             pd = card._data
-            ep_title = pd.episode.title if (pd and pd.episode) else ""
+            ep = pd.episode if pd else None
+            ep_title = ep.title if ep else ""
             self._now_playing = f"{pd.title} — {ep_title}" if (pd and ep_title) else (pd.title if pd else "")
+            self._playing_episode_id = ep.id if ep else None
+            start_pos = _progress.get_position(ep.id) if ep else 0.0
         except Exception:
             self._now_playing = ""
+            self._playing_episode_id = None
+            start_pos = 0.0
+
+        self._player.play(url, start_pos=start_pos)
+        self._playing_id = feed_id
 
         bar = self.query_one(PlaybackBar)
         bar.position = 0.0
