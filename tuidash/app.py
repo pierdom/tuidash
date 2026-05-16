@@ -68,6 +68,7 @@ class TuidashApp(App):
         Binding("right",     "next_page",        "Next page",  priority=True),
         Binding("comma",     "prev_month",       "Prev month", priority=True),
         Binding("full_stop", "next_month",       "Next month", priority=True),
+        Binding("space",     "toggle_playback",  "⏯ Play/Pause", priority=True),
     ]
 
     async def _shutdown(self) -> None:
@@ -177,7 +178,21 @@ class TuidashApp(App):
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         if action in ("prev_month", "next_month"):
             return _PAGES[self._page_idx][1] == "page-calendar"
+        if action == "toggle_playback":
+            from .widgets.podcasts import player as _p
+            return _p.running or None
         return True
+
+    def action_toggle_playback(self) -> None:
+        from .widgets.podcasts import player as _p
+        from .widgets.podcasts import PodcastsWidget
+        if not _p.running:
+            return
+        _p.pause_toggle()
+        try:
+            self.query_one(PodcastsWidget)._set_global_playing(not _p.paused)
+        except Exception:
+            pass
 
     def action_prev_month(self) -> None:
         try:
