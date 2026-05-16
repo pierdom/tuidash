@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.binding import Binding
 
 from . import BasePage
 from ..widgets.cal_full import CalFullWidget
@@ -9,11 +8,6 @@ from ..widgets.cal_full import CalFullWidget
 
 class CalendarPage(BasePage):
     """Full-page monthly calendar with events — page 3."""
-
-    BINDINGS = [
-        Binding("comma",      "prev_month", "Prev month"),
-        Binding("full_stop",  "next_month", "Next month"),
-    ]
 
     DEFAULT_CSS = """
     CalendarPage {

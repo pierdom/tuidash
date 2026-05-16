@@ -57,13 +57,15 @@ class TuidashApp(App):
     _page_idx:        int            = 0
 
     BINDINGS = [
-        ("q",     "quit",             "Quit"),
-        ("r",     "refresh",          "Refresh"),
-        ("p",     "toggle_privacy",   "Privacy"),
-        ("[",     "decrease_refresh", "-60s"),
-        ("]",     "increase_refresh", "+60s"),
-        Binding("left",  "prev_page", "Prev page", priority=True),
-        Binding("right", "next_page", "Next page", priority=True),
+        ("q",                "quit",             "Quit"),
+        ("r",                "refresh",          "Refresh"),
+        ("p",                "toggle_privacy",   "Privacy"),
+        ("[",                "decrease_refresh", "-60s"),
+        ("]",                "increase_refresh", "+60s"),
+        Binding("comma",     "prev_month",       "Prev month", priority=True),
+        Binding("full_stop", "next_month",       "Next month", priority=True),
+        Binding("left",      "prev_page",        "Prev page",  priority=True),
+        Binding("right",     "next_page",        "Next page",  priority=True),
     ]
 
     async def _shutdown(self) -> None:
@@ -162,6 +164,23 @@ class TuidashApp(App):
             page = self.query_one(f"#{page_id}", BasePage)
             if hasattr(page, "refresh_all"):
                 page.refresh_all()
+        except Exception:
+            pass
+
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        if action in ("prev_month", "next_month"):
+            return _PAGES[self._page_idx][1] == "page-calendar"
+        return True
+
+    def action_prev_month(self) -> None:
+        try:
+            self.query_one("#page-calendar", CalendarPage).action_prev_month()
+        except Exception:
+            pass
+
+    def action_next_month(self) -> None:
+        try:
+            self.query_one("#page-calendar", CalendarPage).action_next_month()
         except Exception:
             pass
 
