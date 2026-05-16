@@ -8,7 +8,7 @@ import subprocess
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any
@@ -91,8 +91,12 @@ class PodcastData:
     title: str = ""
     image_url: str = ""
     image_data: bytes | None = None
-    episode: Episode | None = None
+    episodes: list[Episode] = field(default_factory=list)
     error: str = ""
+
+    @property
+    def episode(self) -> Episode | None:
+        return self.episodes[0] if self.episodes else None
 
 
 # ── PodcastIndex API ───────────────────────────────────────────────────────────
@@ -124,22 +128,20 @@ def _fetch_podcast(feed_id: int, key: str, secret: str) -> PodcastData:
 
         r2 = requests.get(
             f"{_API_BASE}/episodes/byfeedid",
-            params={"id": feed_id, "max": 1},
+            params={"id": feed_id, "max": 10},
             headers=_auth_headers(key, secret),
             timeout=15,
         )
         r2.raise_for_status()
-        items = r2.json().get("items", [])
-        if items:
-            ep = items[0]
-            pd.episode = Episode(
-                id=ep.get("id", 0),
-                title=ep.get("title", ""),
-                date_published=ep.get("datePublished", 0),
-                enclosure_url=ep.get("enclosureUrl", ""),
-                duration=ep.get("duration", 0),
-                image_url=ep.get("image", "") or ep.get("feedImage", ""),
-            )
+        for ep_raw in r2.json().get("items", []):
+            pd.episodes.append(Episode(
+                id=ep_raw.get("id", 0),
+                title=ep_raw.get("title", ""),
+                date_published=ep_raw.get("datePublished", 0),
+                enclosure_url=ep_raw.get("enclosureUrl", ""),
+                duration=ep_raw.get("duration", 0),
+                image_url=ep_raw.get("image", "") or ep_raw.get("feedImage", ""),
+            ))
     except Exception as exc:
         pd.error = str(exc)
         if not pd.title:
@@ -447,6 +449,80 @@ class ResetEpisodeButton(Widget):
                 self.post_message(self.Pressed(self.feed_id, self._episode_id))
 
 
+class PrevEpisodeButton(Widget):
+    """◀ — show older episode in the same card."""
+
+    class Pressed(Message):
+        def __init__(self, feed_id: int) -> None:
+            super().__init__()
+            self.feed_id = feed_id
+
+    DEFAULT_CSS = """
+    PrevEpisodeButton { width: auto; height: 1; }
+    PrevEpisodeButton:hover { background: $boost; }
+    PrevEpisodeButton:focus { background: $boost; }
+    """
+
+    def __init__(self, feed_id: int, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.feed_id = feed_id
+        self._enabled = True
+
+    def set_enabled(self, value: bool) -> None:
+        self._enabled = value
+        self.refresh()
+
+    def render(self) -> Text:
+        return Text(" ◀ ", style="" if self._enabled else "dim")
+
+    def on_click(self) -> None:
+        if self._enabled:
+            self.post_message(self.Pressed(self.feed_id))
+
+    def on_key(self, event) -> None:
+        if event.key in ("enter", "space"):
+            event.stop()
+            if self._enabled:
+                self.post_message(self.Pressed(self.feed_id))
+
+
+class NextEpisodeButton(Widget):
+    """▶ — show newer episode in the same card."""
+
+    class Pressed(Message):
+        def __init__(self, feed_id: int) -> None:
+            super().__init__()
+            self.feed_id = feed_id
+
+    DEFAULT_CSS = """
+    NextEpisodeButton { width: auto; height: 1; }
+    NextEpisodeButton:hover { background: $boost; }
+    NextEpisodeButton:focus { background: $boost; }
+    """
+
+    def __init__(self, feed_id: int, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.feed_id = feed_id
+        self._enabled = True
+
+    def set_enabled(self, value: bool) -> None:
+        self._enabled = value
+        self.refresh()
+
+    def render(self) -> Text:
+        return Text(" ▶ ", style="" if self._enabled else "dim")
+
+    def on_click(self) -> None:
+        if self._enabled:
+            self.post_message(self.Pressed(self.feed_id))
+
+    def on_key(self, event) -> None:
+        if event.key in ("enter", "space"):
+            event.stop()
+            if self._enabled:
+                self.post_message(self.Pressed(self.feed_id))
+
+
 # ── playback progress bar ─────────────────────────────────────────────────────
 
 def _fmt_time(seconds: float) -> str:
@@ -569,9 +645,8 @@ class PodcastCard(Widget):
     }
     PodcastCard .card-play {
         height: 1;
-        width: auto;
-        padding: 0 1;
-        margin: 0;
+        width: 1fr;
+        align: left middle;
     }
     """
 
@@ -579,6 +654,7 @@ class PodcastCard(Widget):
         super().__init__(**kwargs)
         self._feed_id = feed_id
         self._data: PodcastData | None = None
+        self._ep_idx: int = 0
 
     def compose(self) -> ComposeResult:
         with Horizontal(classes="card-main"):
@@ -589,7 +665,10 @@ class PodcastCard(Widget):
                     yield MarkListenedButton(self._feed_id, id=f"mark-{self._feed_id}")
                     yield ResetEpisodeButton(self._feed_id, id=f"reset-{self._feed_id}")
                 yield Static("", id=f"info-{self._feed_id}", classes="card-info")
-                yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}", classes="card-play")
+                with Horizontal(classes="card-play"):
+                    yield PrevEpisodeButton(self._feed_id, id=f"ep-prev-{self._feed_id}")
+                    yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}")
+                    yield NextEpisodeButton(self._feed_id, id=f"ep-next-{self._feed_id}")
 
     def update_data(self, pd: PodcastData) -> None:
         self._data = pd
@@ -599,46 +678,75 @@ class PodcastCard(Widget):
             if art:
                 self.query_one(f"#cover-{self._feed_id}", Static).update(art)
 
-        title = Text(pd.title, style="bold")
-        self.query_one(f"#title-{self._feed_id}", Static).update(title)
+        self.query_one(f"#title-{self._feed_id}", Static).update(Text(pd.title, style="bold"))
+
+        if pd.error and not pd.episodes:
+            self.query_one(f"#info-{self._feed_id}", Static).update(Text(pd.error, style="dim red"))
+            return
+
+        if not pd.episodes:
+            self.query_one(f"#info-{self._feed_id}", Static).update(Text("No episodes found", style="dim"))
+            return
+
+        self._ep_idx = min(self._ep_idx, len(pd.episodes) - 1)
+        self._show_episode(self._ep_idx)
+
+    def _show_episode(self, idx: int) -> None:
+        if not self._data or not self._data.episodes:
+            return
+        episodes = self._data.episodes
+        idx = max(0, min(idx, len(episodes) - 1))
+        self._ep_idx = idx
+        ep = episodes[idx]
+        is_last = idx == len(episodes) - 1
 
         info = Text()
-        if pd.error and not pd.episode:
-            info.append(pd.error, style="dim red")
-        elif pd.episode:
-            ep = pd.episode
-            info.append(ep.title)
-            parts: list[str] = []
-            if ep.date_published:
-                parts.append(_fmt_date(ep.date_published))
-            if ep.duration:
-                parts.append(_fmt_duration(ep.duration))
-            if parts:
-                info.append(f"\n{' · '.join(parts)}", style="dim")
+        info.append(ep.title)
+        parts: list[str] = []
+        if ep.date_published:
+            parts.append(_fmt_date(ep.date_published))
+        if ep.duration:
+            parts.append(_fmt_duration(ep.duration))
+        if parts:
+            info.append(f"\n{' · '.join(parts)}", style="dim")
 
-            # ── status badge ──
-            status = _progress.get_status(ep.id, ep.date_published)
-            if status == "new":
-                info.append("  ● NEW", style="bold bright_green")
-            elif status == "started":
-                saved_pos = _progress.get_position(ep.id)
-                info.append(f"  ▶ {_fmt_time(saved_pos)}", style="bright_yellow")
-            elif status == "completed":
-                info.append("  ✓", style="dim green")
+        status = _progress.get_status(ep.id, ep.date_published)
+        if status == "new":
+            info.append("  ● NEW", style="bold bright_green")
+        elif status == "started":
+            saved_pos = _progress.get_position(ep.id)
+            info.append(f"  ▶ {_fmt_time(saved_pos)}", style="bright_yellow")
+        elif status == "completed":
+            info.append("  ✓", style="dim green")
 
-            try:
-                self.query_one(f"#mark-{self._feed_id}", MarkListenedButton).set_episode(ep.id)
-                self.query_one(f"#reset-{self._feed_id}", ResetEpisodeButton).set_episode(ep.id)
-            except Exception:
-                pass
-        else:
-            info.append("No episodes found", style="dim")
+        if is_last:
+            info.append("  [last]", style="dim")
 
         self.query_one(f"#info-{self._feed_id}", Static).update(info)
 
+        try:
+            self.query_one(f"#mark-{self._feed_id}", MarkListenedButton).set_episode(ep.id)
+            self.query_one(f"#reset-{self._feed_id}", ResetEpisodeButton).set_episode(ep.id)
+        except Exception:
+            pass
+
+        try:
+            self.query_one(f"#ep-prev-{self._feed_id}", PrevEpisodeButton).set_enabled(idx < len(episodes) - 1)
+            self.query_one(f"#ep-next-{self._feed_id}", NextEpisodeButton).set_enabled(idx > 0)
+        except Exception:
+            pass
+
+    def on_prev_episode_button_pressed(self, event: PrevEpisodeButton.Pressed) -> None:
+        self._show_episode(self._ep_idx + 1)
+
+    def on_next_episode_button_pressed(self, event: NextEpisodeButton.Pressed) -> None:
+        self._show_episode(self._ep_idx - 1)
+
     @property
     def enclosure_url(self) -> str:
-        return self._data.episode.enclosure_url if (self._data and self._data.episode) else ""
+        if not self._data or not self._data.episodes:
+            return ""
+        return self._data.episodes[self._ep_idx].enclosure_url
 
 
 # ── main widget ───────────────────────────────────────────────────────────────
@@ -784,8 +892,9 @@ class PodcastsWidget(DashWidget):
             if started:
                 ep_id, pos = started
                 for pd in feeds:
-                    if pd.episode and pd.episode.id == ep_id and pd.episode.enclosure_url:
-                        ep = pd.episode
+                    ep = next((e for e in pd.episodes if e.id == ep_id), None)
+                    if ep and ep.enclosure_url:
+                        ep_idx = pd.episodes.index(ep)
                         self._now_playing = f"{pd.title} — {ep.title}"
                         self._playing_episode_id = ep_id
                         self._playing_id = pd.feed_id
@@ -795,6 +904,12 @@ class PodcastsWidget(DashWidget):
                         bar.duration = float(ep.duration) if ep.duration else 0.0
                         bar.label    = self._now_playing
                         self._set_global_playing(False)
+                        try:
+                            card = self.query_one(f"#card-{pd.feed_id}", PodcastCard)
+                            card._ep_idx = ep_idx
+                            card._show_episode(ep_idx)
+                        except Exception:
+                            pass
                         break
 
     # ── playback polling ──────────────────────────────────────────────────────
@@ -870,7 +985,7 @@ class PodcastsWidget(DashWidget):
 
         try:
             pd = card._data
-            ep = pd.episode if pd else None
+            ep = pd.episodes[card._ep_idx] if (pd and pd.episodes) else None
             ep_title = ep.title if ep else ""
             self._now_playing = f"{pd.title} — {ep_title}" if (pd and ep_title) else (pd.title if pd else "")
             self._playing_episode_id = ep.id if ep else None
@@ -905,7 +1020,7 @@ class PodcastsWidget(DashWidget):
     def on_mark_listened_button_pressed(self, event: MarkListenedButton.Pressed) -> None:
         try:
             card = self.query_one(f"#card-{event.feed_id}", PodcastCard)
-            dur  = card._data.episode.duration if (card._data and card._data.episode) else 0.0
+            dur  = card._data.episodes[card._ep_idx].duration if (card._data and card._data.episodes) else 0.0
         except Exception:
             dur = 0.0
         _progress.mark_completed(event.episode_id, dur)
