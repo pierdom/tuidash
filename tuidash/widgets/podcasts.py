@@ -371,50 +371,78 @@ class SeekButton(Widget):
             self.post_message(self.Pressed(self.delta))
 
 
-class ToggleStatusButton(Widget):
-    """Per-card button to manually flip an episode between listened and new."""
+class MarkListenedButton(Widget):
+    """✓ — mark episode as completed."""
 
     class Pressed(Message):
-        def __init__(self, feed_id: int, episode_id: int, current_status: str) -> None:
+        def __init__(self, feed_id: int, episode_id: int) -> None:
             super().__init__()
-            self.feed_id       = feed_id
-            self.episode_id    = episode_id
-            self.current_status = current_status
+            self.feed_id    = feed_id
+            self.episode_id = episode_id
 
     DEFAULT_CSS = """
-    ToggleStatusButton {
-        width: 3;
-        height: 1;
-    }
-    ToggleStatusButton:hover { background: $boost; }
-    ToggleStatusButton:focus { background: $boost; }
+    MarkListenedButton { width: 3; height: 1; }
+    MarkListenedButton:hover { background: $boost; }
+    MarkListenedButton:focus { background: $boost; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.feed_id      = feed_id
-        self._episode_id  = 0
-        self._status      = ""
+        self.feed_id     = feed_id
+        self._episode_id = 0
 
-    def set_episode_status(self, episode_id: int, status: str) -> None:
+    def set_episode(self, episode_id: int) -> None:
         self._episode_id = episode_id
-        self._status     = status
-        self.refresh()
 
     def render(self) -> Text:
-        if self._status == "completed":
-            return Text(" ↺ ", style="dim")
         return Text(" ✓ ", style="dim green")
 
     def on_click(self) -> None:
         if self._episode_id:
-            self.post_message(self.Pressed(self.feed_id, self._episode_id, self._status))
+            self.post_message(self.Pressed(self.feed_id, self._episode_id))
 
     def on_key(self, event) -> None:
         if event.key in ("enter", "space"):
             event.stop()
             if self._episode_id:
-                self.post_message(self.Pressed(self.feed_id, self._episode_id, self._status))
+                self.post_message(self.Pressed(self.feed_id, self._episode_id))
+
+
+class ResetEpisodeButton(Widget):
+    """↺ — reset episode to new."""
+
+    class Pressed(Message):
+        def __init__(self, feed_id: int, episode_id: int) -> None:
+            super().__init__()
+            self.feed_id    = feed_id
+            self.episode_id = episode_id
+
+    DEFAULT_CSS = """
+    ResetEpisodeButton { width: 3; height: 1; }
+    ResetEpisodeButton:hover { background: $boost; }
+    ResetEpisodeButton:focus { background: $boost; }
+    """
+
+    def __init__(self, feed_id: int, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.feed_id     = feed_id
+        self._episode_id = 0
+
+    def set_episode(self, episode_id: int) -> None:
+        self._episode_id = episode_id
+
+    def render(self) -> Text:
+        return Text(" ↺ ", style="dim")
+
+    def on_click(self) -> None:
+        if self._episode_id:
+            self.post_message(self.Pressed(self.feed_id, self._episode_id))
+
+    def on_key(self, event) -> None:
+        if event.key in ("enter", "space"):
+            event.stop()
+            if self._episode_id:
+                self.post_message(self.Pressed(self.feed_id, self._episode_id))
 
 
 # ── playback progress bar ─────────────────────────────────────────────────────
@@ -556,7 +584,8 @@ class PodcastCard(Widget):
             with Vertical(classes="card-right"):
                 with Horizontal(classes="card-title-row"):
                     yield Static("[dim]Loading…[/dim]", id=f"title-{self._feed_id}", classes="card-title")
-                    yield ToggleStatusButton(self._feed_id, id=f"toggle-{self._feed_id}")
+                    yield MarkListenedButton(self._feed_id, id=f"mark-{self._feed_id}")
+                    yield ResetEpisodeButton(self._feed_id, id=f"reset-{self._feed_id}")
                 yield Static("", id=f"info-{self._feed_id}", classes="card-info")
                 yield EpisodePlayButton(self._feed_id, id=f"play-{self._feed_id}", classes="card-play")
 
@@ -596,7 +625,8 @@ class PodcastCard(Widget):
                 info.append("  ✓", style="dim green")
 
             try:
-                self.query_one(f"#toggle-{self._feed_id}", ToggleStatusButton).set_episode_status(ep.id, status)
+                self.query_one(f"#mark-{self._feed_id}", MarkListenedButton).set_episode(ep.id)
+                self.query_one(f"#reset-{self._feed_id}", ResetEpisodeButton).set_episode(ep.id)
             except Exception:
                 pass
         else:
@@ -842,21 +872,25 @@ class PodcastsWidget(DashWidget):
         else:
             self.app.notify("Nothing is playing", severity="warning")
 
-    def on_toggle_status_button_pressed(self, event: ToggleStatusButton.Pressed) -> None:
-        if event.current_status == "completed":
-            _progress.reset(event.episode_id)
-        else:
-            try:
-                card = self.query_one(f"#card-{event.feed_id}", PodcastCard)
-                dur  = card._data.episode.duration if (card._data and card._data.episode) else 0.0
-            except Exception:
-                dur = 0.0
-            _progress.mark_completed(event.episode_id, dur)
+    def _refresh_card(self, feed_id: int) -> None:
         try:
-            card = self.query_one(f"#card-{event.feed_id}", PodcastCard)
+            card = self.query_one(f"#card-{feed_id}", PodcastCard)
             card.update_data(card._data)
         except Exception:
             pass
+
+    def on_mark_listened_button_pressed(self, event: MarkListenedButton.Pressed) -> None:
+        try:
+            card = self.query_one(f"#card-{event.feed_id}", PodcastCard)
+            dur  = card._data.episode.duration if (card._data and card._data.episode) else 0.0
+        except Exception:
+            dur = 0.0
+        _progress.mark_completed(event.episode_id, dur)
+        self._refresh_card(event.feed_id)
+
+    def on_reset_episode_button_pressed(self, event: ResetEpisodeButton.Pressed) -> None:
+        _progress.reset(event.episode_id)
+        self._refresh_card(event.feed_id)
 
     def on_playback_bar_seek_to(self, event: PlaybackBar.SeekTo) -> None:
         if player.running:
