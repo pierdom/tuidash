@@ -49,6 +49,7 @@ def _make_day_cell(
     cell_width: int,
     in_month: bool = True,
     tick: int = 0,
+    mobile: bool = False,
 ) -> Text:
     t = Text()
     if in_month:
@@ -56,23 +57,39 @@ def _make_day_cell(
     else:
         t.append(f"{d.day:>{cell_width}}", style="bright_black")
 
-    max_ev = cell_height - 1
-    shown = min(len(events), max_ev)
-    for ev_idx, ev in enumerate(events[:max_ev]):
-        time_pfx = f"{ev.start_time.hour}:{ev.start_time.minute:02d} " if ev.start_time else ""
-        avail = max(1, cell_width - len(time_pfx))
-        phase = (d.day * 37 + ev_idx * 13) % 200
-        name = scroll_window(ev.summary, avail, tick, phase)
-        t.append("\n")
-        if in_month:
-            ev_style = f"dim {ev.color}" if ev.color else "dim"
-            if time_pfx:
-                t.append(time_pfx, style="dim bright_black")
-            t.append(name, style=ev_style)
-        else:
-            t.append(time_pfx + name, style="bright_black")
+    if mobile:
+        shown = 0
+        if in_month and events:
+            seen: set[int] = set()
+            first = True
+            t.append("\n")
+            for ev in events:
+                if ev.priority not in seen and ev.color:
+                    seen.add(ev.priority)
+                    if not first:
+                        t.append(" ")
+                    t.append("■", style=ev.color)
+                    first = False
+            shown = 1
+        t.append("\n" * (cell_height - 1 - shown))
+    else:
+        max_ev = cell_height - 1
+        shown = min(len(events), max_ev)
+        for ev_idx, ev in enumerate(events[:max_ev]):
+            time_pfx = f"{ev.start_time.hour}:{ev.start_time.minute:02d} " if ev.start_time else ""
+            avail = max(1, cell_width - len(time_pfx))
+            phase = (d.day * 37 + ev_idx * 13) % 200
+            name = scroll_window(ev.summary, avail, tick, phase)
+            t.append("\n")
+            if in_month:
+                ev_style = f"dim {ev.color}" if ev.color else "dim"
+                if time_pfx:
+                    t.append(time_pfx, style="dim bright_black")
+                t.append(name, style=ev_style)
+            else:
+                t.append(time_pfx + name, style="bright_black")
+        t.append("\n" * (cell_height - 1 - shown))
 
-    t.append("\n" * (cell_height - 1 - shown))
     return t
 
 
@@ -93,6 +110,7 @@ def _render_full_month(
     content_width: int,
     content_height: int,
     tick: int = 0,
+    mobile: bool = False,
 ) -> Group:
     year, month = display_date.year, display_date.month
     _, num_days = monthrange(year, month)
@@ -149,7 +167,7 @@ def _render_full_month(
         wn.append("\n" * (ch - 1))
 
         row_cells = [wn] + [
-            _make_day_cell(d, today, events_by_date.get(d, []), ch, day_col_w, d.month == month, tick)
+            _make_day_cell(d, today, events_by_date.get(d, []), ch, day_col_w, d.month == month, tick, mobile)
             for d in week
         ]
         grid.add_row(*row_cells)
@@ -287,7 +305,8 @@ class CalFullWidget(DashWidget):
         display = _shift_month(today, self._month_offset)
         w = self.content_size.width or 120
         h = self.content_size.height or 40
+        mobile = self.screen.has_class("mobile")
         self.query_one("#calfull-body", Static).update(
-            _render_full_month(display, today, self._events_by_date, w, h, self._tick)
+            _render_full_month(display, today, self._events_by_date, w, h, self._tick, mobile)
         )
         self.border_subtitle = display.strftime("%B %Y")
