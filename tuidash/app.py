@@ -15,6 +15,7 @@ if os.environ.get("TEXTUAL_DRIVER"):
     selectors.DefaultSelector = selectors.SelectSelector  # type: ignore[attr-defined]
 
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.reactive import reactive
 from textual.widgets import ContentSwitcher, Footer
 
@@ -61,8 +62,8 @@ class TuidashApp(App):
         ("p",     "toggle_privacy",   "Privacy"),
         ("[",     "decrease_refresh", "-60s"),
         ("]",     "increase_refresh", "+60s"),
-        ("left",  "prev_page",        "Prev page"),
-        ("right", "next_page",        "Next page"),
+        Binding("left",  "prev_page", "Prev page", priority=True),
+        Binding("right", "next_page", "Next page", priority=True),
     ]
 
     async def _shutdown(self) -> None:
