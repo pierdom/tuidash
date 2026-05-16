@@ -168,6 +168,34 @@ Widgets with long-lived background threads (e.g. `RelayWidget`'s SSE listener) s
 | `]` | Increase refresh interval by 60 s |
 | `←` | Previous page (wraps) |
 | `→` | Next page (wraps) |
+| `,` | Previous month (Calendar page only) |
+| `.` | Next month (Calendar page only) |
+
+### Footer binding architecture
+
+**All bindings live in `TuidashApp.BINDINGS`.** This is the single source of truth for the footer display order. Page-specific bindings are never declared on screens or widgets — doing so would cause the footer to reorder when that page is focused, because Textual builds the active bindings dict by walking the focus chain from innermost widget outward.
+
+**Page-specific bindings** (e.g. `,`/`.` for the Calendar page) are included in `App.BINDINGS` and gated with `check_action`:
+
+```python
+def check_action(self, action: str, parameters: tuple) -> bool | None:
+    if action in ("prev_month", "next_month"):
+        return _PAGES[self._page_idx][1] == "page-calendar"
+    return True
+```
+
+Returning `False` hides the binding from the footer and disables it. The action handler on the App then delegates to the relevant page widget.
+
+**Navigation bindings** (`←`/`→` and `,`/`.`) use `priority=True` so they fire and display even when a descendant widget claims the same key (e.g. a `ScrollableContainer`'s scroll bindings).
+
+**Display-only `ScrollableContainer`s** must have `can_focus = False` (set in `compose()`). If they are focusable, they grab initial focus at startup and their scroll bindings appear first in the binding dict; when the App's `priority=True` bindings later replace those entries, they inherit the wrong (first) position in the footer rather than their definition-order position.
+
+```python
+def compose(self) -> ComposeResult:
+    with ScrollableContainer() as sc:
+        sc.can_focus = False
+        yield Static(...)
+```
 
 ---
 
