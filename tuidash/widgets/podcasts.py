@@ -317,12 +317,11 @@ class EpisodePlayButton(Widget):
     DEFAULT_CSS = """
     EpisodePlayButton {
         width: auto;
-        height: auto;
+        height: 1;
         padding: 0 1;
-        border: round $panel;
     }
     EpisodePlayButton:hover { background: $boost; }
-    EpisodePlayButton:focus { border: round $accent; }
+    EpisodePlayButton:focus { background: $accent 20%; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
