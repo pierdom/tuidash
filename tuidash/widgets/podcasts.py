@@ -519,7 +519,7 @@ class PodcastCard(Widget):
         border: round $panel;
     }
     PodcastCard .card-main {
-        height: 100%;
+        height: auto;
     }
     PodcastCard .card-cover {
         width: 16;
@@ -527,7 +527,7 @@ class PodcastCard(Widget):
     }
     PodcastCard .card-right {
         width: 1fr;
-        height: 100%;
+        height: 7;
         padding: 0 1;
     }
     PodcastCard .card-title-row {
