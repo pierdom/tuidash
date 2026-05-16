@@ -48,6 +48,7 @@ uv run tuidash --serve --port 9000    # custom port
 
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/)
+- [mpv](https://mpv.io/) — optional, required only for podcast playback
 
 Copy `.env.example` to `.env` and fill in the values that apply to you.
 

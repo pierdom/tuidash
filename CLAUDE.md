@@ -437,3 +437,5 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 | `pillow>=11.0.0` | Half-block pixel art thumbnails in the News page reader |
 
 Ping, DNS, and IP detection use only the stdlib.
+
+`mpv` (system package, not a Python dep) is required for podcast playback. Install via `sudo pacman -S mpv` (Arch/CachyOS), `sudo apt install mpv` (Debian/Ubuntu), or `brew install mpv` (macOS). The widget shows an error toast if mpv is not found; all other functionality works without it.
