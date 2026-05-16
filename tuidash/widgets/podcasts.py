@@ -582,8 +582,9 @@ class PodcastsWidget(DashWidget):
     #podcasts-controls SeekButton {
         height: 4;
         border: round $panel;
-        padding: 1 1;
+        padding: 0 1;
         width: auto;
+        content-align: center middle;
     }
     """
 
