@@ -42,14 +42,25 @@ class PortfolioPage(BasePage):
     def on_mount(self) -> None:
         self.query_one(GhostfolioDetailWidget).border_title = "  Portfolio detail"
 
-    def set_refresh_interval(self, value: int) -> None:
+    def set_privacy(self, value: bool) -> None:
         try:
-            self.query_one(RelayWidget).set_refresh_interval(value)
+            self.query_one(GhostfolioDetailWidget).set_privacy(value)
         except Exception:
             pass
+
+    def set_refresh_interval(self, value: int) -> None:
+        for w in (RelayWidget, GhostfolioDetailWidget):
+            try:
+                self.query_one(w).set_refresh_interval(value)
+            except Exception:
+                pass
 
     def refresh_all(self) -> None:
         try:
             self.query_one(RelayWidget)._load()
+        except Exception:
+            pass
+        try:
+            self.query_one(GhostfolioDetailWidget)._load()
         except Exception:
             pass
