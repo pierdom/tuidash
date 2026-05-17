@@ -438,7 +438,7 @@ class DashHeader(Widget):
         self._refresh_title(text)
 
     def set_privacy(self, value: bool) -> None:
-        self.query_one("#privacy-lock", Static).update("🔒" if value else "🔓")
+        self.query_one("#privacy-lock", Static).update("◉" if value else "○")
 
     def set_playback(self, playing: bool, paused: bool) -> None:
         try:
