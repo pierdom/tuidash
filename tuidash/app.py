@@ -72,16 +72,16 @@ class TuidashApp(App):
 
     /* News page */
     .mobile NewsPage Horizontal { layout: vertical; }
-    .mobile NewsPage RelayWidget { width: 100%; height: auto; }
-    .mobile NewsPage NewsReaderWidget { width: 100%; height: 1fr; }
+    .mobile NewsPage RelayWidget { width: 100%; height: 40%; }
+    .mobile NewsPage NewsReaderWidget { width: 100%; height: 60%; }
 
     /* Podcasts page */
     .mobile #podcasts-grid { grid-size: 1; }
 
     /* Portfolio page */
     .mobile PortfolioPage Horizontal { layout: vertical; }
-    .mobile PortfolioPage RelayWidget { width: 100%; height: auto; }
-    .mobile PortfolioPage GhostfolioDetailWidget { width: 100%; height: 1fr; }
+    .mobile PortfolioPage RelayWidget { width: 100%; height: 30%; }
+    .mobile PortfolioPage GhostfolioDetailWidget { width: 100%; height: 70%; }
     """
 
     privacy:          reactive[bool] = reactive(False)
