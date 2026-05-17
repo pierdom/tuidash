@@ -670,12 +670,13 @@ class GhostfolioDetailWidget(DashWidget):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._client:       GhostfolioClient | None = None
-        self._err:          str | None              = None
-        self._privacy:      bool                    = False
-        self._data_timer:   Timer | None            = None
-        self._ticker_timer: Timer | None            = None
-        self._ticker_tick:  int                     = 0
+        self._client:          GhostfolioClient | None = None
+        self._err:             str | None              = None
+        self._privacy:         bool                    = False
+        self._data_timer:      Timer | None            = None
+        self._ticker_timer:    Timer | None            = None
+        self._ticker_tick:     int                     = 0
+        self._resize_pending:  bool                    = False
 
     def compose(self) -> ComposeResult:
         with ScrollableContainer() as sc:
@@ -719,8 +720,7 @@ class GhostfolioDetailWidget(DashWidget):
         self.query_one("#gfd-body", Static).update(f"[red]Error:[/red] {msg}")
 
     def on_resize(self) -> None:
-        if self.data is not None and not self._err:
-            self._redraw()
+        self._resize_pending = True
 
     def set_privacy(self, value: bool) -> None:
         self._privacy = value
@@ -732,6 +732,11 @@ class GhostfolioDetailWidget(DashWidget):
 
     def _advance_ticker(self) -> None:
         self._ticker_tick += 1
+        if self._resize_pending and self.data and not self._err:
+            w = self.content_size.width
+            if w > 0:
+                self._resize_pending = False
+                self._redraw()
         if self.data and self.data.ticker:
             self.query_one("#gfd-ticker", Static).update(
                 _render_ticker(self.data.ticker, self._ticker_tick, self._ticker_width())
