@@ -28,7 +28,7 @@ from textual.widgets import Static
 from .. import config
 from ..podcast_progress import store as _progress
 from .base import DashWidget
-from .net_header import DashHeader
+from .header import DashHeader
 
 
 _API_BASE = "https://api.podcastindex.org/api/1.0"

@@ -26,7 +26,7 @@ from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
 from .screens.news import NewsPage
 from .screens.podcasts import PodcastsPage
-from .widgets.net_header import DashHeader
+from .widgets.header import DashHeader
 
 
 # Ordered list of pages: (label, widget-id, class).

@@ -52,7 +52,7 @@ tuidash/
     ├── news_ticker.py  # Single-row continuous news ticker (last 6 h, all RSS sources)
     ├── news_reader.py  # Full-page news reader used on page 2
     ├── relay.py        # Generic relay server feed widget (SSE + REST, per-topic)
-    ├── net_header.py   # Custom header bar: network status + title + clock
+    ├── header.py       # App header bar: nav buttons, network status, title, privacy lock + clock
     └── rss.py          # RSS feed-fetching library (FeedData, _fetch_feed, _parse_dt)
 ```
 
