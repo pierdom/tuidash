@@ -81,6 +81,8 @@ def _render_events_mobile(
     for di, (day, pairs) in enumerate(day_events):
         if di > 0:
             t.append("\n")
+            t.append("─" * col_w, style="dim")
+            t.append("\n")
         delta = (day - today).days
         if delta == 0:
             label = "Today"

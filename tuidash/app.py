@@ -17,6 +17,7 @@ if os.environ.get("TEXTUAL_DRIVER"):
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.reactive import reactive
+from textual.timer import Timer
 from textual.widgets import ContentSwitcher, Footer
 
 from . import config
@@ -79,7 +80,11 @@ class TuidashApp(App):
     privacy:          reactive[bool] = reactive(False)
     refresh_interval: reactive[int]  = reactive(300, always_update=True)
     _privacy_forced:  bool           = False
+    _privacy_default: bool           = False
+    _relock_timer:    Timer | None   = None
     _page_idx:        int            = 0
+
+    _RELOCK_SECONDS = 5 * 60
 
     BINDINGS = [
         ("q",                "quit",             "Quit"),
@@ -153,6 +158,7 @@ class TuidashApp(App):
             self._privacy_forced = True
             self.privacy = True
         elif _is_true("TUIDASH_PRIVACY_DEFAULT"):
+            self._privacy_default = True
             self.privacy = True
 
     # ── subtitle ──────────────────────────────────────────────────────────────
@@ -160,8 +166,6 @@ class TuidashApp(App):
     def _update_subtitle(self) -> None:
         page_label = _PAGES[self._page_idx][0]
         parts = [f"[{self._page_idx + 1}/{len(_PAGES)}] {page_label}"]
-        if self.privacy:
-            parts.append("PRIVATE MODE")
         parts.append(f"↻ {self.refresh_interval}s")
         text = "  ".join(parts)
         self.sub_title = text
@@ -174,9 +178,26 @@ class TuidashApp(App):
 
     def watch_privacy(self, value: bool) -> None:
         self._update_subtitle()
+        try:
+            self.query_one(DashHeader).set_privacy(value)
+        except Exception:
+            pass
+        if not value and self._privacy_default and not self._privacy_forced:
+            if self._relock_timer is not None:
+                self._relock_timer.stop()
+            self._relock_timer = self.set_timer(self._RELOCK_SECONDS, self._relock_privacy)
+            self.notify("Privacy mode will re-enable in 5 minutes", severity="information", timeout=6)
+        elif value and self._relock_timer is not None:
+            self._relock_timer.stop()
+            self._relock_timer = None
         for page in self.query(BasePage):
             if hasattr(page, "set_privacy"):
                 page.set_privacy(value)
+
+    def _relock_privacy(self) -> None:
+        self._relock_timer = None
+        self.privacy = True
+        self.notify("Privacy mode re-enabled", severity="warning", timeout=4)
 
     def watch_refresh_interval(self, value: int) -> None:
         self._update_subtitle()

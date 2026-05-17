@@ -11,6 +11,7 @@ from rich.align import Align
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
+from textual.events import Click
 from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Static
@@ -381,18 +382,44 @@ class DashHeader(Widget):
         content-align: right middle;
         color: $text-muted;
     }
+    DashHeader > #nav-prev,
+    DashHeader > #nav-next {
+        width: 3;
+        height: 1;
+        content-align: center middle;
+        color: $text-muted;
+    }
+    DashHeader > #nav-prev:hover,
+    DashHeader > #nav-next:hover,
+    DashHeader > #title-center:hover {
+        background: $boost;
+        color: $text;
+    }
+    DashHeader > #privacy-lock {
+        width: 2;
+        height: 1;
+        content-align: center middle;
+        color: $warning;
+    }
+    DashHeader > #privacy-lock:hover {
+        background: $boost;
+    }
     """
 
     def compose(self) -> ComposeResult:
+        yield Static("‹", id="nav-prev")
         yield NetStatusWidget()
         yield Static("", id="title-center")
         yield PlayStatusWidget()
+        yield Static("", id="privacy-lock")
         yield Static("", id="clock-right")
+        yield Static("›", id="nav-next")
 
     def on_mount(self) -> None:
         self._tick_clock()
         self.set_interval(1, self._tick_clock)
         self._refresh_title()
+        self.set_privacy(self.app.privacy)
 
     def _tick_clock(self) -> None:
         self.query_one("#clock-right", Static).update(
@@ -410,8 +437,21 @@ class DashHeader(Widget):
     def set_subtitle(self, text: str) -> None:
         self._refresh_title(text)
 
+    def set_privacy(self, value: bool) -> None:
+        self.query_one("#privacy-lock", Static).update("🔒" if value else "🔓")
+
     def set_playback(self, playing: bool, paused: bool) -> None:
         try:
             self.query_one(PlayStatusWidget).set_playback(playing, paused)
         except Exception:
             pass
+
+    def on_click(self, event: Click) -> None:
+        if event.widget.id == "nav-prev":
+            self.app.action_prev_page()
+        elif event.widget.id == "nav-next":
+            self.app.action_next_page()
+        elif event.widget.id == "title-center":
+            self.app.action_go_page(0)
+        elif event.widget.id == "privacy-lock":
+            self.app.action_toggle_privacy()
