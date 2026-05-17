@@ -112,7 +112,7 @@ class TuidashApp(App):
 
     # Add "mobile" class to Screen when terminal width < 90 columns.
     # Textual handles both startup and subsequent resizes automatically.
-    HORIZONTAL_BREAKPOINTS = [(0, "mobile"), (90, "wide")]
+    HORIZONTAL_BREAKPOINTS = [(0, "mobile"), (100, "wide")]
 
     async def _shutdown(self) -> None:
         # Terminal is already restored by _process_messages → driver.stop_application_mode()
