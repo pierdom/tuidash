@@ -17,6 +17,7 @@ if os.environ.get("TEXTUAL_DRIVER"):
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.reactive import reactive
+from textual.timer import Timer
 from textual.widgets import ContentSwitcher, Footer
 
 from . import config
@@ -51,12 +52,39 @@ class TuidashApp(App):
     ContentSwitcher {
         height: 1fr;
     }
+
+    /* ── mobile mode (narrow terminal / phone browser) ── */
+
+    /* Dashboard page */
+    .mobile DashboardPage { overflow-y: auto; }
+    .mobile #row-top { layout: vertical; height: auto; }
+    .mobile #row-mid { layout: vertical; height: auto; }
+    .mobile #row-bot { height: auto; }
+    .mobile ClockWidget   { width: 100%; height: 6; margin: 0; }
+    .mobile WeatherWidget { width: 100%; margin: 0; }
+    .mobile CalendarWidget { width: 100%; }
+    .mobile GhostfolioWidget { width: 100%; margin: 0; }
+    .mobile #conn-hosts-col { width: 100%; }
+    .mobile EventsWidget { height: auto; }
+    .mobile #events-body  { height: auto; }
+
+    /* News page */
+    .mobile NewsPage Horizontal { layout: vertical; }
+    .mobile NewsPage RelayWidget { width: 100%; height: auto; }
+    .mobile NewsPage NewsReaderWidget { width: 100%; height: 1fr; }
+
+    /* Podcasts page */
+    .mobile #podcasts-grid { grid-size: 1; }
     """
 
     privacy:          reactive[bool] = reactive(False)
     refresh_interval: reactive[int]  = reactive(300, always_update=True)
     _privacy_forced:  bool           = False
+    _privacy_default: bool           = False
+    _relock_timer:    Timer | None   = None
     _page_idx:        int            = 0
+
+    _RELOCK_SECONDS = 5 * 60
 
     BINDINGS = [
         ("q",                "quit",             "Quit"),
@@ -74,6 +102,10 @@ class TuidashApp(App):
             for i in range(len(_PAGES))
         ],
     ]
+
+    # Add "mobile" class to Screen when terminal width < 90 columns.
+    # Textual handles both startup and subsequent resizes automatically.
+    HORIZONTAL_BREAKPOINTS = [(0, "mobile"), (90, "wide")]
 
     async def _shutdown(self) -> None:
         # Terminal is already restored by _process_messages → driver.stop_application_mode()
@@ -126,6 +158,7 @@ class TuidashApp(App):
             self._privacy_forced = True
             self.privacy = True
         elif _is_true("TUIDASH_PRIVACY_DEFAULT"):
+            self._privacy_default = True
             self.privacy = True
 
     # ── subtitle ──────────────────────────────────────────────────────────────
@@ -133,8 +166,6 @@ class TuidashApp(App):
     def _update_subtitle(self) -> None:
         page_label = _PAGES[self._page_idx][0]
         parts = [f"[{self._page_idx + 1}/{len(_PAGES)}] {page_label}"]
-        if self.privacy:
-            parts.append("PRIVATE MODE")
         parts.append(f"↻ {self.refresh_interval}s")
         text = "  ".join(parts)
         self.sub_title = text
@@ -147,9 +178,26 @@ class TuidashApp(App):
 
     def watch_privacy(self, value: bool) -> None:
         self._update_subtitle()
+        try:
+            self.query_one(DashHeader).set_privacy(value)
+        except Exception:
+            pass
+        if not value and self._privacy_default and not self._privacy_forced:
+            if self._relock_timer is not None:
+                self._relock_timer.stop()
+            self._relock_timer = self.set_timer(self._RELOCK_SECONDS, self._relock_privacy)
+            self.notify("Privacy mode will re-enable in 5 minutes", severity="information", timeout=6)
+        elif value and self._relock_timer is not None:
+            self._relock_timer.stop()
+            self._relock_timer = None
         for page in self.query(BasePage):
             if hasattr(page, "set_privacy"):
                 page.set_privacy(value)
+
+    def _relock_privacy(self) -> None:
+        self._relock_timer = None
+        self.privacy = True
+        self.notify("Privacy mode re-enabled", severity="warning", timeout=4)
 
     def watch_refresh_interval(self, value: int) -> None:
         self._update_subtitle()
@@ -291,9 +339,18 @@ def main() -> None:
         # that remote browsers (tablet, etc.) receive a reachable WebSocket URL.
         public_url = config.get("TUIDASH_SERVE_URL") or None
         if not public_url:
-            public_host = args.host
-            if public_host == "0.0.0.0":
+            mdns = config.get("TUIDASH_SERVE_MDNS", "").strip().lower() in ("1", "true", "yes")
+            if mdns:
+                try:
+                    raw = socket.gethostname()
+                    # Use bare hostname + .local; skip if gethostname already returned an FQDN
+                    public_host = raw.split(".")[0] + ".local"
+                except Exception:
+                    public_host = _detect_serve_ip()
+            elif args.host == "0.0.0.0":
                 public_host = _detect_serve_ip()
+            else:
+                public_host = args.host
             public_url = f"http://{public_host}:{args.port}"
         sys.exit(subprocess.run(
             [textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app",

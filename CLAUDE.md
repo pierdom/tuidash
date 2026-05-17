@@ -316,6 +316,7 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | Variable | Default | Description |
 |---|---|---|
 | `TUIDASH_SERVE_URL` | auto-detected | Public URL for `--serve` WebSocket (required in Docker) |
+| `TUIDASH_SERVE_MDNS` | `false` | Use `hostname.local` as the public URL for `--serve` (mDNS/Bonjour) |
 | `TUIDASH_THEME` | `textual-dark` | Textual theme name |
 | `TUIDASH_REFRESH` | `300` | Auto-refresh interval in seconds |
 | `TUIDASH_PRIVACY_DEFAULT` | `false` | Start in privacy mode; `p` toggle still works |

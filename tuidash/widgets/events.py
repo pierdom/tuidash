@@ -70,6 +70,59 @@ def _build_slots(
     return slots
 
 
+def _render_events_mobile(
+    day_events: list[tuple[date, list[tuple[str, ics.CalEvent]]]],
+    today: date,
+    col_w: int,
+    tick: int,
+) -> Text:
+    """Vertical layout: each day as a labelled block, stacked top-to-bottom."""
+    t = Text()
+    for di, (day, pairs) in enumerate(day_events):
+        if di > 0:
+            t.append("\n")
+            t.append("─" * col_w, style="dim")
+            t.append("\n")
+        delta = (day - today).days
+        if delta == 0:
+            label = "Today"
+        elif delta == 1:
+            label = "Tomorrow"
+        else:
+            label = day.strftime("%A")
+        t.append(label, style="bold")
+        t.append("  " + day.strftime("%d %b"), style="dim")
+
+        if not pairs:
+            t.append("\n")
+            t.append("—", style="dim")
+            continue
+
+        all_day = [(c, ev) for c, ev in pairs if ev.start_time is None]
+        timed   = [(c, ev) for c, ev in pairs if ev.start_time is not None]
+
+        for ei, (color, ev) in enumerate(all_day):
+            prefix = "● "
+            available = max(3, col_w - len(prefix))
+            phase = (di * 31 + ei * 17) % 60
+            t.append("\n")
+            t.append(prefix, style="dim")
+            t.append(scroll_window(ev.summary, available, tick, phase), style=color)
+
+        for ei, (color, ev) in enumerate(timed):
+            t_str = ev.start_time.strftime("%H:%M")  # type: ignore[union-attr]
+            if ev.end_time:
+                t_str += "–" + ev.end_time.strftime("%H:%M")
+            prefix = t_str + " "
+            available = max(3, col_w - len(prefix))
+            phase = (di * 31 + (len(all_day) + ei) * 17) % 60
+            t.append("\n")
+            t.append(prefix, style="dim")
+            t.append(scroll_window(ev.summary, available, tick, phase), style=color)
+
+    return t
+
+
 def _render_events(
     slots: list[_Slot],
     today: date,
@@ -218,10 +271,17 @@ class EventsWidget(DashWidget):
             return
         today = date.today()
         days = [today + timedelta(days=i) for i in range(4)]
-        slots = _build_slots(self.data, days, self._avail_h())
-        self.query_one("#events-body", Static).update(
-            _render_events(slots, today, self._col_w(len(slots)), self._tick)
-        )
+
+        mobile = self.screen.has_class("mobile")
+        if mobile:
+            col_w = max(10, (self.content_size.width or 60) - 4)
+            day_events = [(d, _events_for_day(self.data, d)) for d in days]
+            renderable = _render_events_mobile(day_events, today, col_w, self._tick)
+        else:
+            slots = _build_slots(self.data, days, self._avail_h())
+            renderable = _render_events(slots, today, self._col_w(len(slots)), self._tick)
+
+        self.query_one("#events-body", Static).update(renderable)
         self.border_subtitle = "  ".join(d.strftime("%a %d %b") for d in days)
 
     def set_refresh_interval(self, seconds: int) -> None:
