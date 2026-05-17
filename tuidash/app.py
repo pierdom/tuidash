@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import os
 import re
 import selectors
@@ -344,6 +345,140 @@ def _detect_serve_ip() -> str:
     return "localhost"
 
 
+# ── mobile HTTP proxy ─────────────────────────────────────────────────────────
+# textual-serve renders the TUI inside xterm.js in the browser.  xterm.js keeps
+# a hidden <textarea> focused so it can receive keyboard events; on mobile OSes
+# this causes the virtual keyboard to pop up on every touch.  Setting
+# inputmode="none" on that element suppresses the keyboard while still allowing
+# hardware keyboards to work.  We achieve this by running a thin asyncio TCP
+# proxy that intercepts the HTML page response and injects the one-liner fix;
+# WebSocket connections (the actual TUI stream) are tunneled transparently.
+
+_MOBILE_INJECT = (
+    b'<script>(function(){'
+    b'function f(){'
+    b'var t=document.querySelector(".xterm-helper-textarea");'
+    b'if(!t)return false;'
+    b't.setAttribute("inputmode","none");'
+    b'return true;}'
+    b'if(!f()){var m=new MutationObserver(function(){if(f())m.disconnect();});'
+    b'm.observe(document.body,{childList:true,subtree:true});}'
+    b'})();</script>'
+)
+
+
+async def _pipe(r, w) -> None:
+    try:
+        while chunk := await r.read(65536):
+            w.write(chunk)
+            await w.drain()
+    except Exception:
+        pass
+    finally:
+        try:
+            w.close()
+        except Exception:
+            pass
+
+
+async def _proxy_conn(cr, cw, internal_port: int) -> None:
+    uw = None
+    try:
+        line = await cr.readline()
+        if not line:
+            return
+        raw = bytearray(line)
+        is_ws = False
+        req_cl = 0
+        while True:
+            h = await cr.readline()
+            raw += h
+            low = h.lower()
+            if b"upgrade" in low and b"websocket" in low:
+                is_ws = True
+            if low.startswith(b"content-length:"):
+                try:
+                    req_cl = int(h.split(b":", 1)[1].strip())
+                except Exception:
+                    pass
+            if h in (b"\r\n", b"\n") or not h:
+                break
+
+        for attempt in range(30):
+            try:
+                ur, uw = await asyncio.open_connection("127.0.0.1", internal_port)
+                break
+            except OSError:
+                if attempt == 29:
+                    raise
+                await asyncio.sleep(0.5)
+
+        uw.write(bytes(raw))
+        if req_cl:
+            uw.write(await cr.read(req_cl))
+
+        if is_ws:
+            await uw.drain()
+            await asyncio.gather(_pipe(cr, uw), _pipe(ur, cw))
+            return
+
+        await uw.drain()
+
+        resp = bytearray()
+        is_html = is_chunked = False
+        resp_cl = 0
+        while True:
+            h = await ur.readline()
+            if not h:
+                break
+            resp += h
+            low = h.lower()
+            if b"content-type:" in low and b"text/html" in low:
+                is_html = True
+            if low.startswith(b"content-length:"):
+                try:
+                    resp_cl = int(h.split(b":", 1)[1].strip())
+                except Exception:
+                    pass
+            if b"transfer-encoding" in low and b"chunked" in low:
+                is_chunked = True
+            if h in (b"\r\n", b"\n"):
+                break
+
+        if is_html and resp_cl and not is_chunked:
+            body = await ur.read(resp_cl)
+            body = body.replace(b"</head>", _MOBILE_INJECT + b"</head>", 1)
+            resp_bytes = re.sub(
+                rb"(?i)(content-length:\s*)\d+",
+                lambda m: m.group(1) + str(len(body)).encode(),
+                bytes(resp),
+            )
+            cw.write(resp_bytes + body)
+        else:
+            cw.write(bytes(resp))
+            await _pipe(ur, cw)
+        await cw.drain()
+    except Exception:
+        pass
+    finally:
+        for w in (cw, uw):
+            if w:
+                try:
+                    w.close()
+                except Exception:
+                    pass
+
+
+async def _run_proxy(bind_host: str, public_port: int, internal_port: int, proc) -> None:
+    server = await asyncio.start_server(
+        lambda r, w: _proxy_conn(r, w, internal_port),
+        bind_host, public_port,
+    )
+    async with server:
+        while proc.poll() is None:
+            await asyncio.sleep(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="tuidash", description="Personal terminal dashboard")
     parser.add_argument("--serve", action="store_true", help="Serve the dashboard over HTTP")
@@ -370,10 +505,27 @@ def main() -> None:
             else:
                 public_host = args.host
             public_url = f"http://{public_host}:{args.port}"
-        sys.exit(subprocess.run(
-            [textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app",
-             "-h", args.host, "-p", str(args.port), "-u", public_url]
-        ).returncode)
+
+        # Pick a free localhost port for the internal textual-serve instance.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as _s:
+            _s.bind(("127.0.0.1", 0))
+            internal_port = _s.getsockname()[1]
+
+        proc = subprocess.Popen([
+            textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app",
+            "-h", "127.0.0.1", "-p", str(internal_port), "-u", public_url,
+        ])
+        try:
+            asyncio.run(_run_proxy(args.host, args.port, internal_port, proc))
+        except (KeyboardInterrupt, SystemExit):
+            pass
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        sys.exit(0)
 
     TuidashApp().run()
 
