@@ -36,7 +36,7 @@ class PortfolioPage(BasePage):
 
     def compose(self) -> ComposeResult:
         with Horizontal():
-            yield RelayWidget("financial-analyst")
+            yield RelayWidget("financial-analyst", show_title=False)
             yield GhostfolioDetailWidget()
 
     def on_mount(self) -> None:

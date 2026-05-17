@@ -75,7 +75,7 @@ def _fetch_posts(topic: str, limit: int = _LIMIT) -> list[RelayPost]:
 
 # ── rendering ──────────────────────────────────────────────────────────────────
 
-def _render_posts(posts: list[RelayPost]) -> Group:
+def _render_posts(posts: list[RelayPost], show_title: bool = True) -> Group:
     if not posts:
         return Group(Text("No posts yet", style="dim"))
 
@@ -83,11 +83,12 @@ def _render_posts(posts: list[RelayPost]) -> Group:
     for i, post in enumerate(posts):
         if i > 0:
             items.append(Rule(style="dim"))
-        ts = post.created_at.astimezone().strftime("%Y-%m-%d %H:%M")
-        header = Text()
-        header.append(post.title, style="bold")
-        header.append(f"  {post.source}  {ts}", style="dim")
-        items.append(header)
+        if show_title:
+            ts = post.created_at.astimezone().strftime("%Y-%m-%d %H:%M")
+            header = Text()
+            header.append(post.title, style="bold")
+            header.append(f"  {post.source}  {ts}", style="dim")
+            items.append(header)
         if post.content.strip():
             items.append(RichMarkdown(post.content))
 
@@ -111,10 +112,11 @@ class RelayWidget(DashWidget):
     RelayWidget Static               { height: auto; }
     """
 
-    def __init__(self, topic: str, title: str | None = None, **kwargs: Any) -> None:
+    def __init__(self, topic: str, title: str | None = None, show_title: bool = True, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._topic    = topic
-        self._title    = title or f"Relay ({topic})"
+        self._topic      = topic
+        self._title      = title or f"Relay ({topic})"
+        self._show_title = show_title
         self._posts:   list[RelayPost] = []
         self._last_id: int | None      = None
         self._err:     str | None      = None
@@ -172,7 +174,7 @@ class RelayWidget(DashWidget):
     def watch_data(self, posts: list[RelayPost] | None) -> None:
         if posts is None or self._err:
             return
-        self.query_one(Static).update(_render_posts(posts))
+        self.query_one(Static).update(_render_posts(posts, self._show_title))
 
     # ── SSE listener (real-time push) ──────────────────────────────────────────
 
