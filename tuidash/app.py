@@ -246,6 +246,17 @@ class TuidashApp(App):
         except Exception:
             pass
 
+    def action_toggle_page_menu(self) -> None:
+        from .widgets.header import PageMenu
+        try:
+            self.screen.query_one(PageMenu).remove()
+            return
+        except Exception:
+            pass
+        menu = PageMenu([label for label, _, _ in _PAGES], self._page_idx)
+        self.screen.mount(menu)
+        menu.focus()
+
     def action_prev_month(self) -> None:
         try:
             self.query_one("#page-calendar", CalendarPage).action_prev_month()

@@ -14,7 +14,8 @@ from textual.app import ComposeResult
 from textual.events import Click
 from textual.reactive import reactive
 from textual.widget import Widget
-from textual.widgets import Static
+from textual.widgets import OptionList, Static
+from textual.widgets.option_list import Option
 
 
 # ── data model ────────────────────────────────────────────────────────────────
@@ -353,6 +354,41 @@ class PlayStatusWidget(Widget):
             self.app.action_toggle_playback()
 
 
+class PageMenu(OptionList):
+    """Floating page-navigation dropdown, mounted on the Screen as an overlay."""
+
+    DEFAULT_CSS = """
+    PageMenu {
+        layer: overlay;
+        height: auto;
+        border: tall $border;
+        background: $surface;
+    }
+    """
+
+    def __init__(self, pages: list[str], current: int = 0, **kwargs) -> None:
+        self._pages = pages
+        self._current = current
+        self._menu_w = max(len(p) for p in pages) + 6
+        super().__init__(*[Option(p) for p in pages], **kwargs)
+
+    def on_mount(self) -> None:
+        self.styles.width = self._menu_w
+        screen_w = self.screen.size.width
+        self.styles.offset = (max(0, (screen_w - self._menu_w) // 2), 1)
+        self.highlighted = self._current
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        event.stop()
+        self.app.action_go_page(event.option_index)
+        self.remove()
+
+    def on_key(self, event) -> None:
+        if event.key == "escape":
+            event.stop()
+            self.remove()
+
+
 class DashHeader(Widget):
     """App header: net status (left) · title + subtitle (center) · play status + clock (right)."""
 
@@ -452,6 +488,6 @@ class DashHeader(Widget):
         elif event.widget.id == "nav-next":
             self.app.action_next_page()
         elif event.widget.id == "title-center":
-            self.app.action_go_page(0)
+            self.app.action_toggle_page_menu()
         elif event.widget.id == "privacy-lock":
             self.app.action_toggle_privacy()
