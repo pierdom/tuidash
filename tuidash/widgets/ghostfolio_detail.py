@@ -718,6 +718,10 @@ class GhostfolioDetailWidget(DashWidget):
         self._err = msg
         self.query_one("#gfd-body", Static).update(f"[red]Error:[/red] {msg}")
 
+    def on_resize(self) -> None:
+        if self.data is not None and not self._err:
+            self._redraw()
+
     def set_privacy(self, value: bool) -> None:
         self._privacy = value
         if self.data is not None and not self._err:
