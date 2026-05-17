@@ -8,6 +8,7 @@ from typing import Any
 import requests
 from rich.console import Group
 from rich.rule import Rule
+from rich.style import Style
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
@@ -60,6 +61,8 @@ def _article_renderable(fd: FeedData, art: Article, show_pictures: bool = True):
             raw += "…"
         desc_text = Text(raw, style="dim")
 
+    title_style = Style(bold=True, link=art.link) if art.link else Style(bold=True)
+
     img = _render_image(art.image_data) if (show_pictures and art.image_data) else None
 
     if img is not None:
@@ -69,7 +72,7 @@ def _article_renderable(fd: FeedData, art: Article, show_pictures: bool = True):
         right = Text()
         right.append_text(header)
         right.append("\n")
-        right.append(art.title, style="bold")
+        right.append(art.title, style=title_style)
         if art.description:
             right.append("\n")
             right.append_text(desc_text)
@@ -80,7 +83,7 @@ def _article_renderable(fd: FeedData, art: Article, show_pictures: bool = True):
     t = Text()
     t.append_text(header)
     t.append("\n")
-    t.append(art.title, style="bold")
+    t.append(art.title, style=title_style)
     if art.description:
         t.append("\n")
         t.append_text(desc_text)
