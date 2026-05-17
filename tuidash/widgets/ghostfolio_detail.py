@@ -551,12 +551,11 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         if h.today_pct is not None:
             arr   = "▲" if h.today_pct > 0.05 else ("▼" if h.today_pct < -0.05 else "─")
             day_t = Text(f"{arr}{abs(h.today_pct):.2f}%", style=_ticker_color(h.today_pct))
-        name_str = (h.name[:24] + "…") if len(h.name) > 25 else h.name
         val_str  = _MASK if privacy else f"{sym}{h.value:,.0f}"
         hdg.add_row(
             Text(h.symbol,  style=f"bold {cls_color}"),
             _S,
-            Text(name_str,  style="dim"),
+            Text(h.name,    style="dim"),
             _S,
             Text(ret_str,   style=ret_color),
             _S,
