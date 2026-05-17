@@ -39,11 +39,13 @@ tuidash/
 ├── screens/
 │   ├── dashboard.py    # Page 1 — overview dashboard (all widgets)
 │   ├── news.py         # Page 2 — RelayWidget (left) + NewsReaderWidget (right), side by side
-│   └── calendar.py     # Page 3 — Full-page monthly calendar with events
+│   ├── calendar.py     # Page 3 — Full-page monthly calendar with events
+│   └── podcasts.py     # Page 4 — Podcast feed viewer and player
 └── widgets/
     ├── base.py         # DashWidget — base class for all widgets
     ├── clock.py        # Pixel-art half-block clock
     ├── calendar.py     # Monthly calendar with holiday/family/personal/work highlighting
+    ├── cal_full.py     # Full-page monthly calendar with ICS event highlighting (Calendar page)
     ├── weather.py      # Open-Meteo weather + forecast
     ├── ghostfolio.py   # Ghostfolio portfolio tracker + live ticker
     ├── connectivity.py # Ping / DNS / speed-test connectivity checks
@@ -52,7 +54,8 @@ tuidash/
     ├── news_ticker.py  # Single-row continuous news ticker (last 6 h, all RSS sources)
     ├── news_reader.py  # Full-page news reader used on page 2
     ├── relay.py        # Generic relay server feed widget (SSE + REST, per-topic)
-    ├── header.py       # App header bar: nav buttons, network status, title, privacy lock + clock
+    ├── podcasts.py     # Podcast feed viewer + mpv player (PodcastIndex API)
+    ├── header.py       # App header bar: nav buttons (‹/›), net status, title (tap → page menu), play status, privacy lock (◉/○), clock
     └── rss.py          # RSS feed-fetching library (FeedData, _fetch_feed, _parse_dt)
 ```
 
@@ -75,7 +78,8 @@ TuidashApp (App)                    ← navigation, global reactives, config
 │   │   └── (sibling)  3    │ NewsTickerWidget(100%) — full-width, 1-row ticker             │
 │   ├── NewsPage (BasePage)         ← page 2 — always mounted
 │   │   └── Horizontal              │ RelayWidget("news", 1fr) │ NewsReaderWidget(1fr) │
-│   └── CalendarPage (BasePage)     ← page 3 — always mounted
+│   ├── CalendarPage (BasePage)     ← page 3 — always mounted
+│   └── PodcastsPage (BasePage)     ← page 4 — always mounted
 └── Footer
 ```
 
@@ -89,7 +93,7 @@ Pages are defined in `_PAGES` in `app.py` as an ordered list of `(label, widget-
 
 - All pages are mounted once at startup and kept in the DOM; `ContentSwitcher` hides/shows them via CSS `display`, so navigation is instant with no data reload
 - `←` / `→` arrow keys cycle through pages (wraps); bindings are on the App so they work everywhere
-- The app `sub_title` shows `[n/total] PageName  ↻ Xs` and `PRIVATE MODE` when active
+- The app `sub_title` shows `[n/total] PageName  ↻ Xs`; privacy state is shown via the `◉`/`○` icon in `DashHeader`
 - Pages extend `BasePage` (`screens/__init__.py`). Pages that support privacy implement `set_privacy(value: bool)`; pages that support refresh implement `set_refresh_interval(seconds: int)` and `refresh_all()`. The App iterates `self.query(BasePage)` to propagate reactive changes to all pages; `action_refresh` targets only the currently visible page by ID.
 
 Widget border titles set in `dashboard.on_mount()`:
@@ -156,6 +160,8 @@ Widgets with long-lived background threads (e.g. `RelayWidget`'s SSE listener) s
 | `privacy` | `bool` | Masks sensitive values with `•••••` in Ghostfolio |
 | `refresh_interval` | `int` | Seconds between auto-refreshes (30–3600, default 300) |
 | `_privacy_forced` | `bool` | Set by `TUIDASH_PRIVACY_FORCE`; makes the `p` toggle a no-op |
+| `_privacy_default` | `bool` | Set by `TUIDASH_PRIVACY_DEFAULT`; enables auto-relock after 5 min when privacy is toggled off |
+| `_relock_timer` | `Timer \| None` | Pending auto-relock timer; cancelled if privacy is re-enabled before it fires |
 
 `watch_privacy` and `watch_refresh_interval` propagate changes to individual widgets. Use `always_update=True` on reactives that need to fire on every assignment (even same value).
 
@@ -170,6 +176,8 @@ Widgets with long-lived background threads (e.g. `RelayWidget`'s SSE listener) s
 | `]` | Increase refresh interval by 60 s |
 | `←` | Previous page (wraps) |
 | `→` | Next page (wraps) |
+| `1`–`4` | Jump directly to page 1–4 (hidden from footer) |
+| `Space` | Play/pause podcast (only active while mpv is running) |
 | `,` | Previous month (Calendar page only) |
 | `.` | Next month (Calendar page only) |
 
@@ -198,6 +206,33 @@ def compose(self) -> ComposeResult:
         sc.can_focus = False
         yield Static(...)
 ```
+
+### Mobile mode
+
+The app automatically switches to a mobile-optimised layout when the terminal (or browser) width is below 90 columns.
+
+**Mechanism:** `HORIZONTAL_BREAKPOINTS = [(0, "mobile"), (90, "wide")]` — Textual adds the `.mobile` CSS class to the `Screen` when width < 90. All mobile overrides in `app.py` use `.mobile` selector prefixes. No code branching is needed; CSS handles everything.
+
+**DashHeader tap navigation** (relevant for phone browsers via `--serve`):
+- `‹` / `›` buttons at header edges — prev/next page
+- Title tap — opens a `PageMenu` dropdown (`OptionList` overlay) listing all pages; current page is highlighted; selecting closes the menu; tapping title again or pressing `Escape` also closes it
+- Privacy lock (`◉`/`○`) tap — toggles privacy mode
+- **Auto-relock:** if the app starts with `TUIDASH_PRIVACY_DEFAULT=true` and the user disables privacy, it automatically re-enables after 5 minutes
+
+**Mobile layouts by widget/page:**
+
+| Widget / page | Mobile change |
+|---|---|
+| `DashboardPage #row-top` | `layout: vertical; height: auto` — widgets stack vertically |
+| `DashboardPage #row-mid` | `layout: vertical; height: auto` |
+| `DashboardPage #row-bot` | `height: auto` |
+| `ClockWidget` | `width: 100%; height: 6` |
+| `WeatherWidget`, `CalendarWidget`, `GhostfolioWidget` | `width: 100%` |
+| `#conn-hosts-col` | `width: 100%` |
+| `EventsWidget` | `height: auto`; vertical day stacking with `─` separators between days |
+| `CalFullWidget` (Calendar page) | Shows colored square indicators (■) per calendar instead of event text |
+| `NewsPage` | `RelayWidget` + `NewsReaderWidget` stack vertically (not side-by-side) |
+| `PodcastsPage #podcasts-grid` | `grid-size: 1` — single-column card list |
 
 ---
 
@@ -345,6 +380,9 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_SPEEDTESTTRACKER_TOKEN` | — | Bearer token for Speedtest Tracker API |
 | `TUIDASH_RELAY_URL` | — | Base URL of the relay server instance (required for RelayWidget) |
 | `TUIDASH_RELAY_TOKEN` | — | Bearer token for the relay API (required for RelayWidget) |
+| `TUIDASH_PODCASTINDEX_KEY` | — | API key from https://api.podcastindex.org/ |
+| `TUIDASH_PODCASTINDEX_SECRET` | — | API secret from https://api.podcastindex.org/ |
+| `TUIDASH_PODCASTINDEX_IDS` | — | Comma-separated PodcastIndex feed IDs to display |
 
 Missing values for widget-specific vars show an inline error — they do not crash the app.
 
@@ -380,6 +418,7 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - All ICS feeds refresh at the same rate as `TUIDASH_REFRESH` (wired to `set_refresh_interval`)
 - Calendar grid updates every 60 s regardless of refresh interval (no network dependency)
 - Manual `r` triggers `_load()`, which re-fetches all four ICS feeds in parallel (holiday, family, personal, work)
+- **Mobile mode:** `CalFullWidget` shows colored square indicators (■) per calendar type instead of event text, to fit narrow terminals
 
 ### EventsWidget
 
@@ -387,6 +426,7 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - Each day column scrolls long event names using boomerang scroll (same `scroll_window` helper as `RssWidget`)
 - Uses `TUIDASH_FAMILY_ICS`, `TUIDASH_PERSONAL_ICS`, `TUIDASH_WORK_ICS` and their corresponding `_COLOR` vars
 - Occupies `#row-bot` (full width, `1fr` height) on the dashboard
+- **Mobile mode:** Switches to vertical layout — day blocks stacked top-to-bottom, separated by a dim `─` rule; header shows "Today / Tomorrow / [Weekday name]" with date
 
 ### NewsTickerWidget
 
@@ -407,6 +447,17 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - SSE reconnects with exponential backoff (2 s → 60 s cap); sends `Last-Event-ID` header on reconnect to replay missed posts
 - Missing `TUIDASH_RELAY_URL` or `TUIDASH_RELAY_TOKEN`: `_load()` shows an inline error; `_listen()` exits immediately without retrying
 - Currently placed on **NewsPage** (page 2) as a `1fr`-wide left panel beside `NewsReaderWidget`
+
+### PodcastsWidget
+
+- Fetches podcast feeds from the PodcastIndex API using `TUIDASH_PODCASTINDEX_KEY` / `TUIDASH_PODCASTINDEX_SECRET` and `TUIDASH_PODCASTINDEX_IDS` (comma-separated feed IDs)
+- Each podcast is displayed as a card with: half-block pixel-art artwork (or text fallback), episode title, publication date, duration, and playback controls
+- Playback controls per card: play/pause, ◀◀/▶▶ seek ±10 s, ◀/→ episode prev/next, ● jump to latest, ✓ mark listened, ↺ reset progress
+- Global play/pause via `Space` key or the `⏸`/`▶` indicator in `DashHeader` (only active while mpv is running)
+- Playback via `_MpvPlayer` — thin wrapper around `mpv --no-video --input-ipc-server=/tmp/tuidash-mpv.sock` (Unix socket IPC for seek/pause without restarting)
+- Episode playback position stored in `~/.local/share/tuidash/podcast_progress.json` (keyed by episode GUID + date); resumes from last position on re-open
+- Missing API key/secret: widget shows an inline error; missing `mpv` binary: error toast, all other functionality unaffected
+- **Mobile mode:** `#podcasts-grid` switches to `grid-size: 1` — cards stack vertically in a single column
 
 ---
 
