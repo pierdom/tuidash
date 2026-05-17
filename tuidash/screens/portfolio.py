@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+from textual.app import ComposeResult
+from textual.containers import Horizontal
+
+from . import BasePage
+from ..widgets.ghostfolio_detail import GhostfolioDetailWidget
+from ..widgets.relay import RelayWidget
+
+
+class PortfolioPage(BasePage):
+    """Portfolio overview — page 5."""
+
+    DEFAULT_CSS = """
+    PortfolioPage {
+        height: 100%;
+    }
+    PortfolioPage Horizontal {
+        height: 100%;
+    }
+    PortfolioPage RelayWidget {
+        width: 1fr;
+        height: 100%;
+        border-title-color: $accent;
+        border-title-style: bold;
+        border-subtitle-color: $text-muted;
+    }
+    PortfolioPage GhostfolioDetailWidget {
+        width: 1fr;
+        height: 100%;
+        border-title-color: $accent;
+        border-title-style: bold;
+        border-subtitle-color: $text-muted;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        with Horizontal():
+            yield RelayWidget("financial-analyst")
+            yield GhostfolioDetailWidget()
+
+    def on_mount(self) -> None:
+        self.query_one(GhostfolioDetailWidget).border_title = "  Portfolio detail"
+
+    def set_refresh_interval(self, value: int) -> None:
+        try:
+            self.query_one(RelayWidget).set_refresh_interval(value)
+        except Exception:
+            pass
+
+    def refresh_all(self) -> None:
+        try:
+            self.query_one(RelayWidget)._load()
+        except Exception:
+            pass

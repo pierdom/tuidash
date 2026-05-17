@@ -26,6 +26,7 @@ from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
 from .screens.news import NewsPage
 from .screens.podcasts import PodcastsPage
+from .screens.portfolio import PortfolioPage
 from .widgets.header import DashHeader
 
 
@@ -36,6 +37,7 @@ _PAGES: list[tuple[str, str, type]] = [
     ("News",      "page-news",       NewsPage),
     ("Calendar",  "page-calendar",   CalendarPage),
     ("Podcasts",  "page-podcasts",   PodcastsPage),
+    ("Portfolio", "page-portfolio",  PortfolioPage),
 ]
 
 
@@ -75,6 +77,11 @@ class TuidashApp(App):
 
     /* Podcasts page */
     .mobile #podcasts-grid { grid-size: 1; }
+
+    /* Portfolio page */
+    .mobile PortfolioPage Horizontal { layout: vertical; }
+    .mobile PortfolioPage RelayWidget { width: 100%; height: auto; }
+    .mobile PortfolioPage GhostfolioDetailWidget { width: 100%; height: 1fr; }
     """
 
     privacy:          reactive[bool] = reactive(False)
