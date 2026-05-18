@@ -383,11 +383,11 @@ def _braille_area_chart(
     for dx, dy_val in enumerate(_to_dot(v) for v in sampled):
         if dy_val >= zero_dot:
             _set(pos_line, dx, dy_val)
-            for dy in range(zero_dot, dy_val):
+            for dy in range(0, dy_val):
                 _set(pos_fill, dx, dy)
         else:
             _set(neg_line, dx, dy_val)
-            for dy in range(dy_val + 1, zero_dot + 1):
+            for dy in range(0, dy_val + 1):
                 _set(neg_fill, dx, dy)
 
     rows: list[Text] = []
