@@ -65,26 +65,40 @@ class TuidashApp(App):
     .mobile #row-top { layout: vertical; height: auto; }
     .mobile #row-mid { layout: vertical; height: auto; }
     .mobile #row-bot { height: auto; }
-    .mobile ClockWidget   { width: 100%; height: 6; margin: 0; }
-    .mobile WeatherWidget { width: 100%; margin: 0; }
-    .mobile CalendarWidget { width: 100%; }
-    .mobile GhostfolioWidget { width: 100%; margin: 0; }
-    .mobile #conn-hosts-col { width: 100%; }
+    .mobile ClockWidget    { width: 100%; height: 6; margin: 0; }
+    .mobile WeatherWidget  { width: 100%; height: auto; margin: 0; }
+    .mobile CalendarWidget { width: 100%; height: auto; }
+    .mobile GhostfolioWidget { width: 100%; height: auto; margin: 0; }
+    .mobile #conn-hosts-col  { width: 100%; }
+    .mobile ConnectivityWidget { height: auto; }
+    .mobile HostsWidget        { height: auto; }
     .mobile EventsWidget { height: auto; }
-    .mobile #events-body  { height: auto; }
+    .mobile #events-body { height: auto; }
 
     /* News page */
+    .mobile NewsPage { overflow-y: auto; }
     .mobile NewsPage Horizontal { layout: vertical; }
-    .mobile NewsPage RelayWidget { width: 100%; height: 40%; }
-    .mobile NewsPage NewsReaderWidget { width: 100%; height: 60%; }
+    .mobile NewsPage RelayWidget      { width: 100%; height: auto; }
+    .mobile NewsPage NewsReaderWidget { width: 100%; height: auto; }
+
+    /* Calendar page */
+    .mobile CalendarPage { overflow-y: auto; }
 
     /* Podcasts page */
+    .mobile PodcastsPage { overflow-y: auto; }
     .mobile #podcasts-grid { grid-size: 1; }
 
     /* Portfolio page */
+    .mobile PortfolioPage { overflow-y: auto; }
     .mobile PortfolioPage Horizontal { layout: vertical; }
-    .mobile PortfolioPage RelayWidget { width: 100%; height: 30%; }
-    .mobile PortfolioPage GhostfolioDetailWidget { width: 100%; height: 70%; }
+    .mobile PortfolioPage RelayWidget            { width: 100%; height: auto; }
+    .mobile PortfolioPage GhostfolioDetailWidget { width: 100%; height: auto; }
+
+    /* Single-scroll: expand internal containers to full content, disable inner scroll */
+    .mobile RelayWidget ScrollableContainer            { height: auto; overflow-y: hidden; }
+    .mobile NewsReaderWidget ScrollableContainer       { height: auto; overflow-y: hidden; }
+    .mobile GhostfolioDetailWidget ScrollableContainer { height: auto; overflow-y: hidden; }
+    .mobile PodcastsWidget ScrollableContainer         { height: auto; overflow-y: hidden; }
 
     /* Scroll-captured widget highlight (mobile pointer lock) */
     .scroll-captured { border: heavy $accent; }
@@ -321,21 +335,25 @@ class TuidashApp(App):
         except Exception:
             pass
 
-    def action_prev_page(self) -> None:
-        self._page_idx = (self._page_idx - 1) % len(_PAGES)
-        self.query_one(ContentSwitcher).current = _PAGES[self._page_idx][1]
+    def _switch_page(self, idx: int) -> None:
+        self._page_idx = idx
+        _, page_id, _ = _PAGES[idx]
+        self.query_one(ContentSwitcher).current = page_id
         self._update_subtitle()
+        try:
+            self.query_one(f"#{page_id}", BasePage).scroll_home(animate=False)
+        except Exception:
+            pass
+
+    def action_prev_page(self) -> None:
+        self._switch_page((self._page_idx - 1) % len(_PAGES))
 
     def action_next_page(self) -> None:
-        self._page_idx = (self._page_idx + 1) % len(_PAGES)
-        self.query_one(ContentSwitcher).current = _PAGES[self._page_idx][1]
-        self._update_subtitle()
+        self._switch_page((self._page_idx + 1) % len(_PAGES))
 
     def action_go_page(self, idx: int) -> None:
         if 0 <= idx < len(_PAGES):
-            self._page_idx = idx
-            self.query_one(ContentSwitcher).current = _PAGES[idx][1]
-            self._update_subtitle()
+            self._switch_page(idx)
 
 
 def _local_ips() -> list[str]:
