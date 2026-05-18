@@ -224,8 +224,12 @@ class TuidashApp(App):
     # ── scroll helpers ────────────────────────────────────────────────────────
 
     def on_mouse_move(self, event: events.MouseMove) -> None:
-        w = self.get_widget_at(event.screen_x, event.screen_y)
+        try:
+            widget, _ = self.get_widget_at(event.screen_x, event.screen_y)
+        except Exception:
+            return
         sc: ScrollableContainer | None = None
+        w = widget
         while w is not None:
             if isinstance(w, ScrollableContainer):
                 sc = w
