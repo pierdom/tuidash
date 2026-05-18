@@ -105,8 +105,9 @@ class DetailData:
     ticker: list[TickerItem]       = field(default_factory=list)
     accounts: list[AccountDetail]  = field(default_factory=list)
     activity: list[MonthActivity]  = field(default_factory=list)
-    chart_pct: list[float]         = field(default_factory=list)
-    chart_dates: list[str]         = field(default_factory=list)
+    chart_pct: list[float]              = field(default_factory=list)
+    chart_dates: list[str]              = field(default_factory=list)
+    chart_monthly: list[tuple[str, float]] = field(default_factory=list)
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -322,6 +323,18 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
     chart_pct   = [e.get("netPerformanceInPercentage", 0.0) * 100 for e in chart_1y]
     chart_dates = [e.get("date", "") for e in chart_1y]
 
+    # 12-month bar chart data: incremental monthly performance, oldest first
+    chart_monthly: list[tuple[str, float]] = []
+    for i in range(11, -1, -1):
+        m = today_d.month - i
+        y = today_d.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        label = _D(y, m, 1).strftime("%b")
+        ps = mtd if i == 0 else _month_perf(y, m)
+        chart_monthly.append((label, ps.pct))
+
     return DetailData(
         total_value=total_value,
         base_currency=base_currency,
@@ -338,98 +351,122 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
         activity=activity,
         chart_pct=chart_pct,
         chart_dates=chart_dates,
+        chart_monthly=chart_monthly,
     )
 
 
-# ── braille chart (btop-style) ─────────────────────────────────────────────────
+# ── braille monthly bar chart ──────────────────────────────────────────────────
 
-def _braille_area_chart(
-    values: list[float],
+def _braille_monthly_bars(
+    months: list[tuple[str, float]],
     width: int,
     height: int,
-    color_pos: str = "green",
-    color_neg: str = "red",
-) -> list[Text]:
-    """Filled braille area chart with bright peak line, dim fill — à la btop."""
-    dot_w, dot_h = width * 2, height * 4
-    empty = [Text(chr(0x2800) * width, style="dim") for _ in range(height)]
-    if not values or dot_h < 2 or dot_w < 2 or width < 1:
-        return empty
+) -> tuple[list[Text], Text]:
+    """12-column braille bar chart. Positive months green (up), negative red (down)."""
+    dot_h = height * 4
+    _blank = [Text(chr(0x2800) * width, style="dim") for _ in range(height)]
+    if not months or width < len(months) or dot_h < 4:
+        return _blank, Text(" " * width, style="dim")
 
-    n = len(values)
-    sampled = [
-        values[round(i * (n - 1) / max(dot_w - 1, 1))]
-        for i in range(dot_w)
-    ]
-    mn, mx = min(sampled), max(sampled)
-    rng = mx - mn or 1.0
-    zero_dot = max(0, min(dot_h - 1, round((-mn) / rng * (dot_h - 1))))
+    n     = len(months)
+    vals  = [v for _, v in months]
+    max_pos = max((v for v in vals if v > 0), default=0.01)
+    max_neg = max((-v for v in vals if v < 0), default=0.01)
 
-    def _to_dot(v: float) -> int:
-        return max(0, min(dot_h - 1, round((v - mn) / rng * (dot_h - 1))))
+    # Place zero proportionally between positive and negative extents
+    pos_dots = max(2, round(dot_h * max_pos / (max_pos + max_neg)))
+    neg_dots = dot_h - pos_dots
+    zero_dot = neg_dots  # dot index of the zero line (0 = very bottom)
 
-    def _set(grid: list[list[int]], dx: int, dy: int) -> None:
-        cx, col = dx // 2, dx % 2
-        cy = height - 1 - (dy // 4)
-        row = 3 - (dy % 4)
-        if 0 <= cy < height:
-            grid[cy][cx] |= (_BR_LEFT if col == 0 else _BR_RIGHT)[row]
+    # Layout: bar_w chars per bar, 1-char gap, centred
+    gap   = 1
+    bar_w = max(1, (width - gap * (n - 1)) // n)
+    left_pad = (width - (bar_w * n + gap * (n - 1))) // 2
 
-    pos_line = [[0] * width for _ in range(height)]
-    pos_fill = [[0] * width for _ in range(height)]
-    neg_line = [[0] * width for _ in range(height)]
-    neg_fill = [[0] * width for _ in range(height)]
+    def _bar_cxs(i: int) -> tuple[int, int]:
+        s = left_pad + i * (bar_w + gap)
+        return s, s + bar_w
 
-    for dx, dy_val in enumerate(_to_dot(v) for v in sampled):
-        if dy_val >= zero_dot:
-            _set(pos_line, dx, dy_val)
-            for dy in range(0, dy_val):
-                _set(pos_fill, dx, dy)
+    # Dot height per bar (positive = above zero, negative = below zero)
+    dot_sizes: list[int] = []
+    for _, pct in months:
+        if pct > 0:
+            dot_sizes.append(max(1, round(pct / max_pos * (pos_dots - 1))))
+        elif pct < 0:
+            dot_sizes.append(-max(1, round(-pct / max_neg * (neg_dots - 1))))
         else:
-            _set(neg_line, dx, dy_val)
-            for dy in range(0, dy_val + 1):
-                _set(neg_fill, dx, dy)
+            dot_sizes.append(0)
 
     rows: list[Text] = []
     for cy in range(height):
+        dot_base     = (height - 1 - cy) * 4  # lowest dot index in this char row
+        is_zero_cell = dot_base <= zero_dot <= dot_base + 3
         t = Text()
+
         for cx in range(width):
-            pl = pos_line[cy][cx]
-            pf = pos_fill[cy][cx]
-            nl = neg_line[cy][cx]
-            nf = neg_fill[cy][cx]
-            total = pl | pf | nl | nf
-            if not total:
-                t.append(chr(0x2800), style="dim")
-            elif pl or pf:
-                t.append(chr(0x2800 + total), style=f"bold {color_pos}" if pl else color_pos)
+            bar_idx: int | None = None
+            for i in range(n):
+                bs, be = _bar_cxs(i)
+                if bs <= cx < be:
+                    bar_idx = i
+                    break
+
+            if bar_idx is None:
+                # Gap or outer padding — draw axis tick on zero row
+                t.append("─" if is_zero_cell else " ", style="dim")
+                continue
+
+            ds   = dot_sizes[bar_idx]
+            bits = 0
+            if ds > 0:
+                bar_top = zero_dot + ds
+                for dy in range(dot_base, dot_base + 4):
+                    if zero_dot <= dy < bar_top:
+                        r = 3 - (dy - dot_base)
+                        bits |= _BR_LEFT[r] | _BR_RIGHT[r]
+            elif ds < 0:
+                bar_bot = max(0, zero_dot + ds)
+                for dy in range(dot_base, dot_base + 4):
+                    if bar_bot <= dy < zero_dot:
+                        r = 3 - (dy - dot_base)
+                        bits |= _BR_LEFT[r] | _BR_RIGHT[r]
+
+            if not bits:
+                if is_zero_cell:
+                    zr   = 3 - (zero_dot - dot_base)
+                    bits = _BR_LEFT[zr] | _BR_RIGHT[zr]
+                    t.append(chr(0x2800 + bits), style="dim")
+                else:
+                    t.append(chr(0x2800), style="dim")
+                continue
+
+            # Gradient: bright at peak end, dim near zero
+            cell_mid = dot_base + 1
+            if ds > 0:
+                frac = (cell_mid - zero_dot) / ds
             else:
-                t.append(chr(0x2800 + total), style=f"bold {color_neg}" if nl else color_neg)
+                frac = (zero_dot - 1 - cell_mid) / (-ds)
+            frac = max(0.0, min(1.0, frac))
+
+            if ds > 0:
+                style = "bold bright_green" if frac > 0.70 else "green" if frac > 0.35 else "dim green"
+            else:
+                style = "bold bright_red" if frac > 0.70 else "red" if frac > 0.35 else "dim red"
+
+            t.append(chr(0x2800 + bits), style=style)
+
         rows.append(t)
-    return rows
 
-
-def _chart_x_axis(dates: list[str], width: int) -> Text:
-    """Month-name label row aligned to chart x positions."""
-    from datetime import date as _D
-    n = len(dates)
-    if not dates or width < 4:
-        return Text("")
+    # X-axis: 3-char month abbreviations centred under each bar
     line = [" "] * width
-    prev = ""
-    for i, d in enumerate(dates):
-        try:
-            month = _D.fromisoformat(d).strftime("%b")
-        except Exception:
-            continue
-        if month != prev:
-            x = round(i / max(n - 1, 1) * max(width - 3, 1))
-            x = min(x, width - len(month))
-            for j, c in enumerate(month):
-                if 0 <= x + j < width:
-                    line[x + j] = c
-            prev = month
-    return Text("".join(line), style="dim")
+    for i, (label, _) in enumerate(months):
+        bs, be = _bar_cxs(i)
+        cx = bs + max(0, (be - bs - 3) // 2)
+        for j, c in enumerate(label[:3]):
+            if 0 <= cx + j < width:
+                line[cx + j] = c
+
+    return rows, Text("".join(line), style="dim")
 
 
 # ── rendering ──────────────────────────────────────────────────────────────────
@@ -476,22 +513,18 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         perf.add_column(ratio=1)
     perf.add_row(*[_perf_cell(lbl, s, cur, privacy) for lbl, s in perf_cells])
 
-    # ── 1Y braille chart (btop-style) ─────────────────────────────────────────
+    # ── 1Y monthly bar chart ──────────────────────────────────────────────────
     chart_h  = 6 if wide else 4
     cw       = max(4, width - 2)
     yr_up    = data.one_year.pct >= 0
     yr_arrow = "▲" if yr_up else "▼"
     yr_color = "green" if yr_up else "red"
-    ymin     = min(data.chart_pct) if data.chart_pct else 0.0
-    ymax     = max(data.chart_pct) if data.chart_pct else 0.0
 
     yr_line = Text()
     yr_line.append(f"{yr_arrow} {abs(data.one_year.pct):.2f}%", style=f"bold {yr_color}")
     yr_line.append(f"  {_fmt_delta(data.one_year.abs, cur)}", style=yr_color)
-    yr_line.append(f"   {ymin:.1f}% – {ymax:.1f}%", style="dim")
 
-    chart_rows = _braille_area_chart(data.chart_pct, cw, chart_h)
-    x_axis    = _chart_x_axis(data.chart_dates, cw)
+    chart_rows, x_axis = _braille_monthly_bars(data.chart_monthly, cw, chart_h)
 
     # ── top movers today ──────────────────────────────────────────────────────
     movers_parts: list[Any] = []

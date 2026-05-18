@@ -1,27 +1,18 @@
-# tuidash — Claude Code guide
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Personal terminal dashboard built with [Textual](https://textual.textualize.io/) + [Rich](https://rich.readthedocs.io/).
 
 ---
 
-## Open issues
+## Dev setup
 
-### GhostfolioDetailWidget braille chart — empty rows
+```bash
+uv sync          # install all dependencies into the managed venv
+```
 
-**File:** `tuidash/widgets/ghostfolio_detail.py`, function `_braille_area_chart` (~line 346)
-
-**Symptom:** The 1-year braille area chart in the Portfolio page has visually empty rows. With data like min=−8.3% / max=43.4%, most historical values cluster near 0–15%, leaving the upper character rows sparse or blank.
-
-**What's been tried:**
-1. Debounced resize redraw via `_advance_ticker` (commit `9dc23ba`) — fixed resize flicker, not the empty-row issue.
-2. Changed fill direction from `range(zero_dot, dy_val)` to `range(0, dy_val)` — fills from the bottom of the chart instead of from the zero baseline, so every column has green fill from the bottom up. Still reported as not solved.
-
-**What to investigate next:**
-- The `chart_pct` data is cumulative `netPerformanceInPercentage * 100` from the 1y chart. Verify the actual values fed in — if many points are clustered (e.g. 0–5%), even bottom-fill won't produce dense upper rows for those columns.
-- Consider switching the y-axis to `netWorth` instead of percentage — the absolute value curve is smoother and uses the full height better.
-- Or: autoscale by using a percentile clip (e.g. 5th–95th percentile) instead of strict min/max, to reduce the influence of outlier spikes on the y-range.
-- Or: increase `chart_h` (currently 6 for wide, 4 for narrow) to give more dot resolution.
-- Screenshot for reference: `chart.png` in repo root (untracked).
+There are no tests and no linting config in `pyproject.toml`. Run the app directly to verify changes.
 
 ---
 
@@ -57,6 +48,8 @@ tuidash/
 ├── app.py              # TuidashApp — navigation, global reactives, config loading, serve entry point
 ├── config.py           # Thin wrapper around python-dotenv (get / require)
 ├── ics.py              # ICS calendar parser (events)
+├── scroll.py           # Shared boomerang-scroll helper (scroll_offset, scroll_window, current_tick)
+├── podcast_progress.py # ProgressStore — episode playback state persisted to ~/.local/share/tuidash/podcast_progress.json
 ├── screens/
 │   ├── dashboard.py    # Page 1 — overview dashboard (all widgets)
 │   ├── news.py         # Page 2 — RelayWidget (left) + NewsReaderWidget (right), side by side
