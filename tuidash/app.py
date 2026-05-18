@@ -15,8 +15,10 @@ from pathlib import Path
 if os.environ.get("TEXTUAL_DRIVER"):
     selectors.DefaultSelector = selectors.SelectSelector  # type: ignore[attr-defined]
 
+from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import ScrollableContainer
 from textual.reactive import reactive
 from textual.timer import Timer
 from textual.widgets import ContentSwitcher, Footer
@@ -83,6 +85,9 @@ class TuidashApp(App):
     .mobile PortfolioPage Horizontal { layout: vertical; }
     .mobile PortfolioPage RelayWidget { width: 100%; height: 30%; }
     .mobile PortfolioPage GhostfolioDetailWidget { width: 100%; height: 70%; }
+
+    /* Scroll-captured widget highlight (mobile pointer lock) */
+    .scroll-captured { border: heavy $accent; }
     """
 
     privacy:          reactive[bool] = reactive(False)
@@ -90,7 +95,8 @@ class TuidashApp(App):
     _privacy_forced:  bool           = False
     _privacy_default: bool           = False
     _relock_timer:    Timer | None   = None
-    _page_idx:        int            = 0
+    _page_idx:        int                      = 0
+    _hover_sc:        ScrollableContainer | None = None
 
     _RELOCK_SECONDS = 5 * 60
 
@@ -103,8 +109,10 @@ class TuidashApp(App):
         Binding("left",      "prev_page",        "Prev page",  priority=True),
         Binding("right",     "next_page",        "Next page",  priority=True),
         Binding("space",     "toggle_playback",  "⏯ Play/Pause", priority=True),
-        Binding("comma",     "prev_month",       "Prev month", priority=True),
-        Binding("full_stop", "next_month",       "Next month", priority=True),
+        Binding("comma",     "prev_month",       "Prev month",  priority=True),
+        Binding("full_stop", "next_month",       "Next month",  priority=True),
+        Binding("pageup",    "scroll_up",        "Scroll up",   show=False, priority=True),
+        Binding("pagedown",  "scroll_down",      "Scroll down", show=False, priority=True),
         *[
             Binding(str(i + 1), f"go_page({i})", f"Page {i + 1}", show=False)
             for i in range(len(_PAGES))
@@ -212,6 +220,38 @@ class TuidashApp(App):
         for page in self.query(BasePage):
             if hasattr(page, "set_refresh_interval"):
                 page.set_refresh_interval(value)
+
+    # ── scroll helpers ────────────────────────────────────────────────────────
+
+    def on_mouse_move(self, event: events.MouseMove) -> None:
+        w = self.get_widget_at(event.screen_x, event.screen_y)
+        sc: ScrollableContainer | None = None
+        while w is not None:
+            if isinstance(w, ScrollableContainer):
+                sc = w
+                break
+            w = w.parent
+        if sc is not self._hover_sc:
+            self._hover_sc = sc
+
+    def _active_sc(self) -> ScrollableContainer | None:
+        if self._hover_sc is not None:
+            return self._hover_sc
+        _, page_id, _ = _PAGES[self._page_idx]
+        try:
+            return self.query_one(f"#{page_id}").query(ScrollableContainer).first()
+        except Exception:
+            return None
+
+    def action_scroll_up(self) -> None:
+        sc = self._active_sc()
+        if sc:
+            sc.scroll_page_up(animate=True)
+
+    def action_scroll_down(self) -> None:
+        sc = self._active_sc()
+        if sc:
+            sc.scroll_page_down(animate=True)
 
     # ── actions ───────────────────────────────────────────────────────────────
 
