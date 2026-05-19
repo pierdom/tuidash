@@ -441,6 +441,19 @@ def _detect_serve_ip() -> str:
 # proxy that intercepts the HTML page response and injects the one-liner fix;
 # WebSocket connections (the actual TUI stream) are tunneled transparently.
 
+# Rewrites the hardcoded absolute WebSocket URL that textual-serve bakes into
+# data-session-websocket-url so the same HTML works regardless of which
+# hostname/proxy the browser used to reach the page (LAN, Tailscale, NGINX…).
+# Injected synchronously just before </body> so #terminal already exists and
+# the attribute is patched before textual.js's DOMContentLoaded listener fires.
+_WS_URL_REWRITE = (
+    b'<script>(function(){'
+    b'var t=document.getElementById("terminal");'
+    b'if(t){t.dataset.sessionWebsocketUrl='
+    b'(location.protocol==="https:"?"wss:":"ws:")+"//"+ location.host+"/ws";}'
+    b'})();</script>'
+)
+
 _MOBILE_INJECT = (
     # Prevent the browser page from showing its own scrollbar alongside the
     # Textual scrollbar rendered inside the xterm.js canvas.
@@ -538,6 +551,7 @@ async def _proxy_conn(cr, cw, internal_port: int) -> None:
         if is_html and resp_cl and not is_chunked:
             body = await ur.read(resp_cl)
             body = body.replace(b"</head>", _MOBILE_INJECT + b"</head>", 1)
+            body = body.replace(b"</body>", _WS_URL_REWRITE + b"</body>", 1)
             resp_bytes = re.sub(
                 rb"(?i)(content-length:\s*)\d+",
                 lambda m: m.group(1) + str(len(body)).encode(),
