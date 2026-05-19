@@ -25,6 +25,7 @@ from textual.widgets import ContentSwitcher, Footer
 
 from . import config
 from .screens import BasePage
+from .widgets.base import DashWidget
 from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
 from .screens.news import NewsPage
@@ -61,7 +62,7 @@ class TuidashApp(App):
     /* ── mobile mode (narrow terminal / phone browser) ── */
 
     /* Dashboard page */
-    .mobile DashboardPage { overflow-y: auto; }
+    #dashboard-scroll { height: 1fr; overflow-y: hidden; }
     .mobile #row-top { layout: vertical; height: auto; }
     .mobile #row-mid { layout: vertical; height: auto; }
     .mobile #row-bot { height: auto; }
@@ -75,30 +76,21 @@ class TuidashApp(App):
     .mobile EventsWidget { height: auto; }
     .mobile #events-body { height: auto; }
 
-    /* News page */
-    .mobile NewsPage { overflow-y: auto; }
+    /* News page — vertical 30/70 split, each widget scrolls internally */
     .mobile NewsPage Horizontal { layout: vertical; }
-    .mobile NewsPage RelayWidget      { width: 100%; height: auto; }
-    .mobile NewsPage NewsReaderWidget { width: 100%; height: auto; }
+    .mobile NewsPage RelayWidget      { width: 100%; height: 30%; }
+    .mobile NewsPage NewsReaderWidget { width: 100%; height: 70%; }
 
     /* Calendar page */
-    .mobile CalendarPage { overflow-y: auto; }
+    .mobile CalendarPage { overflow-y: scroll; scrollbar-size-vertical: 1; }
 
-    /* Podcasts page */
-    .mobile PodcastsPage { overflow-y: auto; }
+    /* Podcasts page — inner SC scrolls cards; controls stay pinned at bottom */
     .mobile #podcasts-grid { grid-size: 1; }
 
-    /* Portfolio page */
-    .mobile PortfolioPage { overflow-y: auto; }
+    /* Portfolio page — vertical 30/70 split, each widget scrolls internally */
     .mobile PortfolioPage Horizontal { layout: vertical; }
-    .mobile PortfolioPage RelayWidget            { width: 100%; height: auto; }
-    .mobile PortfolioPage GhostfolioDetailWidget { width: 100%; height: auto; }
-
-    /* Single-scroll: expand internal containers to full content, disable inner scroll */
-    .mobile RelayWidget ScrollableContainer            { height: auto; overflow-y: hidden; }
-    .mobile NewsReaderWidget ScrollableContainer       { height: auto; overflow-y: hidden; }
-    .mobile GhostfolioDetailWidget ScrollableContainer { height: auto; overflow-y: hidden; }
-    .mobile PodcastsWidget ScrollableContainer         { height: auto; overflow-y: hidden; }
+    .mobile PortfolioPage RelayWidget            { width: 100%; height: 30%; }
+    .mobile PortfolioPage GhostfolioDetailWidget { width: 100%; height: 70%; }
 
     /* Scroll-captured widget highlight (mobile pointer lock) */
     .scroll-captured { border: heavy $accent; }
@@ -127,6 +119,8 @@ class TuidashApp(App):
         Binding("full_stop", "next_month",       "Next month",  priority=True),
         Binding("pageup",    "scroll_up",        "Scroll up",   show=False, priority=True),
         Binding("pagedown",  "scroll_down",      "Scroll down", show=False, priority=True),
+        Binding("up",        "scroll_up_line",   "",            show=False),
+        Binding("down",      "scroll_down_line", "",            show=False),
         *[
             Binding(str(i + 1), f"go_page({i})", f"Page {i + 1}", show=False)
             for i in range(len(_PAGES))
@@ -252,14 +246,34 @@ class TuidashApp(App):
         if sc is not self._hover_sc:
             self._hover_sc = sc
 
-    def _active_sc(self) -> ScrollableContainer | None:
+    def _active_sc(self) -> Widget | None:
+        # Focused DashWidget on the current page → use its SC (keyboard-driven scroll)
+        focused = self.focused
+        if focused is not None:
+            w: Widget | None = focused
+            while w is not None:
+                if isinstance(w, DashWidget):
+                    try:
+                        return w.query_one(ScrollableContainer)
+                    except Exception:
+                        break
+                w = w.parent  # type: ignore[assignment]
         if self._hover_sc is not None:
             return self._hover_sc
         _, page_id, _ = _PAGES[self._page_idx]
         try:
-            return self.query_one(f"#{page_id}").query(ScrollableContainer).first()
+            page = self.query_one(f"#{page_id}")
+            sc_results = page.query(ScrollableContainer)
+            if sc_results:
+                return sc_results.first()
+            # Page itself may be scrollable (e.g. DashboardPage with overflow-y: auto).
+            # Use the CSS property rather than allow_vertical_scroll, which depends
+            # on virtual_size being known — not guaranteed on the first frame.
+            if page.styles.overflow_y in ("auto", "scroll"):
+                return page
         except Exception:
-            return None
+            pass
+        return None
 
     def action_scroll_up(self) -> None:
         sc = self._active_sc()
@@ -270,6 +284,16 @@ class TuidashApp(App):
         sc = self._active_sc()
         if sc:
             sc.scroll_page_down(animate=True)
+
+    def action_scroll_up_line(self) -> None:
+        sc = self._active_sc()
+        if sc:
+            sc.scroll_up(animate=True)
+
+    def action_scroll_down_line(self) -> None:
+        sc = self._active_sc()
+        if sc:
+            sc.scroll_down(animate=True)
 
     # ── actions ───────────────────────────────────────────────────────────────
 
@@ -337,6 +361,7 @@ class TuidashApp(App):
 
     def _switch_page(self, idx: int) -> None:
         self._page_idx = idx
+        self._hover_sc = None
         _, page_id, _ = _PAGES[idx]
         self.query_one(ContentSwitcher).current = page_id
         self._update_subtitle()
@@ -417,6 +442,9 @@ def _detect_serve_ip() -> str:
 # WebSocket connections (the actual TUI stream) are tunneled transparently.
 
 _MOBILE_INJECT = (
+    # Prevent the browser page from showing its own scrollbar alongside the
+    # Textual scrollbar rendered inside the xterm.js canvas.
+    b'<style>html,body{overflow:hidden!important;height:100%!important;}</style>'
     b'<script>(function(){'
     b'function f(){'
     b'var t=document.querySelector(".xterm-helper-textarea");'

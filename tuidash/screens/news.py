@@ -21,16 +21,10 @@ class NewsPage(BasePage):
     NewsPage RelayWidget {
         width: 1fr;
         height: 100%;
-        border-title-color: $accent;
-        border-title-style: bold;
-        border-subtitle-color: $text-muted;
     }
     NewsPage NewsReaderWidget {
         width: 1fr;
         height: 100%;
-        border-title-color: $accent;
-        border-title-style: bold;
-        border-subtitle-color: $text-muted;
     }
     """
 

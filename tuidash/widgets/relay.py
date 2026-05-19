@@ -104,6 +104,9 @@ class RelayWidget(DashWidget):
     Multiple instances with different topics can coexist on the same screen.
     """
 
+    _mobile_scrollable = True
+    can_focus = True
+
     data: reactive[list[RelayPost] | None] = reactive(None, always_update=True)
 
     DEFAULT_CSS = """

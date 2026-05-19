@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal, ScrollableContainer, Vertical
 
 from ..widgets.calendar import CalendarWidget
 from ..widgets.clock import ClockWidget
@@ -21,6 +21,11 @@ class DashboardPage(BasePage):
     DashboardPage {
         height: 100%;
         layers: base overlay;
+    }
+
+    /* ── scrollbar size applied at parse time (bypasses .mobile CSS timing) ── */
+    #dashboard-scroll {
+        scrollbar-size-vertical: 1;
     }
 
     /* ── rows ── */
@@ -74,33 +79,44 @@ class DashboardPage(BasePage):
     EventsWidget {
         width: 100%;
     }
-
-    /* ── widget chrome ── */
-    DashWidget {
-        border-title-color: $accent;
-        border-title-style: bold;
-        border-subtitle-color: $text-muted;
-    }
     """
 
     def compose(self) -> ComposeResult:
-        with Horizontal(id="row-top"):
-            yield ClockWidget()
-            yield WeatherWidget()
-            yield CalendarWidget()
-        with Horizontal(id="row-mid"):
-            yield GhostfolioWidget()
-            with Vertical(id="conn-hosts-col"):
-                yield ConnectivityWidget()
-                yield HostsWidget()
-        with Container(id="row-bot"):
-            yield EventsWidget()
+        with ScrollableContainer(id="dashboard-scroll") as sc:
+            sc.can_focus = False
+            with Horizontal(id="row-top"):
+                yield ClockWidget()
+                yield WeatherWidget()
+                yield CalendarWidget()
+            with Horizontal(id="row-mid"):
+                yield GhostfolioWidget()
+                with Vertical(id="conn-hosts-col"):
+                    yield ConnectivityWidget()
+                    yield HostsWidget()
+            with Container(id="row-bot"):
+                yield EventsWidget()
         yield NewsTickerWidget()
 
     def on_show(self) -> None:
         self.call_after_refresh(self._sync_scroll)
 
+    def on_resize(self) -> None:
+        self._sync_scroll_mode()
+
+    def _sync_scroll_mode(self) -> None:
+        try:
+            sc = self.query_one("#dashboard-scroll", ScrollableContainer)
+        except Exception:
+            return
+        if self.screen.has_class("mobile"):
+            sc.styles.overflow_y = "scroll"
+            sc.show_vertical_scrollbar = True
+        else:
+            sc.styles.overflow_y = "hidden"
+            sc.show_vertical_scrollbar = False
+
     def _sync_scroll(self) -> None:
+        self._sync_scroll_mode()
         try:
             self.query_one(EventsWidget).reset_scroll()
             self.query_one(HostsWidget).reset_scroll()

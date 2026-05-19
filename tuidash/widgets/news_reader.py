@@ -151,6 +151,9 @@ def _download_images(articles: list[Article]) -> None:
 class NewsReaderWidget(DashWidget):
     """Full-screen scrollable RSS reader with article descriptions and thumbnails."""
 
+    _mobile_scrollable = True
+    can_focus = True
+
     data: reactive[list[FeedData] | None] = reactive(None, always_update=True)
 
     DEFAULT_CSS = """

@@ -21,16 +21,10 @@ class PortfolioPage(BasePage):
     PortfolioPage RelayWidget {
         width: 1fr;
         height: 100%;
-        border-title-color: $accent;
-        border-title-style: bold;
-        border-subtitle-color: $text-muted;
     }
     PortfolioPage GhostfolioDetailWidget {
         width: 1fr;
         height: 100%;
-        border-title-color: $accent;
-        border-title-style: bold;
-        border-subtitle-color: $text-muted;
     }
     """
 

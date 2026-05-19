@@ -691,6 +691,9 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
 class GhostfolioDetailWidget(DashWidget):
     """Extended portfolio detail — full holdings, allocation breakdown, summary."""
 
+    _mobile_scrollable = True
+    can_focus = True
+
     data: reactive[DetailData | None] = reactive(None, always_update=True)
 
     DEFAULT_CSS = """

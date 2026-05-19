@@ -54,7 +54,8 @@ tuidash/
 │   ├── dashboard.py    # Page 1 — overview dashboard (all widgets)
 │   ├── news.py         # Page 2 — RelayWidget (left) + NewsReaderWidget (right), side by side
 │   ├── calendar.py     # Page 3 — Full-page monthly calendar with events
-│   └── podcasts.py     # Page 4 — Podcast feed viewer and player
+│   ├── podcasts.py     # Page 4 — Podcast feed viewer and player
+│   └── portfolio.py    # Page 5 — RelayWidget (left) + GhostfolioDetailWidget (right), side by side
 └── widgets/
     ├── base.py         # DashWidget — base class for all widgets
     ├── clock.py        # Pixel-art half-block clock
@@ -93,7 +94,9 @@ TuidashApp (App)                    ← navigation, global reactives, config
 │   ├── NewsPage (BasePage)         ← page 2 — always mounted
 │   │   └── Horizontal              │ RelayWidget("news", 1fr) │ NewsReaderWidget(1fr) │
 │   ├── CalendarPage (BasePage)     ← page 3 — always mounted
-│   └── PodcastsPage (BasePage)     ← page 4 — always mounted
+│   ├── PodcastsPage (BasePage)     ← page 4 — always mounted
+│   └── PortfolioPage (BasePage)    ← page 5 — always mounted
+│       └── Horizontal              │ RelayWidget("financial-analyst", 1fr) │ GhostfolioDetailWidget(1fr) │
 └── Footer
 ```
 
@@ -110,17 +113,23 @@ Pages are defined in `_PAGES` in `app.py` as an ordered list of `(label, widget-
 - The app `sub_title` shows `[n/total] PageName  ↻ Xs`; privacy state is shown via the `◉`/`○` icon in `DashHeader`
 - Pages extend `BasePage` (`screens/__init__.py`). Pages that support privacy implement `set_privacy(value: bool)`; pages that support refresh implement `set_refresh_interval(seconds: int)` and `refresh_all()`. The App iterates `self.query(BasePage)` to propagate reactive changes to all pages; `action_refresh` targets only the currently visible page by ID.
 
-Widget border titles set in `dashboard.on_mount()`:
-- Clock, Weather, Calendar, Ghostfolio, Connectivity, **Servers** (HostsWidget), Events, **News** (NewsTickerWidget)
+Widget border titles are set by each screen's `on_mount()`:
+- `DashboardPage`: Clock, Weather, Calendar, Ghostfolio, Connectivity, **Servers** (HostsWidget), Events, **News** (NewsTickerWidget)
+- `NewsPage`: News (NewsReaderWidget) — RelayWidget sets its own
+- `CalendarPage`: Calendar (CalFullWidget)
+- `PodcastsPage`: Podcasts (PodcastsWidget)
+- `PortfolioPage`: Portfolio detail (GhostfolioDetailWidget) — RelayWidget sets its own
 
-`RelayWidget` sets its own `border_title` in `on_mount()` as `"  Relay ({topic})"` — no external assignment needed.
+Border chrome (`border-title-color`, `border-title-style`, `border-subtitle-color`) is defined once in `DashWidget.DEFAULT_CSS` and inherited by all widgets.
+
+`RelayWidget` sets its own `border_title` in `on_mount()` as `"  {self._title}"` (defaulting to `"  Relay ({topic})"`) — no external assignment needed.
 
 ### Widget contract
 
 Every widget:
 1. Inherits `DashWidget` (which inherits `textual.widget.Widget`)
 2. Declares its own `DEFAULT_CSS` (height: 100%; child body height: 100%)
-3. Sets `border_title` in `app.on_mount()`; sets `border_subtitle` itself when data arrives
+3. Sets `border_title` in the screen's `on_mount()`; sets `border_subtitle` itself when data arrives
 4. Has a `set_refresh_interval(seconds: int)` method — called by the app when the global interval changes or the user presses `[` / `]`
 5. Has a `_load()` method decorated with `@work(thread=True)` that fetches data and calls `self.app.call_from_thread(self._show_data, data)`
 
@@ -190,7 +199,7 @@ Widgets with long-lived background threads (e.g. `RelayWidget`'s SSE listener) s
 | `]` | Increase refresh interval by 60 s |
 | `←` | Previous page (wraps) |
 | `→` | Next page (wraps) |
-| `1`–`4` | Jump directly to page 1–4 (hidden from footer) |
+| `1`–`5` | Jump directly to page 1–5 (hidden from footer) |
 | `Space` | Play/pause podcast (only active while mpv is running) |
 | `,` | Previous month (Calendar page only) |
 | `.` | Next month (Calendar page only) |
@@ -223,9 +232,9 @@ def compose(self) -> ComposeResult:
 
 ### Mobile mode
 
-The app automatically switches to a mobile-optimised layout when the terminal (or browser) width is below 90 columns.
+The app automatically switches to a mobile-optimised layout when the terminal (or browser) width is below 100 columns.
 
-**Mechanism:** `HORIZONTAL_BREAKPOINTS = [(0, "mobile"), (90, "wide")]` — Textual adds the `.mobile` CSS class to the `Screen` when width < 90. All mobile overrides in `app.py` use `.mobile` selector prefixes. No code branching is needed; CSS handles everything.
+**Mechanism:** `HORIZONTAL_BREAKPOINTS = [(0, "mobile"), (100, "wide")]` — Textual adds the `.mobile` CSS class to the `Screen` when width < 100. All mobile overrides in `app.py` use `.mobile` selector prefixes. No code branching is needed; CSS handles everything.
 
 **DashHeader tap navigation** (relevant for phone browsers via `--serve`):
 - `‹` / `›` buttons at header edges — prev/next page
@@ -245,8 +254,26 @@ The app automatically switches to a mobile-optimised layout when the terminal (o
 | `#conn-hosts-col` | `width: 100%` |
 | `EventsWidget` | `height: auto`; vertical day stacking with `─` separators between days |
 | `CalFullWidget` (Calendar page) | Shows colored square indicators (■) per calendar instead of event text |
-| `NewsPage` | `RelayWidget` + `NewsReaderWidget` stack vertically (not side-by-side) |
+| `NewsPage` | `RelayWidget` + `NewsReaderWidget` stack vertically (not side-by-side), 30/70 height split |
 | `PodcastsPage #podcasts-grid` | `grid-size: 1` — single-column card list |
+| `PortfolioPage` | `RelayWidget` + `GhostfolioDetailWidget` stack vertically (not side-by-side), 30/70 height split |
+
+### Known pending issues — Dashboard mobile scroll
+
+Two issues on the Dashboard page in mobile mode remain unsolved after multiple attempts:
+
+**Issue 1 — Scroll doesn't work on first visit.** Opening the app in mobile mode, the Dashboard cannot be scrolled. Navigating to another page and back fixes it. Root cause: `show_vertical_scrollbar` (a Textual reactive) starts `False` on the `#dashboard-scroll` `ScrollableContainer`. For `overflow-y: scroll` it is set `True` in widget `_on_mount`, but the `.mobile` CSS class is not yet on the Screen at that point — it is applied during the first resize event (`Screen._on_resize → update_classes`), which fires after `_on_mount`. So the CSS rule `.mobile #dashboard-scroll { overflow-y: scroll; }` never matches at mount, and `show_vertical_scrollbar` stays `False`. Textual's `_scroll_to` checks `allow_vertical_scroll` (= `is_scrollable AND show_vertical_scrollbar`) before scrolling — it bails out while `show_vertical_scrollbar` is `False`.
+
+**Issue 3 — Double scrollbar.** In mobile mode the `#dashboard-scroll` SC shows two adjacent vertical lines that look like a double scrollbar. Suspected cause: `scrollbar-size-vertical` defaulting to 2 chars at mount time before the CSS override takes effect.
+
+**What was tried:**
+
+- Setting `overflow-y: scroll` via `.mobile #dashboard-scroll { ... }` app CSS — ineffective because `.mobile` is absent at mount time.
+- Setting `sc.styles.overflow_y = "scroll"` and `sc.show_vertical_scrollbar = True` as Python inline styles in `DashboardPage._sync_scroll_mode()`, called from `on_resize` and `_sync_scroll` (`on_show → call_after_refresh`) — `on_resize` fires after `.mobile` is applied, so this should work, but the symptoms persist.
+- Adding `scrollbar-size-vertical: 1` to `DashboardPage.DEFAULT_CSS` for `#dashboard-scroll` — applied at parse time, should be timing-safe, but the double-scrollbar still appears.
+- Wrapping all dashboard rows in a `ScrollableContainer(id="dashboard-scroll")` — this did fix Issue 2 (widget right border hidden by scrollbar overlap), but Issues 1 and 3 remain.
+
+**Current state of the code:** `DashboardPage` has `on_resize → _sync_scroll_mode` and `on_show → call_after_refresh(_sync_scroll) → _sync_scroll_mode`. `_sync_scroll_mode` sets `overflow_y = "scroll"` and `show_vertical_scrollbar = True` as inline styles when `.mobile` is active. `DEFAULT_CSS` has `#dashboard-scroll { scrollbar-size-vertical: 1; }`. The `.mobile #dashboard-scroll` rule was removed from `app.py` CSS as it was redundant with the Python approach.
 
 ---
 

@@ -15,9 +15,6 @@ class CalendarPage(BasePage):
     }
     CalFullWidget {
         height: 100%;
-        border-title-color: $accent;
-        border-title-style: bold;
-        border-subtitle-color: $text-muted;
     }
     """
 

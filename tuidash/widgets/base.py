@@ -2,20 +2,23 @@ from __future__ import annotations
 
 from textual import events
 from textual.containers import ScrollableContainer
-from textual.reactive import reactive
 from textual.widget import Widget
 
 
 class DashWidget(Widget):
-    """Base class for all dashboard widgets with title and loading state."""
+    """Base class for all dashboard widgets."""
 
-    title: str = ""
-    error: reactive[str | None] = reactive(None)
+    # Subclasses that need their internal ScrollableContainer to remain
+    # scrollable on mobile (rather than expanding to full height) set this True.
+    _mobile_scrollable: bool = False
 
     DEFAULT_CSS = """
     DashWidget {
         border: solid $primary-darken-2;
         padding: 0 1;
+        border-title-color: $accent;
+        border-title-style: bold;
+        border-subtitle-color: $text-muted;
     }
     DashWidget:focus {
         border: solid $accent;
@@ -39,7 +42,7 @@ class DashWidget(Widget):
             sc = self.query_one(ScrollableContainer)
         except Exception:
             return
-        if self.screen.has_class("mobile"):
+        if self.screen.has_class("mobile") and not self._mobile_scrollable:
             sc.styles.height = "auto"
             sc.styles.overflow_y = "hidden"
         else:

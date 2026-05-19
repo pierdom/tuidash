@@ -15,9 +15,6 @@ class PodcastsPage(BasePage):
     }
     PodcastsPage PodcastsWidget {
         height: 100%;
-        border-title-color: $accent;
-        border-title-style: bold;
-        border-subtitle-color: $text-muted;
     }
     """
 

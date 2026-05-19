@@ -814,6 +814,8 @@ class PodcastCard(Widget):
 class PodcastsWidget(DashWidget):
     """Podcast page — fetches PodcastIndex feeds and drives mpv playback."""
 
+    _mobile_scrollable = True
+
     DEFAULT_CSS = """
     PodcastsWidget { height: 100%; }
     PodcastsWidget > Vertical { height: 100%; }
