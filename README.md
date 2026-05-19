@@ -60,7 +60,7 @@ cp .env.example .env   # fill in your values
 docker compose up -d
 ```
 
-The dashboard is served at `http://localhost:8080`.
+The dashboard is served at `http://localhost:8080`. A named volume (`tuidash-data`) is created automatically to persist podcast playback positions across container restarts.
 
 ## Configuration
 

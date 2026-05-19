@@ -33,7 +33,7 @@ docker pull ghcr.io/pierdom/tuidash:latest
 docker compose up -d
 ```
 
-The published image is `ghcr.io/pierdom/tuidash:latest` (multi-arch: `amd64` + `arm64`), built automatically by GitHub Actions on every push to `main`. `docker-compose.yml` pulls it directly — no local build needed.
+The published image is `ghcr.io/pierdom/tuidash:latest` (multi-arch: `amd64` + `arm64`), built automatically by GitHub Actions on every push to `main`. `docker-compose.yml` pulls it directly — no local build needed. It mounts a `tuidash-data` named volume at `/root/.local/share/tuidash` to persist podcast playback positions across container restarts.
 
 All dependencies are managed with `uv`. Never use `pip` directly.
 

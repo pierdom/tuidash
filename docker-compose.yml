@@ -1,10 +1,22 @@
 services:
   tuidash:
     image: ghcr.io/pierdom/tuidash:latest
+    container_name: tuidash
     env_file:
       - .env
     environment:
       - TUIDASH_SERVE_URL=http://localhost:8080
     ports:
       - "8080:8080"
+    volumes:
+      - tuidash-data:/root/.local/share/tuidash
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
+
+volumes:
+  tuidash-data:
