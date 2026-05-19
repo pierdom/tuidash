@@ -549,7 +549,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
             cells.append(c)
         if cells:
             mv_grid.add_row(*cells)
-            movers_parts = [Rule(title=" TODAY'S MOVERS", style="dim", align="left"), mv_grid]
+            movers_parts = [Rule(title=" TODAY'S MOVERS", style="dim", align="left"), mv_grid, Text("")]
 
     # ── holdings table ────────────────────────────────────────────────────────
     _S = Text(" ")  # separator cell
