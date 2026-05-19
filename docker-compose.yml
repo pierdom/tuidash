@@ -10,6 +10,10 @@ services:
       - "8080:8080"
     volumes:
       - tuidash-data:/root/.local/share/tuidash
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - audio
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080')"]
       interval: 30s
