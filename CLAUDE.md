@@ -48,13 +48,19 @@ palettes/              # colour palette .toml files; drop custom files here
 │   ├── default.toml   # bundled btop-inspired neon teal palette
 │   ├── earthy.toml    # warm terracotta / sandstone alternative
 │   ├── pastel.toml    # soft lavender / muted rainbow
-│   └── candy.toml     # bold neon sweets (hot pink, electric lime, cherry red)
+│   ├── candy.toml     # bold neon sweets (hot pink, electric lime, cherry red)
+│   ├── solarized.toml # Solarized Dark (Ethan Schoonover)
+│   ├── gruvbox.toml   # Gruvbox Dark (morhetz)
+│   ├── nord.toml      # Nord (Arctic Ice Studio)
+│   ├── dracula.toml   # Dracula (Zeno Rocha)
+│   ├── molokai.toml   # Molokai (Tomas Restrepo)
+│   └── tango.toml     # Tango (GNOME / freedesktop.org)
 tuidash/
 ├── app.py              # TuidashApp — navigation, global reactives, config loading, serve entry point
 ├── config.py           # Thin wrapper around python-dotenv (get / require)
 ├── ics.py              # ICS calendar parser (events)
 ├── scroll.py           # Shared boomerang-scroll helper (scroll_offset, scroll_window, current_tick)
-├── theme.py            # Colour palette loader — reads palettes/<name>.toml, exports named constants
+├── theme.py            # Colour palette loader — reads palettes/<name>.toml, exports named constants + build_textual_theme()
 ├── podcast_progress.py # ProgressStore — episode playback state persisted to ~/.local/share/tuidash/podcast_progress.json
 ├── screens/
 │   ├── dashboard.py    # Page 1 — overview dashboard (all widgets)
@@ -422,6 +428,25 @@ Footer keyboard shortcut colours use Textual v8 component classes: `FooterKey .f
 
 `OptionList`/`PageMenu` border: `OptionList.DEFAULT_CSS` sets `OptionList:focus { border: tall $border; }` which fires immediately on mount. Always override **both** the rest-state and the `:focus` state in `DEFAULT_CSS` with the palette `BORDER` colour; otherwise the Textual `$border` theme colour bleeds through.
 
+### Palette ↔ Textual theme bridge
+
+`theme.py` exports `build_textual_theme()`, which constructs a Textual `Theme` object from the active palette constants. `TuidashApp.on_mount` registers it and sets it as the active Textual theme, so built-in Textual widgets (toasts/notifications, `OptionList`, `Button`, etc.) automatically inherit palette colours without per-widget overrides.
+
+Mapping:
+
+| Textual variable | Palette constant |
+|---|---|
+| `$primary` / `$accent` | `ACCENT` |
+| `$background` | `HEADER_BG` |
+| `$surface` / `$panel` | `BORDER` |
+| `$warning` | `PERF_BAD` |
+| `$error` | `PERF_TERRIBLE` |
+| `$success` | `PERF_GREAT` |
+
+`PERF_*` values are only forwarded when they are hex strings — bare Rich colour names (used as fallback defaults when no TOML is loaded) are skipped, letting Textual fall back to its own defaults rather than crashing.
+
+`TUIDASH_THEME` still works as an escape hatch: if set, it overrides the palette-derived theme after it is registered.
+
 **Intentional non-palette colours:** weather condition icon colours (sun yellow, rain blue, snow white) and temperature gradient colours are hardcoded because they carry universal semantic meaning. ICS calendar colours (`TUIDASH_FAMILY_COLOR` etc.) are user-configurable Rich colour names. These are not expected to follow the palette.
 
 Avoid `"blue"` as a Rich style — it renders as purple/violet in dark themes like `tokyo-night`. Use `""` (default text colour) for neutral running containers.
@@ -436,7 +461,7 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 |---|---|---|
 | `TUIDASH_SERVE_URL` | auto-detected | Public URL for `--serve` WebSocket (required in Docker) |
 | `TUIDASH_SERVE_MDNS` | `false` | Use `hostname.local` as the public URL for `--serve` (mDNS/Bonjour) |
-| `TUIDASH_THEME` | `textual-dark` | Textual theme name |
+| `TUIDASH_THEME` | — | Textual theme override; replaces the palette-derived theme if set (e.g. `nord`, `dracula`, `tokyo-night`) |
 | `TUIDASH_PALETTE` | `default` | Stem of a `.toml` file inside `palettes/`, or an absolute path to any `.toml` file |
 | `TUIDASH_REFRESH` | `300` | Auto-refresh interval in seconds |
 | `TUIDASH_PRIVACY_DEFAULT` | `false` | Start in privacy mode; `p` toggle still works |
@@ -514,9 +539,11 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 
 - Supports up to four ICS feeds: public holidays (`TUIDASH_HOLIDAY_CALENDAR`), family (`TUIDASH_FAMILY_ICS`), personal (`TUIDASH_PERSONAL_ICS`), work (`TUIDASH_WORK_ICS`)
 - Day highlight priority: today > holiday (red) > family > personal > work > weekend; each custom calendar has its own configurable Rich color
+- Weekend column headers use `dim {ACCENT} on {BORDER}` — a dimmed variant of the weekday header style, fully palette-aware (previously a hardcoded 256-color index)
 - All ICS feeds refresh at the same rate as `TUIDASH_REFRESH` (wired to `set_refresh_interval`)
 - Calendar grid updates every 60 s regardless of refresh interval (no network dependency)
 - Manual `r` triggers `_load()`, which re-fetches all four ICS feeds in parallel (holiday, family, personal, work)
+- **`CalFullWidget`** weekend columns use `on {BORDER}` as a background tint — palette-aware (previously a hardcoded `color(237)` 256-color index)
 - **Mobile mode:** `CalFullWidget` shows colored square indicators (■) per calendar type instead of event text, to fit narrow terminals
 
 ### EventsWidget
