@@ -83,9 +83,9 @@ def _make_day_cell(
             name = scroll_window(ev.summary, avail, tick, phase)
             t.append("\n")
             if in_month:
-                ev_style = f"dim {ev.color}" if ev.color else "dim"
+                ev_style = ev.color if ev.color else ""
                 if time_pfx:
-                    t.append(time_pfx, style="dim bright_black")
+                    t.append(time_pfx, style="dim")
                 t.append(name, style=ev_style)
             else:
                 t.append(time_pfx + name, style="bright_black")
