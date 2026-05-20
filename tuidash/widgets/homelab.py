@@ -8,17 +8,14 @@ from urllib.parse import urlparse
 
 import requests
 from rich.console import Group
-from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import ScrollableContainer
 from textual.reactive import reactive
 from textual.timer import Timer
 from textual.widgets import Static
 from textual import work
 
-from .. import config
 from ..theme import ACCENT, PERF_BAD, PERF_GREAT, PERF_TERRIBLE
 from .base import DashWidget, neon_bar
 from .hosts import _name_from_url, _ping_host
@@ -264,21 +261,9 @@ def _monitor_host_detail(name: str, url: str) -> HostDetail:
 
 # ── rendering ─────────────────────────────────────────────────────────────────
 
-def _render_host(hd: HostDetail) -> Group:
+def _render_host_body(hd: HostDetail) -> Group:
+    """Body content for one host widget; name lives in the border title."""
     parts: list[Any] = []
-
-    # ── header ────────────────────────────────────────────────────────────────
-    dot = PERF_GREAT if hd.reachable else PERF_TERRIBLE
-    hdr = Text()
-    hdr.append("● ", style=f"bold {dot}")
-    hdr.append(hd.name, style="bold")
-    if hd.reachable and hd.rtt_ms is not None:
-        hdr.append(f"  {hd.rtt_ms:.0f} ms", style="dim")
-    elif not hd.reachable:
-        hdr.append("  unreachable", style=f"dim {PERF_TERRIBLE}")
-    if hd.uptime:
-        hdr.append(f"  │  up {_fmt_uptime(hd.uptime)}", style="dim")
-    parts.append(hdr)
 
     # ── system stats ──────────────────────────────────────────────────────────
     if hd.cpu_pct is not None or hd.mem_pct is not None:
@@ -300,11 +285,11 @@ def _render_host(hd: HostDetail) -> Group:
             if hd.cpu_count:
                 load_str += f"  ({hd.cpu_count} cores)"
             stats.append(load_str, style="dim")
+        if hd.uptime:
+            stats.append(f"   up {_fmt_uptime(hd.uptime)}", style="dim")
         parts.append(stats)
     elif hd.glances_err:
-        err = Text()
-        err.append(f"  glances: {hd.glances_err}", style=f"dim {PERF_TERRIBLE}")
-        parts.append(err)
+        parts.append(Text(f"glances: {hd.glances_err}", style=f"dim {PERF_TERRIBLE}"))
 
     # ── containers ────────────────────────────────────────────────────────────
     if hd.containers:
@@ -367,38 +352,28 @@ def _render_host(hd: HostDetail) -> Group:
 
 # ── widget ────────────────────────────────────────────────────────────────────
 
-class HomelabWidget(DashWidget):
-    """Detailed homelab monitoring: per-host stats, containers, and disk usage."""
+class HomelabHostWidget(DashWidget):
+    """Detailed view for a single homelab host."""
 
-    _mobile_scrollable = True
-    can_focus          = True
-
-    data: reactive[list[HostDetail] | None] = reactive(None, always_update=True)
+    data: reactive[HostDetail | None] = reactive(None, always_update=True)
 
     DEFAULT_CSS = """
-    HomelabWidget                     { height: 1fr; }
-    HomelabWidget ScrollableContainer { height: 1fr; }
-    HomelabWidget Static              { height: auto; }
+    HomelabHostWidget        { height: auto; width: 100%; }
+    HomelabHostWidget Static { height: auto; }
     """
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, url: str, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        raw  = config.get("TUIDASH_HOSTS", "") or ""
-        urls = [u.strip() for u in raw.split(",") if u.strip()]
-        self._hosts: list[tuple[str, str]] = [(_name_from_url(u), u) for u in urls]
+        self._url  = url
+        self._name = _name_from_url(url)
         self._data_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
-        with ScrollableContainer() as sc:
-            sc.can_focus = False
-            yield Static("[dim]Loading…[/dim]")
+        yield Static("[dim]loading…[/dim]")
 
     def on_mount(self) -> None:
-        if not self._hosts:
-            self.query_one(Static).update(
-                "[dim]No hosts configured — set TUIDASH_HOSTS[/dim]"
-            )
-            return
+        self.border_title    = f"  {self._name}"
+        self.border_subtitle = "loading…"
         self._load()
 
     def set_refresh_interval(self, seconds: int) -> None:
@@ -408,23 +383,17 @@ class HomelabWidget(DashWidget):
 
     @work(thread=True)
     def _load(self) -> None:
-        if not self._hosts:
-            return
-        with ThreadPoolExecutor(max_workers=len(self._hosts)) as pool:
-            results = list(
-                pool.map(lambda h: _monitor_host_detail(h[0], h[1]), self._hosts)
-            )
-        self.app.call_from_thread(self._show_data, results)
+        hd = _monitor_host_detail(self._name, self._url)
+        self.app.call_from_thread(self._show_data, hd)
 
-    def _show_data(self, data: list[HostDetail]) -> None:
-        self.data = data
+    def _show_data(self, hd: HostDetail) -> None:
+        self.data = hd
 
-    def watch_data(self, data: list[HostDetail] | None) -> None:
-        if data is None:
+    def watch_data(self, hd: HostDetail | None) -> None:
+        if hd is None:
             return
-        parts: list[Any] = []
-        for i, hd in enumerate(data):
-            if i > 0:
-                parts.append(Rule(style="dim"))
-            parts.append(_render_host(hd))
-        self.query_one(Static).update(Group(*parts))
+        self.border_subtitle = (
+            f"{hd.rtt_ms:.0f} ms" if hd.reachable and hd.rtt_ms is not None
+            else ("ok" if hd.reachable else "unreachable")
+        )
+        self.query_one(Static).update(_render_host_body(hd))
