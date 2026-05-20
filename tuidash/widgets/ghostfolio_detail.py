@@ -770,6 +770,10 @@ class GhostfolioDetailWidget(DashWidget):
         if self.data is not None and not self._err:
             self._redraw()
 
+    def _body_width(self) -> int:
+        # #gfd-body has padding: 0 1 (1 char each side); subtract 2 from content width
+        return max(8, (self.content_size.width or 80) - 2)
+
     def _ticker_width(self) -> int:
         return max(20, self.content_size.width or 80)
 
@@ -789,7 +793,7 @@ class GhostfolioDetailWidget(DashWidget):
         if self.data is None:
             return
         self.query_one("#gfd-body", Static).update(
-            _render_detail(self.data, self.content_size.width or 80, self._privacy)
+            _render_detail(self.data, self._body_width(), self._privacy)
         )
 
     def watch_data(self, data: DetailData | None) -> None:

@@ -346,8 +346,9 @@ def _render_portfolio(d: PortfolioData, width: int = 80, privacy: bool = False) 
     nw_str   = f"● {sym}{_MASK}" if privacy else f"● {sym}{d.total_value:,.2f}"
     pct_str  = f"{progress_pct:.1f}%"
     goal_str = f"→ {sym}{_MASK}" if privacy else f"→ {sym}{_fmt_goal(d.goal)}"
-    # padding=(0,1) with 4 columns = 8 chars total
-    bar_w    = max(8, width - len(nw_str) - len(pct_str) - len(goal_str) - 8)
+    # Table.grid uses pad_edge=False: no outer edge padding, only 3 inter-column
+    # gaps of 2 chars each (padding=(0,1) left+right per cell) = 6 chars total
+    bar_w    = max(8, width - len(nw_str) - len(pct_str) - len(goal_str) - 6)
 
     nw = Text()
     nw.append("● ", style=f"bold {dot_color}")
