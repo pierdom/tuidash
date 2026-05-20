@@ -44,6 +44,7 @@ HEADER_BG = _c("bg",      "#0d2018")
 BAR_LOW  = _c("bar_low",  "bright_green")
 BAR_MID  = _c("bar_mid",  "yellow")
 BAR_HIGH = _c("bar_high", "bright_red")
+BAR_BG   = _c("bar_bg",   "#444444")
 
 PERF_GREAT    = _c("perf_great",    "bright_green")
 PERF_GOOD     = _c("perf_good",     "green")

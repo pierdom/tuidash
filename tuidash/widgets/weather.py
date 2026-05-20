@@ -15,6 +15,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
+from ..theme import BAR_BG
 from .base import DashWidget
 
 
@@ -332,14 +333,14 @@ def _h_bar(t_min: float, t_max: float, g_min: float, g_max: float, metric: bool)
     hi = max(lo + 1, min(_BAR_W, round((t_max - g_min) / t_rng * _BAR_W)))
     bar = Text()
     if lo:
-        bar.append("░" * lo, style="dim")
+        bar.append("■" * lo, style=BAR_BG)
     for i in range(lo, hi):
         pos_t = g_min + (i / _BAR_W) * t_rng
         if not metric:
             pos_t = (pos_t - 32) * 5 / 9
-        bar.append("█", style=_temp_color(pos_t))
+        bar.append("■", style=_temp_color(pos_t))
     if hi < _BAR_W:
-        bar.append("░" * (_BAR_W - hi), style="dim")
+        bar.append("■" * (_BAR_W - hi), style=BAR_BG)
     return bar
 
 

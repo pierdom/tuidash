@@ -410,7 +410,7 @@ offset = tick % full_len   # wraps seamlessly using doubled segment list
 All palette colours are centralised in `tuidash/theme.py`, which loads `palettes/<name>.toml` at import time (selected via `TUIDASH_PALETTE`, defaulting to `default`). Import the named constants from there — never hardcode hex colours or Rich colour names in widget files:
 
 ```python
-from ..theme import ACCENT, BORDER, HEADER_BG, BAR_LOW, BAR_MID, BAR_HIGH
+from ..theme import ACCENT, BORDER, HEADER_BG, BAR_LOW, BAR_MID, BAR_HIGH, BAR_BG
 from ..theme import PERF_GREAT, PERF_GOOD, PERF_FLAT, PERF_BAD, PERF_POOR, PERF_TERRIBLE
 ```
 
@@ -521,8 +521,8 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 
 ### WeatherWidget
 
-- Forecast temperature bars use a 7-stop RGB gradient (`_TEMP_STOPS`: −5 °C deep blue → 0 °C sky blue → 8 °C cyan → 16 °C green → 24 °C yellow → 30 °C orange → 38 °C red). Each `█` character is coloured by linearly interpolating between the two surrounding stops for the temperature at that bar position — producing a smooth per-character gradient.
-- Temperature colours are hardcoded hex values (not palette-driven) because they carry universal semantic meaning (cold = blue, hot = red).
+- Forecast temperature bars use a 7-stop RGB gradient (`_TEMP_STOPS`: −5 °C deep blue → 0 °C sky blue → 8 °C cyan → 16 °C green → 24 °C yellow → 30 °C orange → 38 °C red). Each filled `■` character is coloured by linearly interpolating between the two surrounding stops for the temperature at that bar position — producing a smooth per-character gradient. Unfilled positions use `■` in `BAR_BG` (palette-aware dim background colour).
+- Temperature colours are hardcoded hex values (not palette-driven) because they carry universal semantic meaning (cold = blue, hot = red). Only the unfilled bar background (`BAR_BG`) follows the palette.
 - Weather condition icon colours (sun, rain, snow, etc.) are likewise hardcoded for the same reason.
 
 ### GhostfolioDetailWidget
