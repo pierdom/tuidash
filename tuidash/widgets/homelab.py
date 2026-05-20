@@ -8,15 +8,17 @@ from urllib.parse import urlparse
 
 import requests
 from rich.console import Group
+from rich.measure import Measurement
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
+from textual.containers import ScrollableContainer
 from textual.reactive import reactive
 from textual.timer import Timer
 from textual.widgets import Static
 from textual import work
 
-from ..theme import ACCENT, PERF_BAD, PERF_GREAT, PERF_TERRIBLE
+from ..theme import ACCENT, BAR_HIGH, BAR_LOW, BAR_MID, PERF_BAD, PERF_GREAT, PERF_TERRIBLE
 from .base import DashWidget, neon_bar
 from .hosts import _name_from_url, _ping_host
 
@@ -204,7 +206,7 @@ def _fetch_glances_detail(base_url: str) -> tuple[
             load1     = load_j.get("min1")
             load5     = load_j.get("min5")
             load15    = load_j.get("min15")
-            cpu_count = load_j.get("cpucount") or load_j.get("cpu_count")
+            cpu_count = load_j.get("cpucore") or load_j.get("cpucount") or load_j.get("cpu_count")
 
             uptime_r = f_uptime.result()
             uptime   = uptime_r.text.strip().strip('"') if uptime_r.ok else ""
@@ -212,6 +214,11 @@ def _fetch_glances_detail(base_url: str) -> tuple[
             disks: list[DiskInfo] = []
             fs_r = f_fs.result()
             if fs_r.ok:
+                # Group entries by device_name to de-duplicate Docker bind-mounts.
+                # When Glances runs in Docker it sees the same physical partition
+                # mounted at multiple file paths (/etc/resolv.conf, /etc/hostname,
+                # etc.). Collapsing by device keeps one row per real disk.
+                device_groups: dict[str, list[dict]] = {}
                 for d in fs_r.json():
                     if not isinstance(d, dict):
                         continue
@@ -221,11 +228,23 @@ def _fetch_glances_detail(base_url: str) -> tuple[
                         continue
                     if any(mnt.startswith(p) for p in ("/proc", "/sys", "/dev/pts", "/run/user")):
                         continue
+                    dev = d.get("device_name") or mnt
+                    device_groups.setdefault(dev, []).append(d)
+
+                for dev, entries in device_groups.items():
+                    d    = entries[0]
+                    mnt  = d.get("mnt_point") or d.get("mount_point") or ""
+                    # Multiple entries sharing a device → Docker file bind-mounts;
+                    # use stripped device name (e.g. "sda1") as the label.
+                    if len(entries) > 1:
+                        label = dev.removeprefix("/dev/")
+                    else:
+                        label = mnt
                     disks.append(DiskInfo(
-                        mountpoint=mnt,
+                        mountpoint=label,
                         used_pct=d.get("percent", 0.0),
                         used_bytes=d.get("used", 0),
-                        total_bytes=size,
+                        total_bytes=d.get("size", 0),
                     ))
 
             containers: list[ContainerDetail] = []
@@ -261,91 +280,125 @@ def _monitor_host_detail(name: str, url: str) -> HostDetail:
 
 # ── rendering ─────────────────────────────────────────────────────────────────
 
-def _render_host_body(hd: HostDetail) -> Group:
+class _FluidNeonBar:
+    """neon_bar that fills its Table.grid column at Rich render time."""
+    def __init__(self, pct: float) -> None:
+        self._pct = pct
+    def __rich_console__(self, console, options):
+        yield neon_bar(self._pct, options.max_width)
+    def __rich_measure__(self, console, options):
+        return Measurement(1, options.max_width)
+
+
+class _HomelabBar:
+    """Thin ━/─ bar — same colour gradient as neon_bar but with natural row spacing."""
+    def __init__(self, pct: float) -> None:
+        self._pct = pct
+    def __rich_console__(self, console, options):
+        w      = options.max_width
+        filled = int(w * max(0.0, min(100.0, self._pct)) / 100)
+        color  = BAR_HIGH if self._pct >= 80 else (BAR_MID if self._pct >= 60 else BAR_LOW)
+        t = Text()
+        t.append("━" * filled,       style=color)
+        t.append("─" * (w - filled), style="dim")
+        yield t
+    def __rich_measure__(self, console, options):
+        return Measurement(1, options.max_width)
+
+
+def _build_container_col(containers: list[ContainerDetail], name_w: int) -> Table:
+    tbl = Table.grid(padding=(0, 1, 0, 0))
+    tbl.pad_edge = False
+    tbl.add_column(width=2,      no_wrap=True)
+    tbl.add_column(width=name_w, no_wrap=True)
+    tbl.add_column(width=7,      no_wrap=True, justify="right")
+    tbl.add_column(no_wrap=True)
+    tbl.add_row(
+        Text(""),
+        Text("CONTAINER", style="bold dim"),
+        Text("CPU",       style="bold dim", justify="right"),
+        Text("MEM",       style="bold dim"),
+    )
+    for c in containers:
+        badge, badge_style = _container_badge(c)
+        running = "running" in c.status.lower()
+        cpu_str = f"{c.cpu_pct:.1f}%" if c.cpu_pct is not None else "—"
+        tbl.add_row(
+            Text(badge,           style=badge_style),
+            Text(c.name[:name_w], style="" if running else "dim"),
+            Text(cpu_str,         style="dim", justify="right"),
+            Text(_fmt_mem_compact(c.mem_used), style="dim"),
+        )
+    return tbl
+
+
+def _render_host_body(hd: HostDetail, width: int = 0) -> Group:
     """Body content for one host widget; name lives in the border title."""
     parts: list[Any] = []
 
-    # ── system stats ──────────────────────────────────────────────────────────
-    if hd.cpu_pct is not None or hd.mem_pct is not None:
-        stats = Text()
-        if hd.cpu_pct is not None:
-            stats.append("CPU ", style="dim")
-            stats.append_text(neon_bar(hd.cpu_pct, _BAR_W))
-            stats.append(f" {hd.cpu_pct:4.1f}%", style="dim")
-        if hd.mem_pct is not None:
-            stats.append("   MEM ", style="dim")
-            stats.append_text(neon_bar(hd.mem_pct, _BAR_W))
-            stats.append(f" {hd.mem_pct:4.1f}%", style="dim")
-            if hd.mem_used and hd.mem_total:
-                stats.append(
-                    f"  {_fmt_gb(hd.mem_used)} / {_fmt_gb(hd.mem_total)}", style="dim"
+    # ── stats grid: CPU, MEM, disks — one shared ratio=1 bar column ─────────
+    has_stats = hd.cpu_pct is not None or hd.mem_pct is not None or hd.disks
+    if has_stats or hd.glances_err:
+        if hd.glances_err and not has_stats:
+            parts.append(Text(f"glances: {hd.glances_err}", style=f"dim {PERF_TERRIBLE}"))
+        else:
+            lbl_w = max(
+                3,  # len("CPU") / len("MEM")
+                *(len(d.mountpoint) for d in hd.disks),
+            )
+            grid = Table.grid(expand=True, padding=(0, 0))
+            grid.add_column(width=lbl_w + 2, no_wrap=True)  # label + gap
+            grid.add_column(ratio=1)                          # shared fluid bar
+            grid.add_column(no_wrap=True)                     # suffix
+
+            if hd.cpu_pct is not None:
+                cpu_suffix = Text()
+                cpu_suffix.append(f"  {hd.cpu_pct:4.1f}%", style="dim")
+                if hd.cpu_count:
+                    cpu_suffix.append("  ", style="dim")
+                    cpu_suffix.append("▪" * min(hd.cpu_count, 32), style=ACCENT)
+                grid.add_row(
+                    Text(f"{'CPU':<{lbl_w}}  ", style="dim"),
+                    _HomelabBar(hd.cpu_pct),
+                    cpu_suffix,
                 )
-        if hd.load1 is not None:
-            load_str = f"   load {hd.load1:.2f}  {hd.load5:.2f}  {hd.load15:.2f}"
-            if hd.cpu_count:
-                load_str += f"  ({hd.cpu_count} cores)"
-            stats.append(load_str, style="dim")
-        if hd.uptime:
-            stats.append(f"   up {_fmt_uptime(hd.uptime)}", style="dim")
-        parts.append(stats)
-    elif hd.glances_err:
-        parts.append(Text(f"glances: {hd.glances_err}", style=f"dim {PERF_TERRIBLE}"))
+            if hd.mem_pct is not None:
+                mem_suffix = f"  {hd.mem_pct:4.1f}%"
+                if hd.mem_used and hd.mem_total:
+                    mem_suffix += f"  {_fmt_gb(hd.mem_used)}/{_fmt_gb(hd.mem_total)}"
+                grid.add_row(
+                    Text(f"{'MEM':<{lbl_w}}  ", style="dim"),
+                    _HomelabBar(hd.mem_pct),
+                    Text(mem_suffix, style="dim"),
+                )
+            for d in hd.disks:
+                grid.add_row(
+                    Text(f"{d.mountpoint:<{lbl_w}}  ", style="dim"),
+                    _HomelabBar(d.used_pct),
+                    Text(
+                        f"  {d.used_pct:4.1f}%  {_fmt_gb(d.used_bytes)} / {_fmt_gb(d.total_bytes)}",
+                        style="dim",
+                    ),
+                )
+            parts.append(grid)
+
 
     # ── containers ────────────────────────────────────────────────────────────
     if hd.containers:
-        tbl = Table.grid(padding=(0, 1))
-        tbl.add_column(width=2,  no_wrap=True)                    # badge
-        tbl.add_column(width=22, no_wrap=True)                    # name
-        tbl.add_column(width=6,  no_wrap=True, justify="right")   # cpu%
-        tbl.add_column(width=13, no_wrap=True)                    # mem
-        tbl.add_column(width=22, no_wrap=True)                    # image
-        tbl.add_column(no_wrap=True)                              # uptime
-
-        tbl.add_row(
-            Text(""),
-            Text("CONTAINER", style="bold dim"),
-            Text("CPU",       style="bold dim", justify="right"),
-            Text("MEMORY",    style="bold dim"),
-            Text("IMAGE",     style="bold dim"),
-            Text("UP",        style="bold dim"),
-        )
-
-        for c in hd.containers:
-            badge, badge_style = _container_badge(c)
-            running = "running" in c.status.lower()
-            dim_s   = "" if running else "dim"
-
-            cpu_str = f"{c.cpu_pct:.1f}%" if c.cpu_pct is not None else "—"
-            mem_str = _fmt_mem_compact(c.mem_used)
-            if c.mem_limit:
-                mem_str += f" / {_fmt_mem_compact(c.mem_limit)}"
-
-            tbl.add_row(
-                Text(badge, style=badge_style),
-                Text(c.name[:22],           style=dim_s),
-                Text(cpu_str, style="dim",  justify="right"),
-                Text(mem_str, style="dim"),
-                Text((c.image or "—")[:22], style="dim"),
-                Text(_fmt_uptime(c.uptime), style="dim"),
-            )
-
         parts.append(Text(""))
-        parts.append(tbl)
-
-    # ── disks ─────────────────────────────────────────────────────────────────
-    if hd.disks:
-        parts.append(Text(""))
-        lbl_w = max(len(d.mountpoint) for d in hd.disks)
-        for d in hd.disks:
-            row = Text()
-            row.append(f"{d.mountpoint:<{lbl_w}}", style="dim")
-            row.append("  ")
-            row.append_text(neon_bar(d.used_pct, _BAR_W))
-            row.append(
-                f"  {d.used_pct:4.1f}%   {_fmt_gb(d.used_bytes)} / {_fmt_gb(d.total_bytes)}",
-                style="dim",
+        two_col = width >= 62 and len(hd.containers) >= 2
+        if two_col:
+            outer = Table.grid(expand=True, padding=(0, 2, 0, 0))
+            outer.pad_edge = False
+            outer.add_column(ratio=1)
+            outer.add_column(ratio=1)
+            outer.add_row(
+                _build_container_col(hd.containers[0::2], name_w=12),
+                _build_container_col(hd.containers[1::2], name_w=12),
             )
-            parts.append(row)
+            parts.append(outer)
+        else:
+            parts.append(_build_container_col(hd.containers, name_w=30))
 
     return Group(*parts)
 
@@ -355,11 +408,13 @@ def _render_host_body(hd: HostDetail) -> Group:
 class HomelabHostWidget(DashWidget):
     """Detailed view for a single homelab host."""
 
+    _mobile_scrollable = True
     data: reactive[HostDetail | None] = reactive(None, always_update=True)
 
     DEFAULT_CSS = """
-    HomelabHostWidget        { height: auto; width: 100%; }
-    HomelabHostWidget Static { height: auto; }
+    HomelabHostWidget               { height: 1fr; width: 1fr; }
+    HomelabHostWidget #host-scroll  { height: 1fr; }
+    HomelabHostWidget Static        { height: auto; }
     """
 
     def __init__(self, url: str, **kwargs: Any) -> None:
@@ -369,7 +424,8 @@ class HomelabHostWidget(DashWidget):
         self._data_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
-        yield Static("[dim]loading…[/dim]")
+        with ScrollableContainer(id="host-scroll"):
+            yield Static("[dim]loading…[/dim]")
 
     def on_mount(self) -> None:
         self.border_title    = f"  {self._name}"
@@ -389,11 +445,24 @@ class HomelabHostWidget(DashWidget):
     def _show_data(self, hd: HostDetail) -> None:
         self.data = hd
 
-    def watch_data(self, hd: HostDetail | None) -> None:
-        if hd is None:
+    def _redraw(self) -> None:
+        if self.data is None:
             return
+        hd = self.data
+        uptime_str = (
+            f"  [not bold dim](up {_fmt_uptime(hd.uptime)})[/]" if hd.uptime else ""
+        )
+        self.border_title    = f"  {self._name}{uptime_str}"
         self.border_subtitle = (
             f"{hd.rtt_ms:.0f} ms" if hd.reachable and hd.rtt_ms is not None
             else ("ok" if hd.reachable else "unreachable")
         )
-        self.query_one(Static).update(_render_host_body(hd))
+        self.query_one(Static).update(_render_host_body(hd, width=self.size.width))
+
+    def watch_data(self, hd: HostDetail | None) -> None:
+        if hd is None:
+            return
+        self._redraw()
+
+    def on_resize(self) -> None:
+        self.call_after_refresh(self._redraw)

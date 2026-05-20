@@ -104,6 +104,10 @@ class TuidashApp(App):
     .mobile PortfolioPage RelayWidget            {{ width: 100%; height: 30%; }}
     .mobile PortfolioPage GhostfolioDetailWidget {{ width: 100%; height: 70%; }}
 
+    /* Homelab page — host widgets stack vertically in mobile mode */
+    .mobile #homelab-top {{ layout: vertical; height: auto; }}
+    .mobile #homelab-top HomelabHostWidget {{ width: 100%; height: 5; }}
+
     /* Scroll-captured widget highlight (mobile pointer lock) */
     .scroll-captured {{ border: heavy $accent; }}
 

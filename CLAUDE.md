@@ -134,6 +134,8 @@ Widget border titles are set by each screen's `on_mount()`:
 
 Border chrome (`border-title-color`, `border-title-style`, `border-subtitle-color`) is defined once in `DashWidget.DEFAULT_CSS` and inherited by all widgets.
 
+`DashWidget.DEFAULT_CSS` also defines `DashWidget:focus, DashWidget:focus-within { border: round {ACCENT}; }` — the border switches to accent colour whenever the widget or any of its descendants (e.g. an inner `ScrollableContainer`) holds keyboard focus, providing TAB-navigation visual feedback.
+
 `RelayWidget` sets its own `border_title` in `on_mount()` as `"  {self._title}"` (defaulting to `"  Relay ({topic})"`) — no external assignment needed.
 
 ### Widget contract
@@ -249,6 +251,8 @@ def compose(self) -> ComposeResult:
         yield Static(...)
 ```
 
+**Exception — Homelab page widgets** (`HomelabHostWidget`, `TailscaleWidget`): their `ScrollableContainer`s are intentionally focusable (no `can_focus = False`) to allow TAB-cycling and keyboard scrolling. This is safe because the Homelab page is never the initial focused page (it is page 6), so their bindings don't corrupt the footer order at startup.
+
 ### Mobile mode
 
 The app automatically switches to a mobile-optimised layout when the terminal (or browser) width is below 100 columns.
@@ -276,6 +280,7 @@ The app automatically switches to a mobile-optimised layout when the terminal (o
 | `NewsPage` | `RelayWidget` + `NewsReaderWidget` stack vertically (not side-by-side), 30/70 height split |
 | `PodcastsPage #podcasts-grid` | `grid-size: 1` — single-column card list |
 | `PortfolioPage` | `RelayWidget` + `GhostfolioDetailWidget` stack vertically (not side-by-side), 30/70 height split |
+| `HomelabPage #homelab-top` | `layout: vertical; height: auto` — host widgets stack vertically, each `height: 5` |
 
 ### Known pending issues — Dashboard mobile scroll
 
@@ -493,6 +498,7 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_PODCASTINDEX_KEY` | — | API key from https://api.podcastindex.org/ |
 | `TUIDASH_PODCASTINDEX_SECRET` | — | API secret from https://api.podcastindex.org/ |
 | `TUIDASH_PODCASTINDEX_IDS` | — | Comma-separated PodcastIndex feed IDs to display |
+| `TUIDASH_TAILSCALE_KEY` | — | API key from https://login.tailscale.com/admin/settings/keys (must be `tskey-api-…`) |
 
 Missing values for widget-specific vars show an inline error — they do not crash the app.
 
@@ -534,6 +540,36 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - `_name_from_url` returns the first hostname label for FQDN hosts (e.g. `myserver` from `myserver.local`); returns the full IP string for bare IP addresses (e.g. `192.168.1.1`, not `192`)
 - Glances API: tries v4 (`/api/4/`) first, falls back to v3 (`/api/3/`)
 - Container colours: `PERF_GREAT` (healthy), `PERF_TERRIBLE` (unhealthy), `dim` (not running), `""` default (running, no healthcheck)
+
+### HomelabPage (`screens/homelab.py`)
+
+- Layout: top 40% (`#homelab-top`) hosts widgets side-by-side; bottom 60% (`#homelab-bottom`) stacks `TailscaleWidget` above `HetznerWidget`
+- All three widget types (`HomelabHostWidget`, `TailscaleWidget`) have `_mobile_scrollable = True` — their inner `ScrollableContainer` stays scrollable in mobile mode
+- TAB / SHIFT+TAB cycles focus across all scrollable containers on the page; the focused widget's border turns accent colour via `DashWidget:focus-within`
+
+### HomelabHostWidget (`widgets/homelab.py`)
+
+- One widget per host URL from `TUIDASH_HOSTS`; fetches CPU, MEM, disk, uptime, and Docker containers via Glances
+- Container section uses `_build_container_col(containers, name_w)` helper; when widget width ≥ 62 columns and there are ≥ 2 containers, splits into two side-by-side columns filled left-to-right (even indices left, odd right); single column otherwise
+- Container memory shows used only (no `/ limit`) — total host memory is already visible in the MEM bar above
+- `_render_host_body(hd, width)` receives `self.size.width` from `_redraw()` so the column layout responds to resize
+
+### TailscaleWidget (`widgets/tailscale.py`)
+
+- Devices table: exit-node devices show a ` ↗` suffix in bold accent colour (name truncated to 13 chars to fit within the 16-char column)
+- `TsDevice.exit_node` is derived from `advertisedRoutes` containing `"0.0.0.0/0"`
+- **Mobile mode:** devices and services tables stack vertically (single column); in wide mode they sit side-by-side in a 50/50 grid
+- `on_resize` uses `call_after_refresh(self._redraw)` to ensure `.mobile` class is already applied before checking it
+
+### HetznerWidget (`widgets/hetzner.py`)
+
+- Renders servers and storage boxes in one unified table (shared dot + name columns guarantee alignment)
+- Columns: dot(1) · name(name_w) · LOC(6) · IP/HOST(host_w) · TRAFFIC/USED(flexible, `min_width=0`) · COST/MO(9)
+- `min_width=0` on the flexible column ensures COST/MO is always visible even on very narrow screens
+- `HetznerServer` fields: `name`, `status`, `location`, `ipv4`, `monthly_net`, `traffic_used_gb`, `traffic_total_gb` — TYPE, OS, specs removed (not rendered)
+- `HetznerStorageBox` fields: `name`, `status`, `location`, `server`, `used_bytes`, `total_bytes`, `monthly_net` — box_type removed
+- **Mobile mode:** `host_w=12` (vs 30 wide), `name_w=10` (vs 16), compact used string (`9 GB/1 TB (10%)` vs spaced form); IP column dropped for servers
+- `HetznerWidget` has no `ScrollableContainer` (intentional — `height: auto` widget expands to content; a SC caused height inflation)
 
 ### CalendarWidget
 
