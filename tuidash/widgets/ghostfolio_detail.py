@@ -16,6 +16,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
+from ..theme import ACCENT, PERF_BAD, PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE
 from .base import DashWidget
 from .ghostfolio import (
     GhostfolioClient,
@@ -449,9 +450,9 @@ def _braille_monthly_bars(
             frac = max(0.0, min(1.0, frac))
 
             if ds > 0:
-                style = "bold bright_green" if frac > 0.70 else "green" if frac > 0.35 else "dim green"
+                style = f"bold {PERF_GREAT}" if frac > 0.70 else PERF_GOOD if frac > 0.35 else f"dim {PERF_GOOD}"
             else:
-                style = "bold bright_red" if frac > 0.70 else "red" if frac > 0.35 else "dim red"
+                style = f"bold {PERF_TERRIBLE}" if frac > 0.70 else PERF_POOR if frac > 0.35 else f"dim {PERF_POOR}"
 
             t.append(chr(0x2800 + bits), style=style)
 
@@ -472,7 +473,7 @@ def _braille_monthly_bars(
 # ── rendering ──────────────────────────────────────────────────────────────────
 
 def _perf_cell(label: str, s: PerfStats, cur: str, privacy: bool) -> Text:
-    color = "green" if s.pct >= 0 else "red"
+    color = PERF_GOOD if s.pct >= 0 else PERF_POOR
     arrow = "▲" if s.pct >= 0 else "▼"
     t = Text()
     t.append(f"{label}\n", style="dim")
@@ -488,8 +489,8 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
 
     # ── net worth + goal bar ──────────────────────────────────────────────────
     dot_color = (
-        "yellow" if abs(data.today.pct) <= 0.1
-        else ("green" if data.today.pct > 0 else "red")
+        PERF_FLAT if abs(data.today.pct) <= 0.1
+        else (PERF_GOOD if data.today.pct > 0 else PERF_POOR)
     )
     progress_pct = min(data.total_value / data.goal * 100, 100.0) if data.goal else 0.0
     bar_w = max(8, width - 38)
@@ -500,7 +501,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     nw_line.append(sym, style="bold dim")
     nw_line.append(_MASK if privacy else f"{data.total_value:,.0f}", style="bold")
     nw_line.append("  ")
-    nw_line.append("█" * filled, style="green")
+    nw_line.append("█" * filled, style=ACCENT)
     nw_line.append("░" * (bar_w - filled), style="dim")
     nw_line.append(f"  {progress_pct:.1f}%", style="dim")
     nw_line.append(f"  → {sym}", style="dim")
@@ -518,7 +519,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     cw       = max(4, width - 2)
     yr_up    = data.one_year.pct >= 0
     yr_arrow = "▲" if yr_up else "▼"
-    yr_color = "green" if yr_up else "red"
+    yr_color = PERF_GOOD if yr_up else PERF_POOR
 
     yr_line = Text()
     yr_line.append(f"{yr_arrow} {abs(data.one_year.pct):.2f}%", style=f"bold {yr_color}")
@@ -539,13 +540,13 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         cells: list[Text] = []
         for t in gainers:
             c = Text()
-            c.append(f"▲ {t.symbol}", style="bold green")
-            c.append(f"  +{t.change_pct:.2f}%", style="green")
+            c.append(f"▲ {t.symbol}", style=f"bold {PERF_GREAT}")
+            c.append(f"  +{t.change_pct:.2f}%", style=PERF_GOOD)
             cells.append(c)
         for t in losers:
             c = Text()
-            c.append(f"▼ {t.symbol}", style="bold red")
-            c.append(f"  {t.change_pct:.2f}%", style="red")
+            c.append(f"▼ {t.symbol}", style=f"bold {PERF_TERRIBLE}")
+            c.append(f"  {t.change_pct:.2f}%", style=PERF_POOR)
             cells.append(c)
         if cells:
             mv_grid.add_row(*cells)
@@ -576,7 +577,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
 
     for h in data.holdings:
         _, cls_color = _ASSET_CLASS.get(h.asset_class.upper(), ("", ""))
-        ret_color = "green" if h.total_return_pct >= 0 else "red"
+        ret_color = PERF_GOOD if h.total_return_pct >= 0 else PERF_POOR
         ret_arrow = "▲" if h.total_return_pct >= 0 else "▼"
         ret_str   = f"{ret_arrow}{abs(h.total_return_pct):.1f}%"
 
@@ -654,7 +655,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     act_tbl.add_column("Value",  no_wrap=True, justify="right", width=10)
 
     for ma in data.activity:
-        color = "green" if ma.perf_pct >= 0 else "red"
+        color = PERF_GOOD if ma.perf_pct >= 0 else PERF_POOR
         arrow = "▲" if ma.perf_pct >= 0 else "▼"
         act_tbl.add_row(
             Text(ma.label, style="dim"),

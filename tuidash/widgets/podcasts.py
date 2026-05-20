@@ -27,7 +27,7 @@ from textual.widgets import Static
 
 from .. import config
 from ..podcast_progress import store as _progress
-from ..theme import ACCENT, BORDER
+from ..theme import ACCENT, BORDER, PERF_GREAT
 from .base import DashWidget
 from .header import DashHeader
 
@@ -420,7 +420,7 @@ class MarkListenedButton(Widget):
         self._episode_id = episode_id
 
     def render(self) -> Text:
-        return Text(" ✓ ", style="dim green")
+        return Text(" ✓ ", style=f"dim {PERF_GREAT}")
 
     def on_click(self) -> None:
         if self._episode_id:
@@ -643,8 +643,8 @@ class PlaybackBar(Widget):
             filled = 0
 
         bar = Text(no_wrap=True)
-        bar.append("█" * filled,           style="bright_green")
-        bar.append("░" * (bar_w - filled), style="dim green")
+        bar.append("█" * filled,           style=ACCENT)
+        bar.append("░" * (bar_w - filled), style=f"dim {ACCENT}")
         bar.append(time_str,               style="dim")
 
         return Group(line1, bar)
@@ -785,12 +785,12 @@ class PodcastCard(Widget):
 
         status = _progress.get_status(ep.id, ep.date_published)
         if status == "new":
-            info.append("  ● NEW", style="bold bright_green")
+            info.append("  ● NEW", style=f"bold {PERF_GREAT}")
         elif status == "started":
             saved_pos = _progress.get_position(ep.id)
             info.append(f"  ▶ {_fmt_time(saved_pos)}", style="bright_yellow")
         elif status == "completed":
-            info.append("  ✓", style="dim green")
+            info.append("  ✓", style=f"dim {PERF_GREAT}")
 
         if is_latest:
             info.append("  ● LAST", style="bold orange1")

@@ -17,7 +17,7 @@ from textual.widget import Widget
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
-from ..theme import ACCENT, HEADER_BG
+from ..theme import ACCENT, HEADER_BG, PERF_BAD, PERF_GREAT, PERF_TERRIBLE
 
 
 # ── data model ────────────────────────────────────────────────────────────────
@@ -263,13 +263,13 @@ def _linux_wifi_rssi(iface: str) -> int | None:
 
 def _rssi_bars(rssi: int) -> Text:
     if rssi >= -50:
-        filled, style = 4, "green"
+        filled, style = 4, PERF_GREAT
     elif rssi >= -60:
-        filled, style = 3, "green"
+        filled, style = 3, PERF_GREAT
     elif rssi >= -70:
-        filled, style = 2, "yellow"
+        filled, style = 2, PERF_BAD
     else:
-        filled, style = 1, "red"
+        filled, style = 1, PERF_TERRIBLE
     t = Text()
     for i, c in enumerate("▂▄▆█"):
         t.append(c, style=style if i < filled else "dim")
@@ -281,9 +281,9 @@ def _render_net(info: NetInfo) -> Text:
         return Text("no link", style="dim")
     t = Text()
     if info.is_wifi:
-        t.append("≋ ", style="cyan")
+        t.append("≋ ", style=ACCENT)
     else:
-        t.append("⌁ ", style="cyan")
+        t.append("⌁ ", style=ACCENT)
     t.append(info.iface, style="")
     if info.is_wifi:
         if info.ssid:
@@ -348,8 +348,8 @@ class PlayStatusWidget(Widget):
         if not self._playing:
             return Text(" ")
         if self._paused:
-            return Text("▶", style="bright_green")
-        return Text("⏸", style="bright_yellow")
+            return Text("▶", style=ACCENT)
+        return Text("⏸", style=ACCENT)
 
     def on_click(self) -> None:
         if self._playing:

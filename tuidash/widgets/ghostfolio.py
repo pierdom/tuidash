@@ -312,7 +312,7 @@ def _stat_cell(label: str, stats: PerfStats, currency: str, privacy: bool = Fals
 
 
 def _holding_line(h: Holding) -> Text:
-    color = "green" if h.perf_pct >= 0 else "red"
+    color = PERF_GOOD if h.perf_pct >= 0 else PERF_POOR
     arrow = "▲" if h.perf_pct >= 0 else "▼"
     t = Text()
     t.append(f"{h.symbol[:8]:<8}", style="bold")
@@ -337,11 +337,11 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     # ── net worth + progress bar ──────────────────────────────────────────────
     progress_pct = min(d.total_value / d.goal * 100, 100.0) if d.goal else 0.0
     if abs(d.today.pct) <= 0.1:
-        dot_color = "yellow"
+        dot_color = PERF_FLAT
     elif d.today.pct > 0:
-        dot_color = "green"
+        dot_color = PERF_GOOD
     else:
-        dot_color = "red"
+        dot_color = PERF_POOR
     nw = Text()
     nw.append("● ", style=f"bold {dot_color}")
     nw.append(f"{sym}{_MASK}" if privacy else f"{sym}{d.total_value:,.2f}", style="bold white")
@@ -409,14 +409,14 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
 
 def _ticker_color(pct: float) -> str:
     if abs(pct) < 0.05:
-        return "yellow"
+        return PERF_FLAT
     if pct > 2.0:
-        return "bright_green"
+        return PERF_GREAT
     if pct > 0:
-        return "green"
+        return PERF_GOOD
     if pct < -2.0:
-        return "bright_red"
-    return "red"
+        return PERF_TERRIBLE
+    return PERF_POOR
 
 
 def _render_ticker(items: list[TickerItem], tick: int, width: int) -> Text:

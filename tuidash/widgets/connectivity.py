@@ -244,7 +244,7 @@ def _render_speed(d: ConnectivityData) -> Group:
     header.append("Speed", style="bold dim")
 
     if d.speed is None:
-        header.append("  unavailable", style="dim red")
+        header.append("  unavailable", style=f"dim {PERF_TERRIBLE}")
         return Group(header)
 
     sp = d.speed
