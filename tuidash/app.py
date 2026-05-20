@@ -29,6 +29,7 @@ from .theme import ACCENT, BORDER, HEADER_BG, build_textual_theme
 from .widgets.base import DashWidget
 from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
+from .screens.homelab import HomelabPage
 from .screens.news import NewsPage
 from .screens.podcasts import PodcastsPage
 from .screens.portfolio import PortfolioPage
@@ -39,10 +40,11 @@ from .widgets.header import DashHeader
 # Add a new entry here to register a new page in the carousel.
 _PAGES: list[tuple[str, str, type]] = [
     ("Dashboard", "page-dashboard",  DashboardPage),
-    ("News",      "page-news",       NewsPage),
     ("Calendar",  "page-calendar",   CalendarPage),
+    ("News",      "page-news",       NewsPage),
     ("Podcasts",  "page-podcasts",   PodcastsPage),
     ("Portfolio", "page-portfolio",  PortfolioPage),
+    ("Homelab",   "page-homelab",    HomelabPage),
 ]
 
 
@@ -101,6 +103,10 @@ class TuidashApp(App):
     .mobile PortfolioPage Horizontal {{ layout: vertical; }}
     .mobile PortfolioPage RelayWidget            {{ width: 100%; height: 30%; }}
     .mobile PortfolioPage GhostfolioDetailWidget {{ width: 100%; height: 70%; }}
+
+    /* Homelab page — host widgets stack vertically in mobile mode */
+    .mobile #homelab-top {{ layout: vertical; height: auto; }}
+    .mobile #homelab-top HomelabHostWidget {{ width: 100%; height: 5; }}
 
     /* Scroll-captured widget highlight (mobile pointer lock) */
     .scroll-captured {{ border: heavy $accent; }}

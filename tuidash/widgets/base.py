@@ -51,7 +51,8 @@ class DashWidget(Widget):
         border-title-style: bold;
         border-subtitle-color: $text-muted;
     }}
-    DashWidget:focus {{
+    DashWidget:focus,
+    DashWidget:focus-within {{
         border: round {ACCENT};
     }}
     """
