@@ -46,7 +46,9 @@ Dockerfile             # python:3.13-slim + uv, serves on port 8080
 docker-compose.yml     # mounts .env, maps port 8080, sets TUIDASH_SERVE_URL=http://localhost:8080
 palettes/              # colour palette .toml files; drop custom files here
 │   ├── default.toml   # bundled btop-inspired neon teal palette
-│   └── earthy.toml    # warm terracotta / sandstone alternative
+│   ├── earthy.toml    # warm terracotta / sandstone alternative
+│   ├── pastel.toml    # soft lavender / muted rainbow
+│   └── candy.toml     # bold neon sweets (hot pink, electric lime, cherry red)
 tuidash/
 ├── app.py              # TuidashApp — navigation, global reactives, config loading, serve entry point
 ├── config.py           # Thin wrapper around python-dotenv (get / require)
@@ -352,7 +354,8 @@ from .base import DashWidget
 | Multiple renderables stacked | `Group(r1, r2, …)` |
 | Centred content | `Align.center(renderable)` |
 | Horizontal divider | `Rule(style="dim")` |
-| Blocky progress bar | `neon_bar(pct, width)` from `widgets/base.py` — gradient `█`/`░` bar using `BAR_LOW` (0–60%), `BAR_MID` (60–80%), `BAR_HIGH` (80–100%) palette colours |
+| Blocky progress bar (fixed width) | `neon_bar(pct, width)` from `widgets/base.py` — gradient `█`/`░` bar using `BAR_LOW` (0–60%), `BAR_MID` (60–80%), `BAR_HIGH` (80–100%) palette colours |
+| Fluid-width progress bar | Custom renderable implementing `__rich_console__` + `__rich_measure__`; use `options.max_width` inside `__rich_console__` and return `Measurement(1, options.max_width)`. Place in a `Table.grid` column with `ratio=1` so Rich supplies the exact remaining width at render time — avoids all manual offset arithmetic. |
 | Half-block pixel art | `▀` / `▄` / `█` via `zip(top_row, bot_row)` |
 
 Never pass raw markup strings to `Static.update()` — always use a Rich renderable.
@@ -400,6 +403,8 @@ from ..theme import ACCENT, BORDER, HEADER_BG, BAR_LOW, BAR_MID, BAR_HIGH
 from ..theme import PERF_GREAT, PERF_GOOD, PERF_FLAT, PERF_BAD, PERF_POOR, PERF_TERRIBLE
 ```
 
+`TUIDASH_PALETTE` accepts either a stem name (looks up `palettes/<name>.toml`) or an **absolute path** to any `.toml` file, for custom palettes stored outside the repo.
+
 When a widget's `DEFAULT_CSS` needs a theme colour, convert the string to an **f-string** and escape all literal CSS braces as `{{`/`}}`:
 
 ```python
@@ -412,6 +417,12 @@ MyWidget {{
 ```
 
 Scrollbar colours are set globally in `App.CSS` using a `Widget { ... }` rule (not `Screen`). `Screen` only overrides the screen's own scrollbar; child `ScrollableContainer` widgets resolve their colour from `Widget.DEFAULT_CSS` (`$scrollbar` → theme primary). A `Widget` rule in App CSS sits above DEFAULT_CSS in Textual's cascade and covers all scrollable descendants.
+
+Footer keyboard shortcut colours use Textual v8 component classes: `FooterKey .footer-key--key` and `FooterKey .footer-key--description` (the old `Footer > .footer--key` selector from ≤v7 no longer applies).
+
+`OptionList`/`PageMenu` border: `OptionList.DEFAULT_CSS` sets `OptionList:focus { border: tall $border; }` which fires immediately on mount. Always override **both** the rest-state and the `:focus` state in `DEFAULT_CSS` with the palette `BORDER` colour; otherwise the Textual `$border` theme colour bleeds through.
+
+**Intentional non-palette colours:** weather condition icon colours (sun yellow, rain blue, snow white) and temperature gradient colours are hardcoded because they carry universal semantic meaning. ICS calendar colours (`TUIDASH_FAMILY_COLOR` etc.) are user-configurable Rich colour names. These are not expected to follow the palette.
 
 Avoid `"blue"` as a Rich style — it renders as purple/violet in dark themes like `tokyo-night`. Use `""` (default text colour) for neutral running containers.
 
@@ -471,11 +482,22 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - Fetches 6 endpoints in parallel: portfolio performance ×3, holdings, orders, user settings
 - Base currency comes from Ghostfolio user settings (`/api/v1/user` → `settings.baseCurrency`), not inferred from holdings
 - Goal label is compact: `1M`, `500K`, `2.5M`, etc.
-- Goal progress bar uses `neon_bar(progress_pct, 20)` from `base.py` — gradient `█`/`░` blocks
+- Goal progress bar uses `_FluidNeonBar` — a custom Rich renderable that calls `neon_bar(pct, options.max_width)` inside `__rich_console__`, placed in a `Table.grid` column with `ratio=1` so it fills the exact remaining space at render time without any manual width arithmetic
 - Performance stat cells (`YTD`, `1Y`, `Max`) use `_perf_gradient_color(pct)` which maps to `PERF_*` palette constants: `PERF_GREAT` (>+10%), `PERF_GOOD` (0–+10%), `PERF_FLAT` (−5–0%), `PERF_BAD` (−10–−5%), `PERF_POOR` (−20–−10%), `PERF_TERRIBLE` (<−20%)
 - Top Gainers / Top Losers lines use `PERF_GREAT`/`PERF_GOOD` and `PERF_TERRIBLE`/`PERF_POOR` (not a continuous gradient)
 - Live ticker uses `_ticker_color(pct)` → `PERF_FLAT` (±0.05%), `PERF_GREAT` (>2%), `PERF_GOOD` (0–2%), `PERF_POOR` (0–−2%), `PERF_TERRIBLE` (<−2%)
 - Ticker prev-close is cached per symbol keyed by calendar date — the full market history fetch (~540 KB/symbol) only happens once per day; subsequent refreshes compute the change from `marketPrice` in the holdings response vs the cached prev-close
+
+### WeatherWidget
+
+- Forecast temperature bars use a 7-stop RGB gradient (`_TEMP_STOPS`: −5 °C deep blue → 0 °C sky blue → 8 °C cyan → 16 °C green → 24 °C yellow → 30 °C orange → 38 °C red). Each `█` character is coloured by linearly interpolating between the two surrounding stops for the temperature at that bar position — producing a smooth per-character gradient.
+- Temperature colours are hardcoded hex values (not palette-driven) because they carry universal semantic meaning (cold = blue, hot = red).
+- Weather condition icon colours (sun, rain, snow, etc.) are likewise hardcoded for the same reason.
+
+### GhostfolioDetailWidget
+
+- Net worth progress bar uses `_FluidBar` — a custom Rich renderable placed in a `Table.grid` column with `ratio=1` that renders `ACCENT`-coloured `█`/`░` blocks at `options.max_width` at Rich render time, filling the exact available space without any manual arithmetic
+- `_resize_pending` + `on_resize` trigger a redraw on the next ticker tick when the widget resizes, so charts and other width-dependent content re-render at the new width
 
 ### ConnectivityWidget
 
@@ -523,6 +545,7 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - Both paths merge through `_merge_posts` (dedup by `id`, sorted newest-first) on the main thread
 - SSE reconnects with exponential backoff (2 s → 60 s cap); sends `Last-Event-ID` header on reconnect to replay missed posts
 - Missing `TUIDASH_RELAY_URL` or `TUIDASH_RELAY_TOKEN`: `_load()` shows an inline error; `_listen()` exits immediately without retrying
+- Markdown is rendered via `_PaletteMarkdown` (subclass of `rich.markdown.Markdown`) which pushes a Rich `Theme` overlay in `__rich_console__`, mapping `markdown.h1`–`h4`, `markdown.h1.border`, `markdown.code`, and `markdown.link` to the palette `ACCENT` colour — replacing Rich's hardcoded yellow/cyan/bright_blue defaults
 - Currently placed on **NewsPage** (page 2) as a `1fr`-wide left panel beside `NewsReaderWidget`
 
 ### PodcastsWidget
