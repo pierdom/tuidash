@@ -306,14 +306,14 @@ def _h_bar(t_min: float, t_max: float, g_min: float, g_max: float, metric: bool)
     t_rng = max(g_max - g_min, 1.0)
     lo = max(0, min(_BAR_W - 1, round((t_min - g_min) / t_rng * _BAR_W)))
     hi = max(lo + 1, min(_BAR_W, round((t_max - g_min) / t_rng * _BAR_W)))
-    mid_c = (t_min + t_max) / 2
-    if not metric:
-        mid_c = (mid_c - 32) * 5 / 9
-    color = _bar_color(mid_c)
     bar = Text()
     if lo:
         bar.append("░" * lo, style="dim")
-    bar.append("█" * (hi - lo), style=color)
+    for i in range(lo, hi):
+        pos_t = g_min + (i / _BAR_W) * t_rng
+        if not metric:
+            pos_t = (pos_t - 32) * 5 / 9
+        bar.append("█", style=_bar_color(pos_t))
     if hi < _BAR_W:
         bar.append("░" * (_BAR_W - hi), style="dim")
     return bar
