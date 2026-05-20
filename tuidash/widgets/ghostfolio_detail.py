@@ -771,8 +771,16 @@ class GhostfolioDetailWidget(DashWidget):
             self._redraw()
 
     def _body_width(self) -> int:
-        # #gfd-body has padding: 0 1 (1 char each side); subtract 2 from content width
-        return max(8, (self.content_size.width or 80) - 2)
+        # Query the Static's own content_size — Textual already subtracts its
+        # padding (0 1) and the SC's scrollbar width, so this is the exact
+        # rendering area. Fall back to a conservative estimate on first call.
+        try:
+            w = self.query_one("#gfd-body", Static).content_size.width
+            if w > 0:
+                return max(8, w)
+        except Exception:
+            pass
+        return max(8, (self.content_size.width or 80) - 4)
 
     def _ticker_width(self) -> int:
         return max(20, self.content_size.width or 80)
