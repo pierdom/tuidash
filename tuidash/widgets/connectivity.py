@@ -22,6 +22,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
+from ..theme import PERF_BAD, PERF_GOOD, PERF_GREAT, PERF_TERRIBLE
 from .base import DashWidget, neon_bar
 
 
@@ -207,7 +208,7 @@ def _summary_col(
 ) -> Text:
     n_ok    = sum(passed)
     n_total = len(passed)
-    color   = "green" if ok else "red"
+    color   = PERF_GREAT if ok else PERF_TERRIBLE
     valid   = [r for r in rtts if r is not None]
     avg_rtt = sum(valid) / len(valid) if valid else None
 
@@ -217,7 +218,7 @@ def _summary_col(
         t.append(f"  {subtitle}", style="dim")
     t.append("\n")
     for p in passed:
-        t.append("●", style="green" if p else "red")
+        t.append("●", style=PERF_GREAT if p else PERF_TERRIBLE)
         t.append(" ")
     t.append(" ")
     t.append("OK" if ok else "FAIL", style=f"bold {color}")
@@ -231,7 +232,7 @@ def _speed_bar(actual: float, max_val: float) -> Text:
     pct    = min(actual / max_val * 100, 100.0) if max_val > 0 else 0.0
     filled = max(0, round(pct / 100 * _SPEED_BAR_W))
     # High speed = good: invert the semantic vs CPU/mem bars
-    color  = "bright_green" if pct >= 80 else ("green" if pct >= 50 else ("yellow" if pct >= 20 else "red"))
+    color  = PERF_GREAT if pct >= 80 else (PERF_GOOD if pct >= 50 else (PERF_BAD if pct >= 20 else PERF_TERRIBLE))
     bar    = Text()
     bar.append("█" * filled,                   style=color)
     bar.append("░" * (_SPEED_BAR_W - filled),  style="dim")
@@ -253,7 +254,7 @@ def _render_speed(d: ConnectivityData) -> Group:
 
     def _cell(arrow: str, actual: float, max_val: float) -> Text:
         pct   = min(actual / max_val, 1.0) if max_val > 0 else 0.0
-        color = "green" if pct >= 0.8 else ("yellow" if pct >= 0.5 else "red")
+        color = PERF_GREAT if pct >= 0.8 else (PERF_GOOD if pct >= 0.5 else PERF_TERRIBLE)
         t = Text()
         t.append(arrow,                style=f"bold {color}")
         t.append(f" {actual:.0f} Mbps ", style=f"bold {color}")
