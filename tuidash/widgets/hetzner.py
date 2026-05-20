@@ -15,7 +15,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
-from ..theme import ACCENT, PERF_GREAT, PERF_TERRIBLE
+from ..theme import ACCENT, PERF_TERRIBLE
 from .base import DashWidget
 
 _API_CLOUD   = "https://api.hetzner.cloud/v1"
@@ -155,7 +155,7 @@ def _fetch_hetzner(api_key: str) -> HetznerData:
 
 def _status_dot(status: str, ok_values: tuple[str, ...] = ("running", "active")) -> tuple[str, str]:
     if status in ok_values:
-        return "●", f"bold {PERF_GREAT}"
+        return "●", f"bold {ACCENT}"
     if status in ("off", "stopped", "locked"):
         return "○", f"dim {PERF_TERRIBLE}"
     return "◌", "dim"

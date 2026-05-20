@@ -17,7 +17,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
-from ..theme import ACCENT, PERF_GREAT, PERF_TERRIBLE
+from ..theme import ACCENT, PERF_TERRIBLE
 from .base import DashWidget
 
 _API_BASE = "https://api.tailscale.com/api/v2"
@@ -158,11 +158,11 @@ def _build_devices_table(devices: list[TsDevice]) -> Table:
         if d.exit_node:
             name_text.append(" ↗", style=f"bold {ACCENT}")
         tbl.add_row(
-            Text(dot,      style=f"bold {PERF_GREAT}" if d.online else f"dim {PERF_TERRIBLE}"),
+            Text(dot,      style=f"bold {ACCENT}" if d.online else f"dim {PERF_TERRIBLE}"),
             name_text,
             Text(d.ip,     style="dim"),
             Text(d.os[:7], style="dim"),
-            Text(seen,     style=f"dim {PERF_GREAT}" if d.online else "dim"),
+            Text(seen,     style=f"dim {ACCENT}" if d.online else "dim"),
         )
     return tbl
 
