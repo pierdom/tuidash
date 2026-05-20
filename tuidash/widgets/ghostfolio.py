@@ -330,7 +330,7 @@ def _fmt_goal(goal: float) -> str:
     return f"{goal:.0f}"
 
 
-def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
+def _render_portfolio(d: PortfolioData, width: int = 80, privacy: bool = False) -> Group:
     cur = d.base_currency or d.currency
     sym = _CURRENCY_SYMBOLS.get(cur, f"{cur} ")
 
@@ -342,6 +342,13 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
         dot_color = PERF_GOOD
     else:
         dot_color = PERF_POOR
+
+    nw_str   = f"● {sym}{_MASK}" if privacy else f"● {sym}{d.total_value:,.2f}"
+    pct_str  = f"{progress_pct:.1f}%"
+    goal_str = f"→ {sym}{_MASK}" if privacy else f"→ {sym}{_fmt_goal(d.goal)}"
+    # padding=(0,1) with 4 columns = 8 chars total
+    bar_w    = max(8, width - len(nw_str) - len(pct_str) - len(goal_str) - 8)
+
     nw = Text()
     nw.append("● ", style=f"bold {dot_color}")
     nw.append(f"{sym}{_MASK}" if privacy else f"{sym}{d.total_value:,.2f}", style="bold white")
@@ -353,9 +360,9 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     header.add_column(no_wrap=True)
     header.add_row(
         nw,
-        neon_bar(progress_pct, 20),
-        Text(f"{progress_pct:.1f}%", style="dim"),
-        Text(f"→ {sym}{_MASK}" if privacy else f"→ {sym}{_fmt_goal(d.goal)}", style="dim"),
+        neon_bar(progress_pct, bar_w),
+        Text(pct_str, style="dim"),
+        Text(goal_str, style="dim"),
     )
 
     # ── single-row stats: Today | MTD | 1 Year ───────────────────────────────
@@ -483,6 +490,7 @@ class GhostfolioWidget(DashWidget):
         self._data_timer: Timer | None = None
         self._ticker_tick: int = 0
         self._ticker_timer: Timer | None = None
+        self._resize_pending: bool = False
 
     def compose(self) -> ComposeResult:
         yield Static("[dim]Loading…[/dim]", id="gf-body")
@@ -499,6 +507,9 @@ class GhostfolioWidget(DashWidget):
             return
         self._ticker_timer = self.set_interval(_TICKER_INTERVAL, self._advance_ticker)
         self._load()
+
+    def on_resize(self) -> None:
+        self._resize_pending = True
 
     def set_refresh_interval(self, seconds: int) -> None:
         if self._data_timer is not None:
@@ -522,16 +533,28 @@ class GhostfolioWidget(DashWidget):
         self._err = msg
         self.query_one("#gf-body", Static).update(f"[red]Error:[/red] {msg}")
 
+    def _content_width(self) -> int:
+        return self.content_size.width or 80
+
     def set_privacy(self, value: bool) -> None:
         self._privacy = value
         if self.data is not None and not self._err:
-            self.query_one("#gf-body", Static).update(_render_portfolio(self.data, self._privacy))
+            self.query_one("#gf-body", Static).update(
+                _render_portfolio(self.data, self._content_width(), self._privacy)
+            )
 
     def _ticker_width(self) -> int:
-        return max(20, self.content_size.width or 80)
+        return max(20, self._content_width())
 
     def _advance_ticker(self) -> None:
         self._ticker_tick += 1
+        if self._resize_pending and self.data and not self._err:
+            w = self.content_size.width
+            if w > 0:
+                self._resize_pending = False
+                self.query_one("#gf-body", Static).update(
+                    _render_portfolio(self.data, w, self._privacy)
+                )
         if self.data is not None and self.data.ticker:
             self._redraw_ticker()
 
@@ -544,5 +567,7 @@ class GhostfolioWidget(DashWidget):
     def watch_data(self, data: PortfolioData | None) -> None:
         if data is None or self._err:
             return
-        self.query_one("#gf-body", Static).update(_render_portfolio(data, self._privacy))
+        self.query_one("#gf-body", Static).update(
+            _render_portfolio(data, self._content_width(), self._privacy)
+        )
         self._redraw_ticker()

@@ -493,19 +493,25 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         else (PERF_GOOD if data.today.pct > 0 else PERF_POOR)
     )
     progress_pct = min(data.total_value / data.goal * 100, 100.0) if data.goal else 0.0
-    bar_w = max(8, width - 38)
-    filled = round(progress_pct / 100 * bar_w)
+    value_str = _MASK if privacy else f"{data.total_value:,.0f}"
+    goal_str  = _MASK if privacy else _fmt_goal(data.goal)
+    pct_str   = f"  {progress_pct:.1f}%"
+    suffix    = f"  → {sym}"
+    # "● " + sym + value + "  " + bar + pct_str + suffix + goal_str
+    fixed_w   = 2 + len(sym) + len(value_str) + 2 + len(pct_str) + len(suffix) + len(goal_str)
+    bar_w     = max(8, width - fixed_w)
+    filled    = round(progress_pct / 100 * bar_w)
 
     nw_line = Text()
     nw_line.append("● ", style=f"bold {dot_color}")
     nw_line.append(sym, style="bold dim")
-    nw_line.append(_MASK if privacy else f"{data.total_value:,.0f}", style="bold")
+    nw_line.append(value_str, style="bold")
     nw_line.append("  ")
     nw_line.append("█" * filled, style=ACCENT)
     nw_line.append("░" * (bar_w - filled), style="dim")
-    nw_line.append(f"  {progress_pct:.1f}%", style="dim")
-    nw_line.append(f"  → {sym}", style="dim")
-    nw_line.append(_MASK if privacy else _fmt_goal(data.goal), style="dim")
+    nw_line.append(pct_str, style="dim")
+    nw_line.append(suffix, style="dim")
+    nw_line.append(goal_str, style="dim")
 
     # ── performance grid ─────────────────────────────────────────────────────
     perf_cells = [("Today", data.today), ("WTD", data.wtd), ("MTD", data.mtd), ("YTD", data.ytd)]
