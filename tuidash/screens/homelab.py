@@ -16,7 +16,7 @@ class HomelabPage(BasePage):
 
     DEFAULT_CSS = """
     HomelabPage               { height: 100%; }
-    #homelab-top              { height: 40%; }
+    #homelab-top              { height: 45%; }
     #homelab-bottom           { height: 1fr; }
     """
 

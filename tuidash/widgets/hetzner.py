@@ -205,8 +205,6 @@ def _render_hetzner(hd: HetznerData, mobile: bool = False) -> RenderableType:
 
     # ── storage boxes ─────────────────────────────────────────────────────────
     if hd.storage_boxes:
-        if hd.servers:
-            tbl.add_row(_E, _E, _E, _E, _E, _E)
         tbl.add_row(_E, Text("STORAGE BOX", style="bold dim"), Text("LOC", style="bold dim"),
                     Text("HOST", style="bold dim"), Text("USED", style="bold dim"),
                     Text("COST/MO", style="bold dim"))
@@ -288,7 +286,9 @@ class HetznerWidget(DashWidget):
         else:
             running = sum(1 for s in hd.servers if s.status == "running")
             boxes   = len(hd.storage_boxes)
-            self.border_subtitle = f"{running}/{len(hd.servers)} running · {boxes} storage"
+            costs   = [r.monthly_net for r in [*hd.servers, *hd.storage_boxes] if r.monthly_net is not None]
+            total   = f" · €{sum(costs):.2f}/mo" if costs else ""
+            self.border_subtitle = f"{running}/{len(hd.servers)} running · {boxes} storage{total}"
         mobile = self.screen.has_class("mobile")
         self.query_one(Static).update(_render_hetzner(hd, mobile=mobile))
 

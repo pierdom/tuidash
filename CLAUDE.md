@@ -543,7 +543,7 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 
 ### HomelabPage (`screens/homelab.py`)
 
-- Layout: top 40% (`#homelab-top`) hosts widgets side-by-side; bottom 60% (`#homelab-bottom`) stacks `TailscaleWidget` above `HetznerWidget`
+- Layout: top 45% (`#homelab-top`) hosts widgets side-by-side; bottom 55% (`#homelab-bottom`) stacks `TailscaleWidget` above `HetznerWidget`
 - All three widget types (`HomelabHostWidget`, `TailscaleWidget`) have `_mobile_scrollable = True` — their inner `ScrollableContainer` stays scrollable in mobile mode
 - TAB / SHIFT+TAB cycles focus across all scrollable containers on the page; the focused widget's border turns accent colour via `DashWidget:focus-within`
 
@@ -569,6 +569,7 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - `HetznerServer` fields: `name`, `status`, `location`, `ipv4`, `monthly_net`, `traffic_used_gb`, `traffic_total_gb` — TYPE, OS, specs removed (not rendered)
 - `HetznerStorageBox` fields: `name`, `status`, `location`, `server`, `used_bytes`, `total_bytes`, `monthly_net` — box_type removed
 - **Mobile mode:** `host_w=12` (vs 30 wide), `name_w=10` (vs 16), compact used string (`9 GB/1 TB (10%)` vs spaced form); IP column dropped for servers
+- Total monthly cost (servers + storage boxes) shown in `border_subtitle` alongside running/storage counts — no extra vertical space
 - `HetznerWidget` has no `ScrollableContainer` (intentional — `height: auto` widget expands to content; a SC caused height inflation)
 
 ### CalendarWidget
