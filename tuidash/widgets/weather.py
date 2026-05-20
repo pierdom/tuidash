@@ -91,18 +91,18 @@ _PIXELS: dict[str, list[str]] = {
         "....YYYY....",
     ],
     "partly": [
-        "........YYYY",
-        ".......YYYYY",
-        "WWWWWWYYYYYY",
-        "WWWWWWWWYYYY",
+        "............",
+        ".......YYY..",
+        ".WWWWWYYYYY.",
+        "WWWWWWWYYYY.",
         "WWWWWWWWWWW.",
         "WWWWWWWWWWW.",
         ".WWWWWWWWW..",
         "............",
     ],
     "cloudy": [
-        "............",
-        "...WWWWW....",
+        "....WW.WW...",
+        "..WWWWWWWW..",
         ".WWWWWWWWW..",
         "WWWWWWWWWWW.",
         "WWWWWWWWWWW.",
@@ -352,7 +352,7 @@ def _render_weather(d: WeatherData) -> Table:
     left.append(f"{d.temp:.0f}{d.unit_temp}", style="bold white")
     desc = _DESC.get(d.condition, "")
     left.append(f"  {desc}\n" if desc else "\n", style="dim")
-    left.append(f"Feels {d.feels_like:.0f}{d.unit_temp}  ↗ {d.wind_speed:.0f} {d.unit_wind}", style="dim")
+    left.append(f"{d.feels_like:.0f}{d.unit_temp}  ↗{d.wind_speed:.0f}{d.unit_wind}", style="dim")
 
     # ── right: 3-day forecast (today / +1 / +2) as horizontal range bars ──
     fc = d.forecast[:6]
