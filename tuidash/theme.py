@@ -3,6 +3,10 @@ from __future__ import annotations
 import os
 import tomllib
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from textual.theme import Theme as TextualTheme
 
 # ── palette loader ────────────────────────────────────────────────────────────
 # Looks for  palettes/<name>.toml  next to the project root.
@@ -47,3 +51,30 @@ PERF_FLAT     = _c("perf_flat",     "cyan")
 PERF_BAD      = _c("perf_bad",      "yellow")
 PERF_POOR     = _c("perf_poor",     "red")
 PERF_TERRIBLE = _c("perf_terrible", "bright_red")
+
+
+def build_textual_theme() -> "TextualTheme":
+    """Return a Textual Theme derived from the active palette.
+
+    Maps palette constants to Textual's CSS variable layer so that built-in
+    widgets (notifications, OptionList, Button, etc.) automatically use the
+    same colours as the custom widgets.
+    """
+    from textual.theme import Theme
+
+    def _hex(val: str) -> str | None:
+        return val if val.startswith("#") else None
+
+    return Theme(
+        name="tuidash",
+        dark=True,
+        primary=ACCENT,
+        secondary=ACCENT,
+        accent=ACCENT,
+        background=HEADER_BG,
+        surface=BORDER,
+        panel=BORDER,
+        warning=_hex(PERF_BAD),
+        error=_hex(PERF_TERRIBLE),
+        success=_hex(PERF_GREAT),
+    )

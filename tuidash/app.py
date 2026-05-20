@@ -25,7 +25,7 @@ from textual.widgets import ContentSwitcher, Footer
 
 from . import config
 from .screens import BasePage
-from .theme import ACCENT, BORDER, HEADER_BG
+from .theme import ACCENT, BORDER, HEADER_BG, build_textual_theme
 from .widgets.base import DashWidget
 from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
@@ -180,6 +180,13 @@ class TuidashApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
+        # Register the palette-derived Textual theme and activate it so that
+        # built-in widgets (notifications, OptionList, Button, …) use the same
+        # colours as the custom widgets.  TUIDASH_THEME can still override it.
+        palette_theme = build_textual_theme()
+        self.register_theme(palette_theme)
+        self.theme = palette_theme.name
+
         theme_name = config.get("TUIDASH_THEME")
         if theme_name:
             if theme_name in self.available_themes:
