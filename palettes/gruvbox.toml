@@ -11,6 +11,7 @@ bg      = "#1d2021"   # bg0_h (hard)    — header & footer background
 bar_low  = "#b8bb26"  # bright green — 0 – 60 % of bar width
 bar_mid  = "#fabd2f"  # bright yellow — 60 – 80 % of bar width
 bar_high = "#fb4934"  # bright red    — 80 – 100 % of bar width
+bar_bg   = "#3c3836"  # bg2           — unfilled bar background
 
 # ── Performance heatmap ───────────────────────────────────────────────────────
 perf_great    = "#b8bb26"  # bright green  — > +10 %
