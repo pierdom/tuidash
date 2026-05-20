@@ -629,7 +629,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         row = Text()
         row.append(f"{ac.label:<{label_w}}", style="dim")
         row.append("[", style="dim")
-        row.append("█" * filled2,              style=ac.color or "cyan")
+        row.append("█" * filled2,              style=ac.color or ACCENT)
         row.append("░" * (bar_area - filled2), style="dim")
         row.append("]", style="dim")
         row.append(f" {ac.pct:.0f}%",          style="dim")

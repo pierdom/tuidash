@@ -18,6 +18,7 @@ from textual import work
 
 from .. import config, ics
 from ..scroll import SCROLL_INTERVAL, current_tick, scroll_window
+from ..theme import BORDER
 from .base import DashWidget
 
 
@@ -93,7 +94,7 @@ def _make_day_cell(
     return t
 
 
-_WE_BG = "on color(237)"  # subtle dark-gray tint for Sat/Sun columns
+_WE_BG = f"on {BORDER}"
 
 
 def _shift_month(d: date, offset: int) -> date:

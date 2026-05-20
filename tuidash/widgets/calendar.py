@@ -38,7 +38,7 @@ def _render_month(
         grid.add_column(width=3, justify="right")
 
     _wd = f"bold {ACCENT} on {BORDER}"
-    _we = "bold white on color(88)"                # weekend pill: dark red
+    _we = f"dim {ACCENT} on {BORDER}"
     grid.add_row(
         Text("     "),
         Text(" M ", style=_wd), Text(" T ", style=_wd), Text(" W ", style=_wd),
