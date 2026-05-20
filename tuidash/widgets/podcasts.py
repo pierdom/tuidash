@@ -274,6 +274,8 @@ player = _MpvPlayer()
 class PlayPauseButton(Widget):
     """Global ▶ / ⏸ toggle for whatever is currently playing."""
 
+    can_focus = True
+
     class Toggled(Message):
         pass
 
@@ -286,7 +288,7 @@ class PlayPauseButton(Widget):
         content-align: center middle;
     }
     PlayPauseButton:hover { background: $boost; }
-    PlayPauseButton:focus { border: round $accent; }
+    PlayPauseButton:focus { border: round $accent; background: $accent 25%; }
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -314,6 +316,8 @@ class PlayPauseButton(Widget):
 class EpisodePlayButton(Widget):
     """Per-card ▶ / ⏸ button — starts, pauses, or resumes playback."""
 
+    can_focus = True
+
     class Pressed(Message):
         def __init__(self, feed_id: int) -> None:
             super().__init__()
@@ -321,7 +325,7 @@ class EpisodePlayButton(Widget):
 
     DEFAULT_CSS = """
     EpisodePlayButton:hover { background: $boost; }
-    EpisodePlayButton:focus { background: $accent 20%; }
+    EpisodePlayButton:focus { background: $accent 35%; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -354,6 +358,8 @@ class EpisodePlayButton(Widget):
 class SeekButton(Widget):
     """◀◀ / ▶▶ seek button (±10 s)."""
 
+    can_focus = True
+
     class Pressed(Message):
         def __init__(self, delta: int) -> None:
             super().__init__()
@@ -367,7 +373,7 @@ class SeekButton(Widget):
         border: round $panel;
     }
     SeekButton:hover { background: $boost; }
-    SeekButton:focus { border: round $accent; }
+    SeekButton:focus { border: round $accent; background: $accent 25%; }
     """
 
     def __init__(self, delta: int, **kwargs: Any) -> None:
@@ -390,6 +396,8 @@ class SeekButton(Widget):
 class MarkListenedButton(Widget):
     """✓ — mark episode as completed."""
 
+    can_focus = True
+
     class Pressed(Message):
         def __init__(self, feed_id: int, episode_id: int) -> None:
             super().__init__()
@@ -399,7 +407,7 @@ class MarkListenedButton(Widget):
     DEFAULT_CSS = """
     MarkListenedButton { width: 3; height: 1; }
     MarkListenedButton:hover { background: $boost; }
-    MarkListenedButton:focus { background: $boost; }
+    MarkListenedButton:focus { background: $accent 50%; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -427,6 +435,8 @@ class MarkListenedButton(Widget):
 class ResetEpisodeButton(Widget):
     """↺ — reset episode to new."""
 
+    can_focus = True
+
     class Pressed(Message):
         def __init__(self, feed_id: int, episode_id: int) -> None:
             super().__init__()
@@ -436,7 +446,7 @@ class ResetEpisodeButton(Widget):
     DEFAULT_CSS = """
     ResetEpisodeButton { width: 3; height: 1; }
     ResetEpisodeButton:hover { background: $boost; }
-    ResetEpisodeButton:focus { background: $boost; }
+    ResetEpisodeButton:focus { background: $accent 50%; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -464,6 +474,8 @@ class ResetEpisodeButton(Widget):
 class LatestEpisodeButton(Widget):
     """● — jump back to the latest (newest) episode."""
 
+    can_focus = True
+
     class Pressed(Message):
         def __init__(self, feed_id: int) -> None:
             super().__init__()
@@ -472,7 +484,7 @@ class LatestEpisodeButton(Widget):
     DEFAULT_CSS = """
     LatestEpisodeButton { width: 3; height: 1; }
     LatestEpisodeButton:hover { background: $boost; }
-    LatestEpisodeButton:focus { background: $boost; }
+    LatestEpisodeButton:focus { background: $accent 50%; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -501,6 +513,8 @@ class LatestEpisodeButton(Widget):
 class PrevEpisodeButton(Widget):
     """◀ — show older episode in the same card."""
 
+    can_focus = True
+
     class Pressed(Message):
         def __init__(self, feed_id: int) -> None:
             super().__init__()
@@ -509,7 +523,7 @@ class PrevEpisodeButton(Widget):
     DEFAULT_CSS = """
     PrevEpisodeButton { width: 3; height: 1; }
     PrevEpisodeButton:hover { background: $boost; }
-    PrevEpisodeButton:focus { background: $boost; }
+    PrevEpisodeButton:focus { background: $accent 50%; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -538,6 +552,8 @@ class PrevEpisodeButton(Widget):
 class NextEpisodeButton(Widget):
     """→ — show newer episode in the same card."""
 
+    can_focus = True
+
     class Pressed(Message):
         def __init__(self, feed_id: int) -> None:
             super().__init__()
@@ -546,7 +562,7 @@ class NextEpisodeButton(Widget):
     DEFAULT_CSS = """
     NextEpisodeButton { width: 3; height: 1; }
     NextEpisodeButton:hover { background: $boost; }
-    NextEpisodeButton:focus { background: $boost; }
+    NextEpisodeButton:focus { background: $accent 50%; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
