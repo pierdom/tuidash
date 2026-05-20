@@ -17,6 +17,8 @@ from textual.widget import Widget
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
+from ..theme import NEON_BG, NEON_PRIMARY
+
 
 # ── data model ────────────────────────────────────────────────────────────────
 
@@ -392,24 +394,24 @@ class PageMenu(OptionList):
 class DashHeader(Widget):
     """App header: net status (left) · title + subtitle (center) · play status + clock (right)."""
 
-    DEFAULT_CSS = """
-    DashHeader {
+    DEFAULT_CSS = f"""
+    DashHeader {{
         dock: top;
         height: 1;
-        background: #0d2018;
+        background: {NEON_BG};
         color: $text;
         layout: horizontal;
-    }
-    DashHeader > NetStatusWidget {
+    }}
+    DashHeader > NetStatusWidget {{
         color: $text-muted;
-    }
-    DashHeader > #title-center {
+    }}
+    DashHeader > #title-center {{
         width: 1fr;
         height: 1;
         text-align: center;
         content-align: center middle;
-    }
-    DashHeader > #clock-right {
+    }}
+    DashHeader > #clock-right {{
         width: auto;
         min-width: 9;
         height: 1;
@@ -417,29 +419,29 @@ class DashHeader(Widget):
         text-align: right;
         content-align: right middle;
         color: $text-muted;
-    }
+    }}
     DashHeader > #nav-prev,
-    DashHeader > #nav-next {
+    DashHeader > #nav-next {{
         width: 3;
         height: 1;
         content-align: center middle;
-        color: #00d4aa;
-    }
+        color: {NEON_PRIMARY};
+    }}
     DashHeader > #nav-prev:hover,
     DashHeader > #nav-next:hover,
-    DashHeader > #title-center:hover {
-        background: #00d4aa 15%;
+    DashHeader > #title-center:hover {{
+        background: {NEON_PRIMARY} 15%;
         color: $text;
-    }
-    DashHeader > #privacy-lock {
+    }}
+    DashHeader > #privacy-lock {{
         width: 2;
         height: 1;
         content-align: center middle;
         color: $warning;
-    }
-    DashHeader > #privacy-lock:hover {
+    }}
+    DashHeader > #privacy-lock:hover {{
         background: $boost;
-    }
+    }}
     """
 
     def compose(self) -> ComposeResult:

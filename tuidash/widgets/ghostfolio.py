@@ -18,6 +18,10 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
+from ..theme import (
+    NEON_PRIMARY,
+    PERF_BAD, PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE,
+)
 from .base import DashWidget, neon_bar
 
 
@@ -289,19 +293,19 @@ _MASK = "•••••"
 
 def _perf_gradient_color(pct: float) -> str:
     """Map a performance % to a btop-style heatmap color."""
-    if pct > 10:   return "bright_green"
-    if pct > 0:    return "green"
-    if pct > -5:   return "cyan"
-    if pct > -10:  return "yellow"
-    if pct > -20:  return "red"
-    return "bright_red"
+    if pct > 10:   return PERF_GREAT
+    if pct > 0:    return PERF_GOOD
+    if pct > -5:   return PERF_FLAT
+    if pct > -10:  return PERF_BAD
+    if pct > -20:  return PERF_POOR
+    return PERF_TERRIBLE
 
 
 def _stat_cell(label: str, stats: PerfStats, currency: str, privacy: bool = False) -> Text:
     color = _perf_gradient_color(stats.pct)
     arrow = "▲" if stats.pct >= 0 else "▼"
     t = Text()
-    t.append(f"{label}\n", style="bold #00d4aa")
+    t.append(f"{label}\n", style=f"bold {NEON_PRIMARY}")
     t.append(f"{arrow} {abs(stats.pct):.2f}%\n", style=f"bold {color}")
     t.append(_MASK if privacy else _fmt(stats.abs, currency), style=f"dim {color}")
     return t

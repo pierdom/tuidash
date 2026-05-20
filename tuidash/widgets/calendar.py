@@ -13,6 +13,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config, ics
+from ..theme import NEON_BG, NEON_BORDER, NEON_PRIMARY
 from .base import DashWidget
 
 
@@ -36,8 +37,8 @@ def _render_month(
     for _ in range(7):
         grid.add_column(width=3, justify="right")
 
-    _wd = "bold #00d4aa on #005f4e"   # weekday pill: neon teal
-    _we = "bold white on color(88)"   # weekend pill: dark red
+    _wd = f"bold {NEON_PRIMARY} on {NEON_BORDER}"  # weekday pill: neon teal
+    _we = "bold white on color(88)"                # weekend pill: dark red
     grid.add_row(
         Text("     "),
         Text(" M ", style=_wd), Text(" T ", style=_wd), Text(" W ", style=_wd),
@@ -66,7 +67,7 @@ def _render_month(
             elif is_work and work_color:
                 style = f"bold {work_color} reverse"
             else:
-                style = "bold #0d2018 on #00d4aa"
+                style = f"bold {NEON_BG} on {NEON_PRIMARY}"
         elif is_holiday:
             style = "bold red"
         elif is_family and family_color:

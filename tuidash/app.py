@@ -25,6 +25,7 @@ from textual.widgets import ContentSwitcher, Footer
 
 from . import config
 from .screens import BasePage
+from .theme import NEON_BG, NEON_BORDER, NEON_PRIMARY
 from .widgets.base import DashWidget
 from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
@@ -50,54 +51,54 @@ class TuidashApp(App):
 
     TITLE = "tuidash"
 
-    CSS = """
-    Screen {
+    CSS = f"""
+    Screen {{
         background: $background;
         layers: base overlay;
-    }
-    ContentSwitcher {
+    }}
+    ContentSwitcher {{
         height: 1fr;
-    }
+    }}
 
     /* ── mobile mode (narrow terminal / phone browser) ── */
 
     /* Dashboard page */
-    #dashboard-scroll { height: 1fr; overflow-y: hidden; }
-    .mobile #row-top { layout: vertical; height: auto; }
-    .mobile #row-mid { layout: vertical; height: auto; }
-    .mobile #row-bot { height: auto; }
-    .mobile ClockWidget    { width: 100%; height: 6; margin: 0; }
-    .mobile WeatherWidget  { width: 100%; height: auto; margin: 0; }
-    .mobile CalendarWidget { width: 100%; height: auto; }
-    .mobile GhostfolioWidget { width: 100%; height: auto; margin: 0; }
-    .mobile #conn-hosts-col  { width: 100%; }
-    .mobile ConnectivityWidget { height: auto; }
-    .mobile HostsWidget        { height: auto; }
-    .mobile EventsWidget { height: auto; }
-    .mobile #events-body { height: auto; }
+    #dashboard-scroll {{ height: 1fr; overflow-y: hidden; }}
+    .mobile #row-top {{ layout: vertical; height: auto; }}
+    .mobile #row-mid {{ layout: vertical; height: auto; }}
+    .mobile #row-bot {{ height: auto; }}
+    .mobile ClockWidget    {{ width: 100%; height: 6; margin: 0; }}
+    .mobile WeatherWidget  {{ width: 100%; height: auto; margin: 0; }}
+    .mobile CalendarWidget {{ width: 100%; height: auto; }}
+    .mobile GhostfolioWidget {{ width: 100%; height: auto; margin: 0; }}
+    .mobile #conn-hosts-col  {{ width: 100%; }}
+    .mobile ConnectivityWidget {{ height: auto; }}
+    .mobile HostsWidget        {{ height: auto; }}
+    .mobile EventsWidget {{ height: auto; }}
+    .mobile #events-body {{ height: auto; }}
 
     /* News page — vertical 30/70 split, each widget scrolls internally */
-    .mobile NewsPage Horizontal { layout: vertical; }
-    .mobile NewsPage RelayWidget      { width: 100%; height: 30%; }
-    .mobile NewsPage NewsReaderWidget { width: 100%; height: 70%; }
+    .mobile NewsPage Horizontal {{ layout: vertical; }}
+    .mobile NewsPage RelayWidget      {{ width: 100%; height: 30%; }}
+    .mobile NewsPage NewsReaderWidget {{ width: 100%; height: 70%; }}
 
     /* Calendar page */
-    .mobile CalendarPage { overflow-y: scroll; scrollbar-size-vertical: 1; }
+    .mobile CalendarPage {{ overflow-y: scroll; scrollbar-size-vertical: 1; }}
 
     /* Podcasts page — inner SC scrolls cards; controls stay pinned at bottom */
-    .mobile #podcasts-grid { grid-size: 1; }
+    .mobile #podcasts-grid {{ grid-size: 1; }}
 
     /* Portfolio page — vertical 30/70 split, each widget scrolls internally */
-    .mobile PortfolioPage Horizontal { layout: vertical; }
-    .mobile PortfolioPage RelayWidget            { width: 100%; height: 30%; }
-    .mobile PortfolioPage GhostfolioDetailWidget { width: 100%; height: 70%; }
+    .mobile PortfolioPage Horizontal {{ layout: vertical; }}
+    .mobile PortfolioPage RelayWidget            {{ width: 100%; height: 30%; }}
+    .mobile PortfolioPage GhostfolioDetailWidget {{ width: 100%; height: 70%; }}
 
     /* Scroll-captured widget highlight (mobile pointer lock) */
-    .scroll-captured { border: heavy $accent; }
+    .scroll-captured {{ border: heavy $accent; }}
 
     /* btop-style footer */
-    Footer { background: #0d2018; }
-    Footer > .footer--key { background: #005f4e; color: #00d4aa; }
+    Footer {{ background: {NEON_BG}; }}
+    Footer > .footer--key {{ background: {NEON_BORDER}; color: {NEON_PRIMARY}; }}
     """
 
     privacy:          reactive[bool] = reactive(False)

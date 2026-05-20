@@ -5,11 +5,13 @@ from textual import events
 from textual.containers import ScrollableContainer
 from textual.widget import Widget
 
+from ..theme import BAR_HIGH, BAR_LOW, BAR_MID, NEON_BORDER, NEON_PRIMARY
+
 
 def neon_bar(pct: float | None, width: int = 10) -> Text:
     """Blocky btop-style progress bar with fixed-position gradient zones.
 
-    Zones: 0–60% of bar = bright_green, 60–80% = yellow, 80–100% = bright_red.
+    Zones: 0–60% of bar = BAR_LOW, 60–80% = BAR_MID, 80–100% = BAR_HIGH.
     """
     if pct is None:
         return Text("─" * width, style="dim")
@@ -21,14 +23,14 @@ def neon_bar(pct: float | None, width: int = 10) -> Text:
     pos    = 0
     g = min(filled, g_end)
     if g > 0:
-        t.append("█" * g, style="bright_green")
+        t.append("█" * g, style=BAR_LOW)
         pos += g
     y = min(filled - pos, max(0, y_end - g_end))
     if y > 0:
-        t.append("█" * y, style="yellow")
+        t.append("█" * y, style=BAR_MID)
         pos += y
     if pos < filled:
-        t.append("█" * (filled - pos), style="bright_red")
+        t.append("█" * (filled - pos), style=BAR_HIGH)
     if filled < width:
         t.append("░" * (width - filled), style="dim")
     return t
@@ -41,17 +43,17 @@ class DashWidget(Widget):
     # scrollable on mobile (rather than expanding to full height) set this True.
     _mobile_scrollable: bool = False
 
-    DEFAULT_CSS = """
-    DashWidget {
-        border: round #005f4e;
+    DEFAULT_CSS = f"""
+    DashWidget {{
+        border: round {NEON_BORDER};
         padding: 0 1;
-        border-title-color: #00d4aa;
+        border-title-color: {NEON_PRIMARY};
         border-title-style: bold;
         border-subtitle-color: $text-muted;
-    }
-    DashWidget:focus {
-        border: round #00d4aa;
-    }
+    }}
+    DashWidget:focus {{
+        border: round {NEON_PRIMARY};
+    }}
     """
 
     def __init__(self, **kwargs: object) -> None:

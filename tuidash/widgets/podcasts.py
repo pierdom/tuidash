@@ -27,6 +27,7 @@ from textual.widgets import Static
 
 from .. import config
 from ..podcast_progress import store as _progress
+from ..theme import NEON_BORDER, NEON_PRIMARY
 from .base import DashWidget
 from .header import DashHeader
 
@@ -279,16 +280,16 @@ class PlayPauseButton(Widget):
     class Toggled(Message):
         pass
 
-    DEFAULT_CSS = """
-    PlayPauseButton {
+    DEFAULT_CSS = f"""
+    PlayPauseButton {{
         width: auto;
         height: 4;
-        border: round #005f4e;
+        border: round {NEON_BORDER};
         padding: 0 1;
         content-align: center middle;
-    }
-    PlayPauseButton:hover { background: #00d4aa 15%; }
-    PlayPauseButton:focus { border: round #00d4aa; background: #00d4aa 25%; }
+    }}
+    PlayPauseButton:hover {{ background: {NEON_PRIMARY} 15%; }}
+    PlayPauseButton:focus {{ border: round {NEON_PRIMARY}; background: {NEON_PRIMARY} 25%; }}
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -323,9 +324,9 @@ class EpisodePlayButton(Widget):
             super().__init__()
             self.feed_id = feed_id
 
-    DEFAULT_CSS = """
-    EpisodePlayButton:hover { background: #00d4aa 15%; }
-    EpisodePlayButton:focus { background: #00d4aa 35%; }
+    DEFAULT_CSS = f"""
+    EpisodePlayButton:hover {{ background: {NEON_PRIMARY} 15%; }}
+    EpisodePlayButton:focus {{ background: {NEON_PRIMARY} 35%; }}
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -365,15 +366,15 @@ class SeekButton(Widget):
             super().__init__()
             self.delta = delta
 
-    DEFAULT_CSS = """
-    SeekButton {
+    DEFAULT_CSS = f"""
+    SeekButton {{
         width: auto;
         height: auto;
         padding: 0 1;
-        border: round #005f4e;
-    }
-    SeekButton:hover { background: #00d4aa 15%; }
-    SeekButton:focus { border: round #00d4aa; background: #00d4aa 25%; }
+        border: round {NEON_BORDER};
+    }}
+    SeekButton:hover {{ background: {NEON_PRIMARY} 15%; }}
+    SeekButton:focus {{ border: round {NEON_PRIMARY}; background: {NEON_PRIMARY} 25%; }}
     """
 
     def __init__(self, delta: int, **kwargs: Any) -> None:
