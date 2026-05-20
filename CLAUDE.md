@@ -45,7 +45,8 @@ All dependencies are managed with `uv`. Never use `pip` directly.
 Dockerfile             # python:3.13-slim + uv, serves on port 8080
 docker-compose.yml     # mounts .env, maps port 8080, sets TUIDASH_SERVE_URL=http://localhost:8080
 palettes/              # colour palette .toml files; drop custom files here
-│   └── default.toml   # bundled btop-inspired neon teal palette
+│   ├── default.toml   # bundled btop-inspired neon teal palette
+│   └── earthy.toml    # warm terracotta / sandstone alternative
 tuidash/
 ├── app.py              # TuidashApp — navigation, global reactives, config loading, serve entry point
 ├── config.py           # Thin wrapper around python-dotenv (get / require)
@@ -351,7 +352,7 @@ from .base import DashWidget
 | Multiple renderables stacked | `Group(r1, r2, …)` |
 | Centred content | `Align.center(renderable)` |
 | Horizontal divider | `Rule(style="dim")` |
-| Blocky progress bar | `neon_bar(pct, width)` from `widgets/base.py` — gradient `█`/`░` bar (0–60% green, 60–80% yellow, 80–100% red) |
+| Blocky progress bar | `neon_bar(pct, width)` from `widgets/base.py` — gradient `█`/`░` bar using `BAR_LOW` (0–60%), `BAR_MID` (60–80%), `BAR_HIGH` (80–100%) palette colours |
 | Half-block pixel art | `▀` / `▄` / `█` via `zip(top_row, bot_row)` |
 
 Never pass raw markup strings to `Static.update()` — always use a Rich renderable.
@@ -409,6 +410,8 @@ MyWidget {{
 }}
 """
 ```
+
+Scrollbar colours are set globally in `App.CSS` using a `Widget { ... }` rule (not `Screen`). `Screen` only overrides the screen's own scrollbar; child `ScrollableContainer` widgets resolve their colour from `Widget.DEFAULT_CSS` (`$scrollbar` → theme primary). A `Widget` rule in App CSS sits above DEFAULT_CSS in Textual's cascade and covers all scrollable descendants.
 
 Avoid `"blue"` as a Rich style — it renders as purple/violet in dark themes like `tokyo-night`. Use `""` (default text colour) for neutral running containers.
 
@@ -469,9 +472,9 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - Base currency comes from Ghostfolio user settings (`/api/v1/user` → `settings.baseCurrency`), not inferred from holdings
 - Goal label is compact: `1M`, `500K`, `2.5M`, etc.
 - Goal progress bar uses `neon_bar(progress_pct, 20)` from `base.py` — gradient `█`/`░` blocks
-- Performance stat cells (`YTD`, `1Y`, `Max`) use `_perf_gradient_color(pct)` which maps to `PERF_*` theme constants: `bright_green` (>+10%), `green` (0–+10%), `cyan` (−5–0%), `yellow` (−10–−5%), `red` (−20–−10%), `bright_red` (<−20%)
-- Top Gainers / Top Losers lines use plain `"green"`/`"red"` binary colouring (not the gradient)
-- Live ticker at the bottom shows today's % change per equity, colour-coded: `bright_green` (>2%), `green` (0–2%), `yellow` (flat ±0.05%), `red` (0–−2%), `bright_red` (<−2%)
+- Performance stat cells (`YTD`, `1Y`, `Max`) use `_perf_gradient_color(pct)` which maps to `PERF_*` palette constants: `PERF_GREAT` (>+10%), `PERF_GOOD` (0–+10%), `PERF_FLAT` (−5–0%), `PERF_BAD` (−10–−5%), `PERF_POOR` (−20–−10%), `PERF_TERRIBLE` (<−20%)
+- Top Gainers / Top Losers lines use `PERF_GREAT`/`PERF_GOOD` and `PERF_TERRIBLE`/`PERF_POOR` (not a continuous gradient)
+- Live ticker uses `_ticker_color(pct)` → `PERF_FLAT` (±0.05%), `PERF_GREAT` (>2%), `PERF_GOOD` (0–2%), `PERF_POOR` (0–−2%), `PERF_TERRIBLE` (<−2%)
 - Ticker prev-close is cached per symbol keyed by calendar date — the full market history fetch (~540 KB/symbol) only happens once per day; subsequent refreshes compute the change from `marketPrice` in the holdings response vs the cached prev-close
 
 ### ConnectivityWidget
@@ -483,7 +486,7 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 
 - `_name_from_url` returns the first hostname label for FQDN hosts (e.g. `myserver` from `myserver.local`); returns the full IP string for bare IP addresses (e.g. `192.168.1.1`, not `192`)
 - Glances API: tries v4 (`/api/4/`) first, falls back to v3 (`/api/3/`)
-- Container colours: `green` (healthy), `red` (unhealthy), `dim` (not running), `""` default (running, no healthcheck)
+- Container colours: `PERF_GREAT` (healthy), `PERF_TERRIBLE` (unhealthy), `dim` (not running), `""` default (running, no healthcheck)
 
 ### CalendarWidget
 
@@ -531,6 +534,8 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - Playback via `_MpvPlayer` — thin wrapper around `mpv --no-video --input-ipc-server=/tmp/tuidash-mpv.sock` (Unix socket IPC for seek/pause without restarting)
 - Episode playback position stored in `~/.local/share/tuidash/podcast_progress.json` (keyed by episode GUID + date); resumes from last position on re-open
 - Missing API key/secret: widget shows an inline error; missing `mpv` binary: error toast, all other functionality unaffected
+- All colours (buttons, progress bar, episode status badges, card borders) use palette constants — `ACCENT` for interactive elements, `BORDER` for borders, `PERF_GREAT`/`PERF_BAD` for status badges; no hardcoded terminal colour names
+- Sub-widgets (`PlaybackBar`, `PodcastCard`, small control buttons) use f-string `DEFAULT_CSS` with `BORDER`/`ACCENT` rather than Textual's `$panel`/`$accent` theme variables
 - **Mobile mode:** `#podcasts-grid` switches to `grid-size: 1` — cards stack vertically in a single column
 
 ---
