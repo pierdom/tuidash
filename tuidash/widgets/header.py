@@ -17,7 +17,7 @@ from textual.widget import Widget
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
-from ..theme import ACCENT, HEADER_BG, PERF_BAD, PERF_GREAT, PERF_TERRIBLE
+from ..theme import ACCENT, BORDER, HEADER_BG, PERF_BAD, PERF_GREAT, PERF_TERRIBLE
 
 
 # ── data model ────────────────────────────────────────────────────────────────
@@ -359,13 +359,20 @@ class PlayStatusWidget(Widget):
 class PageMenu(OptionList):
     """Floating page-navigation dropdown, mounted on the Screen as an overlay."""
 
-    DEFAULT_CSS = """
-    PageMenu {
+    DEFAULT_CSS = f"""
+    PageMenu {{
         layer: overlay;
         height: auto;
-        border: tall $border;
-        background: $surface;
-    }
+        border: tall {BORDER};
+        background: {HEADER_BG};
+    }}
+    PageMenu .option-list--option-highlighted {{
+        color: {HEADER_BG};
+        background: {ACCENT};
+    }}
+    PageMenu .option-list--option:hover {{
+        background: {BORDER};
+    }}
     """
 
     def __init__(self, pages: list[str], current: int = 0, **kwargs) -> None:
