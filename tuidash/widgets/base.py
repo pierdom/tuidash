@@ -5,7 +5,7 @@ from textual import events
 from textual.containers import ScrollableContainer
 from textual.widget import Widget
 
-from ..theme import BAR_HIGH, BAR_LOW, BAR_MID, NEON_BORDER, NEON_PRIMARY
+from ..theme import BAR_HIGH, BAR_LOW, BAR_MID, BORDER, ACCENT
 
 
 def neon_bar(pct: float | None, width: int = 10) -> Text:
@@ -45,14 +45,14 @@ class DashWidget(Widget):
 
     DEFAULT_CSS = f"""
     DashWidget {{
-        border: round {NEON_BORDER};
+        border: round {BORDER};
         padding: 0 1;
-        border-title-color: {NEON_PRIMARY};
+        border-title-color: {ACCENT};
         border-title-style: bold;
         border-subtitle-color: $text-muted;
     }}
     DashWidget:focus {{
-        border: round {NEON_PRIMARY};
+        border: round {ACCENT};
     }}
     """
 

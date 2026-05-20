@@ -25,7 +25,7 @@ from textual.widgets import ContentSwitcher, Footer
 
 from . import config
 from .screens import BasePage
-from .theme import NEON_BG, NEON_BORDER, NEON_PRIMARY
+from .theme import ACCENT, BORDER, HEADER_BG
 from .widgets.base import DashWidget
 from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
@@ -55,6 +55,13 @@ class TuidashApp(App):
     Screen {{
         background: $background;
         layers: base overlay;
+        scrollbar-background: {HEADER_BG};
+        scrollbar-background-hover: {HEADER_BG};
+        scrollbar-background-active: {HEADER_BG};
+        scrollbar-color: {BORDER};
+        scrollbar-color-hover: {ACCENT};
+        scrollbar-color-active: {ACCENT};
+        scrollbar-corner-color: {HEADER_BG};
     }}
     ContentSwitcher {{
         height: 1fr;
@@ -97,8 +104,8 @@ class TuidashApp(App):
     .scroll-captured {{ border: heavy $accent; }}
 
     /* btop-style footer */
-    Footer {{ background: {NEON_BG}; }}
-    Footer > .footer--key {{ background: {NEON_BORDER}; color: {NEON_PRIMARY}; }}
+    Footer {{ background: {HEADER_BG}; }}
+    Footer > .footer--key {{ background: {BORDER}; color: {ACCENT}; }}
     """
 
     privacy:          reactive[bool] = reactive(False)

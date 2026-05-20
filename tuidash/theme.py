@@ -13,7 +13,8 @@ _PALETTES_DIR = Path(__file__).parent.parent / "palettes"
 
 def _load() -> dict[str, str]:
     name = os.environ.get("TUIDASH_PALETTE", "default")
-    path = _PALETTES_DIR / f"{name}.toml"
+    p = Path(name)
+    path = p if p.is_absolute() else _PALETTES_DIR / f"{name}.toml"
     if not path.exists():
         return {}
     try:
@@ -32,9 +33,9 @@ def _c(key: str, default: str) -> str:
 
 # ── Exported constants ────────────────────────────────────────────────────────
 
-NEON_PRIMARY = _c("primary", "#00d4aa")
-NEON_BORDER  = _c("border",  "#005f4e")
-NEON_BG      = _c("bg",      "#0d2018")
+ACCENT    = _c("primary", "#00d4aa")
+BORDER    = _c("border",  "#005f4e")
+HEADER_BG = _c("bg",      "#0d2018")
 
 BAR_LOW  = _c("bar_low",  "bright_green")
 BAR_MID  = _c("bar_mid",  "yellow")

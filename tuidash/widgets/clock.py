@@ -6,11 +6,11 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.widgets import Static
 
-from ..theme import NEON_PRIMARY
+from ..theme import ACCENT
 from .base import DashWidget
 
 
-_COLOR = NEON_PRIMARY
+_COLOR = ACCENT
 
 # 5-pixel-wide × 8-pixel-tall bitmap font; colon is 2-pixel-wide.
 # '█' = lit pixel, ' ' = dark pixel.

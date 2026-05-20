@@ -19,7 +19,7 @@ from textual import work
 
 from .. import config
 from ..theme import (
-    NEON_PRIMARY,
+    ACCENT,
     PERF_BAD, PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE,
 )
 from .base import DashWidget, neon_bar
@@ -305,7 +305,7 @@ def _stat_cell(label: str, stats: PerfStats, currency: str, privacy: bool = Fals
     color = _perf_gradient_color(stats.pct)
     arrow = "▲" if stats.pct >= 0 else "▼"
     t = Text()
-    t.append(f"{label}\n", style=f"bold {NEON_PRIMARY}")
+    t.append(f"{label}\n", style=f"bold {ACCENT}")
     t.append(f"{arrow} {abs(stats.pct):.2f}%\n", style=f"bold {color}")
     t.append(_MASK if privacy else _fmt(stats.abs, currency), style=f"dim {color}")
     return t

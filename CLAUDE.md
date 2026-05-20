@@ -182,7 +182,7 @@ async def _shutdown(self) -> None:
 
 **Why it's safe:** The terminal is restored by `driver.stop_application_mode()` inside `_process_messages()` *before* `_shutdown()` is called. We only need to join the writer thread (`driver.close()`) so the queued alt-screen-off escape sequences are actually flushed to the terminal before the process dies.
 
-**Why the extra escape sequence:** Custom dark backgrounds (e.g. `NEON_BG = #0d2018`) can bleed into the shell prompt after `os._exit(0)` if the terminal's colour reset was queued but not yet flushed. The explicit `\033[0m` + `flush()` ensures no colour artefacts remain.
+**Why the extra escape sequence:** Custom dark backgrounds (e.g. `HEADER_BG = #0d2018`) can bleed into the shell prompt after `os._exit(0)` if the terminal's colour reset was queued but not yet flushed. The explicit `\033[0m` + `flush()` ensures no colour artefacts remain.
 
 Widgets with long-lived background threads (e.g. `RelayWidget`'s SSE listener) should still implement `on_unmount` to set a stop event and close any open response, so those threads exit cleanly if Textual ever manages to drain the pumps (e.g. in test mode).
 
@@ -395,7 +395,7 @@ offset = tick % full_len   # wraps seamlessly using doubled segment list
 All palette colours are centralised in `tuidash/theme.py`, which loads `palettes/<name>.toml` at import time (selected via `TUIDASH_PALETTE`, defaulting to `default`). Import the named constants from there — never hardcode hex colours or Rich colour names in widget files:
 
 ```python
-from ..theme import NEON_PRIMARY, NEON_BORDER, NEON_BG, BAR_LOW, BAR_MID, BAR_HIGH
+from ..theme import ACCENT, BORDER, HEADER_BG, BAR_LOW, BAR_MID, BAR_HIGH
 from ..theme import PERF_GREAT, PERF_GOOD, PERF_FLAT, PERF_BAD, PERF_POOR, PERF_TERRIBLE
 ```
 
@@ -404,8 +404,8 @@ When a widget's `DEFAULT_CSS` needs a theme colour, convert the string to an **f
 ```python
 DEFAULT_CSS = f"""
 MyWidget {{
-    border: round {NEON_BORDER};
-    border-title-color: {NEON_PRIMARY};
+    border: round {BORDER};
+    border-title-color: {ACCENT};
 }}
 """
 ```
@@ -423,7 +423,7 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_SERVE_URL` | auto-detected | Public URL for `--serve` WebSocket (required in Docker) |
 | `TUIDASH_SERVE_MDNS` | `false` | Use `hostname.local` as the public URL for `--serve` (mDNS/Bonjour) |
 | `TUIDASH_THEME` | `textual-dark` | Textual theme name |
-| `TUIDASH_PALETTE` | `default` | Stem of a `.toml` file inside `palettes/`; controls all neon accent and bar colours |
+| `TUIDASH_PALETTE` | `default` | Stem of a `.toml` file inside `palettes/`, or an absolute path to any `.toml` file |
 | `TUIDASH_REFRESH` | `300` | Auto-refresh interval in seconds |
 | `TUIDASH_PRIVACY_DEFAULT` | `false` | Start in privacy mode; `p` toggle still works |
 | `TUIDASH_PRIVACY_FORCE` | `false` | Force privacy mode on startup; disables `p` toggle |

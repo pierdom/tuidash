@@ -17,7 +17,7 @@ from textual.widget import Widget
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
-from ..theme import NEON_BG, NEON_PRIMARY
+from ..theme import ACCENT, HEADER_BG
 
 
 # ── data model ────────────────────────────────────────────────────────────────
@@ -398,7 +398,7 @@ class DashHeader(Widget):
     DashHeader {{
         dock: top;
         height: 1;
-        background: {NEON_BG};
+        background: {HEADER_BG};
         color: $text;
         layout: horizontal;
     }}
@@ -425,12 +425,12 @@ class DashHeader(Widget):
         width: 3;
         height: 1;
         content-align: center middle;
-        color: {NEON_PRIMARY};
+        color: {ACCENT};
     }}
     DashHeader > #nav-prev:hover,
     DashHeader > #nav-next:hover,
     DashHeader > #title-center:hover {{
-        background: {NEON_PRIMARY} 15%;
+        background: {ACCENT} 15%;
         color: $text;
     }}
     DashHeader > #privacy-lock {{

@@ -27,7 +27,7 @@ from textual.widgets import Static
 
 from .. import config
 from ..podcast_progress import store as _progress
-from ..theme import NEON_BORDER, NEON_PRIMARY
+from ..theme import ACCENT, BORDER
 from .base import DashWidget
 from .header import DashHeader
 
@@ -284,12 +284,12 @@ class PlayPauseButton(Widget):
     PlayPauseButton {{
         width: auto;
         height: 4;
-        border: round {NEON_BORDER};
+        border: round {BORDER};
         padding: 0 1;
         content-align: center middle;
     }}
-    PlayPauseButton:hover {{ background: {NEON_PRIMARY} 15%; }}
-    PlayPauseButton:focus {{ border: round {NEON_PRIMARY}; background: {NEON_PRIMARY} 25%; }}
+    PlayPauseButton:hover {{ background: {ACCENT} 15%; }}
+    PlayPauseButton:focus {{ border: round {ACCENT}; background: {ACCENT} 25%; }}
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -325,8 +325,8 @@ class EpisodePlayButton(Widget):
             self.feed_id = feed_id
 
     DEFAULT_CSS = f"""
-    EpisodePlayButton:hover {{ background: {NEON_PRIMARY} 15%; }}
-    EpisodePlayButton:focus {{ background: {NEON_PRIMARY} 35%; }}
+    EpisodePlayButton:hover {{ background: {ACCENT} 15%; }}
+    EpisodePlayButton:focus {{ background: {ACCENT} 35%; }}
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -371,10 +371,10 @@ class SeekButton(Widget):
         width: auto;
         height: auto;
         padding: 0 1;
-        border: round {NEON_BORDER};
+        border: round {BORDER};
     }}
-    SeekButton:hover {{ background: {NEON_PRIMARY} 15%; }}
-    SeekButton:focus {{ border: round {NEON_PRIMARY}; background: {NEON_PRIMARY} 25%; }}
+    SeekButton:hover {{ background: {ACCENT} 15%; }}
+    SeekButton:focus {{ border: round {ACCENT}; background: {ACCENT} 25%; }}
     """
 
     def __init__(self, delta: int, **kwargs: Any) -> None:
