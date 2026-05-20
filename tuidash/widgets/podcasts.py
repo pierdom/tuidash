@@ -722,6 +722,8 @@ class PodcastCard(Widget):
         self._feed_id = feed_id
         self._data: PodcastData | None = None
         self._ep_idx: int = 0
+        self._playing_ep_id: int | None = None
+        self._playing_paused: bool = False
 
     def compose(self) -> ComposeResult:
         with Horizontal(classes="card-main"):
@@ -806,6 +808,25 @@ class PodcastCard(Widget):
             self.query_one(f"#ep-latest-{self._feed_id}", LatestEpisodeButton).set_enabled(idx > 0)
             self.query_one(f"#ep-prev-{self._feed_id}", PrevEpisodeButton).set_enabled(idx < len(episodes) - 1)
             self.query_one(f"#ep-next-{self._feed_id}", NextEpisodeButton).set_enabled(idx > 0)
+        except Exception:
+            pass
+
+        self._sync_play_button()
+
+    def notify_playing(self, ep_id: int | None, paused: bool) -> None:
+        self._playing_ep_id = ep_id
+        self._playing_paused = paused
+        self._sync_play_button()
+
+    def _sync_play_button(self) -> None:
+        if not self._data or not self._data.episodes:
+            return
+        ep = self._data.episodes[self._ep_idx]
+        active = self._playing_ep_id is not None and ep.id == self._playing_ep_id
+        try:
+            self.query_one(f"#play-{self._feed_id}", EpisodePlayButton).set_playing(
+                active, active and self._playing_paused
+            )
         except Exception:
             pass
 
@@ -985,18 +1006,18 @@ class PodcastsWidget(DashWidget):
                         try:
                             card = self.query_one(f"#card-{pd.feed_id}", PodcastCard)
                             card._ep_idx = ep_idx
+                            card.notify_playing(ep_id, True)
                             card._show_episode(ep_idx)
                         except Exception:
                             pass
                         break
 
-        # Normalise every episode play button from the single source of truth.
-        # This prevents stale state from being shown on cards that aren't playing.
+        # Normalise every card's play button keyed by episode, not feed.
+        playing_ep_id = self._playing_episode_id if player.running else None
         for pd in feeds:
-            is_active = (pd.feed_id == self._playing_id) and player.running
             try:
-                self.query_one(f"#play-{pd.feed_id}", EpisodePlayButton).set_playing(
-                    is_active, is_active and player.paused
+                self.query_one(f"#card-{pd.feed_id}", PodcastCard).notify_playing(
+                    playing_ep_id, player.paused
                 )
             except Exception:
                 pass
@@ -1009,7 +1030,7 @@ class PodcastsWidget(DashWidget):
         elif self._playing_id is not None:
             # mpv exited naturally — reset global button, bar, and card button
             try:
-                self.query_one(f"#play-{self._playing_id}", EpisodePlayButton).set_playing(False)
+                self.query_one(f"#card-{self._playing_id}", PodcastCard).notify_playing(None, False)
             except Exception:
                 pass
             self._playing_id = None
@@ -1066,31 +1087,35 @@ class PodcastsWidget(DashWidget):
         self._set_global_playing(not is_paused)
         if self._playing_id is not None:
             try:
-                self.query_one(f"#play-{self._playing_id}", EpisodePlayButton).set_playing(True, is_paused)
+                self.query_one(f"#card-{self._playing_id}", PodcastCard).notify_playing(
+                    self._playing_episode_id, is_paused
+                )
             except Exception:
                 pass
 
     def on_episode_play_button_pressed(self, event: EpisodePlayButton.Pressed) -> None:
-        """Per-card ▶/⏸ button — toggle pause if already playing, otherwise start."""
+        """Per-card ▶/⏸ button — toggle pause if this exact episode is playing, otherwise start."""
         feed_id = event.feed_id
-
-        # Toggle pause when this card is already the active one
-        if feed_id == self._playing_id and player.running:
-            player.pause_toggle()
-            is_paused = player.paused
-            self._set_global_playing(not is_paused)
-            try:
-                self.query_one(f"#play-{feed_id}", EpisodePlayButton).set_playing(True, is_paused)
-            except Exception:
-                pass
-            return
 
         try:
             card = self.query_one(f"#card-{feed_id}", PodcastCard)
-            url  = card.enclosure_url
+            ep   = card._data.episodes[card._ep_idx] if (card._data and card._data.episodes) else None
+            current_ep_id = ep.id if ep else None
         except Exception:
-            url = ""
+            card = None
+            ep = None
+            current_ep_id = None
 
+        # Toggle pause only when this exact episode is already playing
+        if current_ep_id and current_ep_id == self._playing_episode_id and player.running:
+            player.pause_toggle()
+            is_paused = player.paused
+            self._set_global_playing(not is_paused)
+            if card is not None:
+                card.notify_playing(self._playing_episode_id, is_paused)
+            return
+
+        url = card.enclosure_url if card else ""
         if not url:
             self.app.notify("No audio URL for this episode", severity="warning")
             return
@@ -1104,13 +1129,12 @@ class PodcastsWidget(DashWidget):
         # Clear the previously playing card's button
         if self._playing_id is not None:
             try:
-                self.query_one(f"#play-{self._playing_id}", EpisodePlayButton).set_playing(False)
+                self.query_one(f"#card-{self._playing_id}", PodcastCard).notify_playing(None, False)
             except Exception:
                 pass
 
         try:
             pd = card._data
-            ep = pd.episodes[card._ep_idx] if (pd and pd.episodes) else None
             ep_title = ep.title if ep else ""
             self._now_playing = f"{pd.title} — {ep_title}" if (pd and ep_title) else (pd.title if pd else "")
             self._playing_episode_id = ep.id if ep else None
@@ -1128,10 +1152,8 @@ class PodcastsWidget(DashWidget):
         bar.duration = 0.0
         bar.label    = self._now_playing
         self._set_global_playing(True)
-        try:
-            self.query_one(f"#play-{feed_id}", EpisodePlayButton).set_playing(True, False)
-        except Exception:
-            pass
+        if card is not None:
+            card.notify_playing(self._playing_episode_id, False)
 
     def on_seek_button_pressed(self, event: SeekButton.Pressed) -> None:
         if player.running:
