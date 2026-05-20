@@ -1,8 +1,37 @@
 from __future__ import annotations
 
+from rich.text import Text
 from textual import events
 from textual.containers import ScrollableContainer
 from textual.widget import Widget
+
+
+def neon_bar(pct: float | None, width: int = 10) -> Text:
+    """Blocky btop-style progress bar with fixed-position gradient zones.
+
+    Zones: 0–60% of bar = bright_green, 60–80% = yellow, 80–100% = bright_red.
+    """
+    if pct is None:
+        return Text("─" * width, style="dim")
+    p      = max(0.0, min(100.0, float(pct)))
+    filled = max(0, round(p / 100 * width))
+    g_end  = round(width * 0.60)
+    y_end  = round(width * 0.80)
+    t      = Text()
+    pos    = 0
+    g = min(filled, g_end)
+    if g > 0:
+        t.append("█" * g, style="bright_green")
+        pos += g
+    y = min(filled - pos, max(0, y_end - g_end))
+    if y > 0:
+        t.append("█" * y, style="yellow")
+        pos += y
+    if pos < filled:
+        t.append("█" * (filled - pos), style="bright_red")
+    if filled < width:
+        t.append("░" * (width - filled), style="dim")
+    return t
 
 
 class DashWidget(Widget):
@@ -14,14 +43,14 @@ class DashWidget(Widget):
 
     DEFAULT_CSS = """
     DashWidget {
-        border: solid $primary-darken-2;
+        border: round #005f4e;
         padding: 0 1;
-        border-title-color: $accent;
+        border-title-color: #00d4aa;
         border-title-style: bold;
         border-subtitle-color: $text-muted;
     }
     DashWidget:focus {
-        border: solid $accent;
+        border: round #00d4aa;
     }
     """
 

@@ -22,7 +22,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
-from .base import DashWidget
+from .base import DashWidget, neon_bar
 
 
 _DEFAULT_IPS      = ["1.1.1.1", "8.8.8.8", "192.168.1.1"]
@@ -228,12 +228,13 @@ def _summary_col(
 
 
 def _speed_bar(actual: float, max_val: float) -> Text:
-    pct    = min(actual / max_val, 1.0) if max_val > 0 else 0.0
-    filled = max(0, round(pct * _SPEED_BAR_W))
-    color  = "green" if pct >= 0.8 else ("yellow" if pct >= 0.5 else "red")
-    bar = Text()
-    bar.append("█" * filled,                style=color)
-    bar.append("░" * (_SPEED_BAR_W - filled), style="dim")
+    pct    = min(actual / max_val * 100, 100.0) if max_val > 0 else 0.0
+    filled = max(0, round(pct / 100 * _SPEED_BAR_W))
+    # High speed = good: invert the semantic vs CPU/mem bars
+    color  = "bright_green" if pct >= 80 else ("green" if pct >= 50 else ("yellow" if pct >= 20 else "red"))
+    bar    = Text()
+    bar.append("█" * filled,                   style=color)
+    bar.append("░" * (_SPEED_BAR_W - filled),  style="dim")
     return bar
 
 

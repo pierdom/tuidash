@@ -20,7 +20,7 @@ from textual import work
 
 from .. import config
 from ..scroll import SCROLL_INTERVAL, current_tick, scroll_offset
-from .base import DashWidget
+from .base import DashWidget, neon_bar
 
 
 _BAR_W = 8
@@ -130,12 +130,7 @@ def _monitor_host(name: str, url: str) -> HostData:
 def _pct_bar(pct: float | None) -> Text:
     if pct is None:
         return Text("?" * _BAR_W, style="dim")
-    filled = max(0, round(pct / 100 * _BAR_W))
-    color  = "red" if pct >= 80 else ("yellow" if pct >= 60 else "green")
-    t = Text()
-    t.append("█" * filled,            style=color)
-    t.append("░" * (_BAR_W - filled), style="dim")
-    return t
+    return neon_bar(pct, _BAR_W)
 
 
 def _container_color(c: ContainerInfo) -> str:

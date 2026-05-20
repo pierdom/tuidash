@@ -396,7 +396,7 @@ class DashHeader(Widget):
     DashHeader {
         dock: top;
         height: 1;
-        background: $panel;
+        background: #0d2018;
         color: $text;
         layout: horizontal;
     }
@@ -423,12 +423,12 @@ class DashHeader(Widget):
         width: 3;
         height: 1;
         content-align: center middle;
-        color: $text-muted;
+        color: #00d4aa;
     }
     DashHeader > #nav-prev:hover,
     DashHeader > #nav-next:hover,
     DashHeader > #title-center:hover {
-        background: $boost;
+        background: #00d4aa 15%;
         color: $text;
     }
     DashHeader > #privacy-lock {

@@ -8,7 +8,6 @@ from typing import Any
 
 import requests
 from rich.console import Group
-from rich.progress_bar import ProgressBar
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
@@ -19,7 +18,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
-from .base import DashWidget
+from .base import DashWidget, neon_bar
 
 
 _TICKER_INTERVAL   = 0.125  # seconds per scroll step (≈8 chars/sec)
@@ -288,11 +287,21 @@ def _fmt(value: float, currency: str) -> str:
 _MASK = "•••••"
 
 
+def _perf_gradient_color(pct: float) -> str:
+    """Map a performance % to a btop-style heatmap color."""
+    if pct > 10:   return "bright_green"
+    if pct > 0:    return "green"
+    if pct > -5:   return "cyan"
+    if pct > -10:  return "yellow"
+    if pct > -20:  return "red"
+    return "bright_red"
+
+
 def _stat_cell(label: str, stats: PerfStats, currency: str, privacy: bool = False) -> Text:
-    color = "green" if stats.pct >= 0 else "red"
+    color = _perf_gradient_color(stats.pct)
     arrow = "▲" if stats.pct >= 0 else "▼"
     t = Text()
-    t.append(f"{label}\n", style="bold white")
+    t.append(f"{label}\n", style="bold #00d4aa")
     t.append(f"{arrow} {abs(stats.pct):.2f}%\n", style=f"bold {color}")
     t.append(_MASK if privacy else _fmt(stats.abs, currency), style=f"dim {color}")
     return t
@@ -340,7 +349,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     header.add_column(no_wrap=True)
     header.add_row(
         nw,
-        ProgressBar(total=100, completed=progress_pct, complete_style="green"),
+        neon_bar(progress_pct, 20),
         Text(f"{progress_pct:.1f}%", style="dim"),
         Text(f"→ {sym}{_MASK}" if privacy else f"→ {sym}{_fmt_goal(d.goal)}", style="dim"),
     )

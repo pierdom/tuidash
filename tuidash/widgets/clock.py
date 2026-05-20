@@ -9,7 +9,7 @@ from textual.widgets import Static
 from .base import DashWidget
 
 
-_COLOR = "dark_orange"
+_COLOR = "#00d4aa"
 
 # 5-pixel-wide × 8-pixel-tall bitmap font; colon is 2-pixel-wide.
 # '█' = lit pixel, ' ' = dark pixel.

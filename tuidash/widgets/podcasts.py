@@ -283,12 +283,12 @@ class PlayPauseButton(Widget):
     PlayPauseButton {
         width: auto;
         height: 4;
-        border: round $panel;
+        border: round #005f4e;
         padding: 0 1;
         content-align: center middle;
     }
-    PlayPauseButton:hover { background: $boost; }
-    PlayPauseButton:focus { border: round $accent; background: $accent 25%; }
+    PlayPauseButton:hover { background: #00d4aa 15%; }
+    PlayPauseButton:focus { border: round #00d4aa; background: #00d4aa 25%; }
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -324,8 +324,8 @@ class EpisodePlayButton(Widget):
             self.feed_id = feed_id
 
     DEFAULT_CSS = """
-    EpisodePlayButton:hover { background: $boost; }
-    EpisodePlayButton:focus { background: $accent 35%; }
+    EpisodePlayButton:hover { background: #00d4aa 15%; }
+    EpisodePlayButton:focus { background: #00d4aa 35%; }
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -370,10 +370,10 @@ class SeekButton(Widget):
         width: auto;
         height: auto;
         padding: 0 1;
-        border: round $panel;
+        border: round #005f4e;
     }
-    SeekButton:hover { background: $boost; }
-    SeekButton:focus { border: round $accent; background: $accent 25%; }
+    SeekButton:hover { background: #00d4aa 15%; }
+    SeekButton:focus { border: round #00d4aa; background: #00d4aa 25%; }
     """
 
     def __init__(self, delta: int, **kwargs: Any) -> None:

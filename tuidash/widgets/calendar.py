@@ -36,7 +36,7 @@ def _render_month(
     for _ in range(7):
         grid.add_column(width=3, justify="right")
 
-    _wd = "bold white on color(24)"   # weekday pill: dark blue
+    _wd = "bold #00d4aa on #005f4e"   # weekday pill: neon teal
     _we = "bold white on color(88)"   # weekend pill: dark red
     grid.add_row(
         Text("     "),
@@ -66,7 +66,7 @@ def _render_month(
             elif is_work and work_color:
                 style = f"bold {work_color} reverse"
             else:
-                style = "bold reverse"
+                style = "bold #0d2018 on #00d4aa"
         elif is_holiday:
             style = "bold red"
         elif is_family and family_color:

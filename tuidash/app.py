@@ -94,6 +94,10 @@ class TuidashApp(App):
 
     /* Scroll-captured widget highlight (mobile pointer lock) */
     .scroll-captured { border: heavy $accent; }
+
+    /* btop-style footer */
+    Footer { background: #0d2018; }
+    Footer > .footer--key { background: #005f4e; color: #00d4aa; }
     """
 
     privacy:          reactive[bool] = reactive(False)
@@ -146,6 +150,15 @@ class TuidashApp(App):
                 self._driver.close()
             except Exception:
                 pass
+        # After driver.close() the write thread has flushed its buffer, but custom
+        # background colors can leave stray SGR state on the terminal.  Write an
+        # explicit reset + show-cursor + alt-screen-exit after the driver is done
+        # so the terminal is fully clean before the process dies.
+        try:
+            sys.stdout.write("\033[?25h\033[?1049l\033[0m")
+            sys.stdout.flush()
+        except Exception:
+            pass
         os._exit(0)
 
     def compose(self) -> ComposeResult:
