@@ -1,23 +1,48 @@
 from __future__ import annotations
 
-# ── tuidash colour theme ───────────────────────────────────────────────────────
-# Edit this file to restyle the entire dashboard.
-# All CSS strings and Rich text styles import their colours from here.
+import os
+import tomllib
+from pathlib import Path
 
-# Core palette
-NEON_PRIMARY = "#00d4aa"   # neon mint  — border titles, clock, nav arrows, accents
-NEON_BORDER  = "#005f4e"   # dark teal  — widget / button borders
-NEON_BG      = "#0d2018"   # very dark teal — header & footer background
+# ── palette loader ────────────────────────────────────────────────────────────
+# Looks for  palettes/<name>.toml  next to the project root.
+# Override the active palette with:  TUIDASH_PALETTE=<stem>  in the environment.
 
-# Progress bar gradient zones (neon_bar in base.py)
-BAR_LOW  = "bright_green"  # 0 – 60 % of bar width
-BAR_MID  = "yellow"        # 60 – 80 % of bar width
-BAR_HIGH = "bright_red"    # 80 – 100 % of bar width
+_PALETTES_DIR = Path(__file__).parent.parent / "palettes"
 
-# Performance heatmap (Ghostfolio stat cells)
-PERF_GREAT    = "bright_green"  # > +10 %
-PERF_GOOD     = "green"         #   0 to +10 %
-PERF_FLAT     = "cyan"          #  −5 to   0 %
-PERF_BAD      = "yellow"        # −10 to  −5 %
-PERF_POOR     = "red"           # −20 to −10 %
-PERF_TERRIBLE = "bright_red"    # < −20 %
+
+def _load() -> dict[str, str]:
+    name = os.environ.get("TUIDASH_PALETTE", "default")
+    path = _PALETTES_DIR / f"{name}.toml"
+    if not path.exists():
+        return {}
+    try:
+        with open(path, "rb") as f:
+            return tomllib.load(f)
+    except Exception:
+        return {}
+
+
+_p = _load()
+
+
+def _c(key: str, default: str) -> str:
+    return str(_p.get(key, default))
+
+
+# ── Exported constants ────────────────────────────────────────────────────────
+
+NEON_PRIMARY = _c("primary", "#00d4aa")
+NEON_BORDER  = _c("border",  "#005f4e")
+NEON_BG      = _c("bg",      "#0d2018")
+
+BAR_LOW  = _c("bar_low",  "bright_green")
+BAR_MID  = _c("bar_mid",  "yellow")
+BAR_HIGH = _c("bar_high", "bright_red")
+
+PERF_GREAT    = _c("perf_great",    "bright_green")
+PERF_GOOD     = _c("perf_good",     "green")
+PERF_FLAT     = _c("perf_flat",     "cyan")
+PERF_BAD      = _c("perf_bad",      "yellow")
+PERF_POOR     = _c("perf_poor",     "red")
+PERF_TERRIBLE = _c("perf_terrible", "bright_red")
