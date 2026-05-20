@@ -107,7 +107,8 @@ class TuidashApp(App):
 
     /* btop-style footer */
     Footer {{ background: {HEADER_BG}; }}
-    Footer > .footer--key {{ background: {BORDER}; color: {ACCENT}; }}
+    FooterKey .footer-key--key {{ background: {BORDER}; color: {ACCENT}; }}
+    FooterKey .footer-key--description {{ color: {ACCENT}; background: {HEADER_BG}; }}
     """
 
     privacy:          reactive[bool] = reactive(False)
