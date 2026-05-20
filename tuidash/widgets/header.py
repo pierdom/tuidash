@@ -366,6 +366,9 @@ class PageMenu(OptionList):
         border: tall {BORDER};
         background: {HEADER_BG};
     }}
+    PageMenu:focus {{
+        border: tall {BORDER};
+    }}
     PageMenu .option-list--option-highlighted {{
         color: {HEADER_BG};
         background: {ACCENT};
