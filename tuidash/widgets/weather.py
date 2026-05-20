@@ -15,6 +15,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
+from ..theme import PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE
 from .base import DashWidget
 
 
@@ -294,11 +295,11 @@ _BAR_W = 17  # horizontal bar width in characters
 
 
 def _bar_color(temp_c: float) -> str:
-    if temp_c >= 30: return "red"
-    if temp_c >= 24: return "yellow"
-    if temp_c >= 16: return "green"
-    if temp_c >= 8:  return "cyan"
-    return "blue"
+    if temp_c >= 30: return PERF_TERRIBLE
+    if temp_c >= 24: return PERF_POOR
+    if temp_c >= 16: return PERF_GOOD
+    if temp_c >= 8:  return PERF_FLAT
+    return PERF_GREAT
 
 
 def _h_bar(t_min: float, t_max: float, g_min: float, g_max: float, metric: bool) -> Text:
