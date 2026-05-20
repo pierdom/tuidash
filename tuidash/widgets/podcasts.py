@@ -27,6 +27,7 @@ from textual.widgets import Static
 
 from .. import config
 from ..podcast_progress import store as _progress
+from ..theme import ACCENT, BORDER, PERF_BAD, PERF_GREAT
 from .base import DashWidget
 from .header import DashHeader
 
@@ -279,16 +280,16 @@ class PlayPauseButton(Widget):
     class Toggled(Message):
         pass
 
-    DEFAULT_CSS = """
-    PlayPauseButton {
+    DEFAULT_CSS = f"""
+    PlayPauseButton {{
         width: auto;
         height: 4;
-        border: round $panel;
+        border: round {BORDER};
         padding: 0 1;
         content-align: center middle;
-    }
-    PlayPauseButton:hover { background: $boost; }
-    PlayPauseButton:focus { border: round $accent; background: $accent 25%; }
+    }}
+    PlayPauseButton:hover {{ background: {ACCENT} 15%; }}
+    PlayPauseButton:focus {{ border: round {ACCENT}; background: {ACCENT} 25%; }}
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -297,8 +298,8 @@ class PlayPauseButton(Widget):
 
     def render(self) -> Text:
         if self._playing:
-            return Text("⏸", style="bright_yellow bold")
-        return Text("▶", style="bright_green bold")
+            return Text("⏸", style=f"{ACCENT} bold")
+        return Text("▶", style=f"{ACCENT} bold")
 
     def set_playing(self, value: bool) -> None:
         self._playing = value
@@ -323,9 +324,9 @@ class EpisodePlayButton(Widget):
             super().__init__()
             self.feed_id = feed_id
 
-    DEFAULT_CSS = """
-    EpisodePlayButton:hover { background: $boost; }
-    EpisodePlayButton:focus { background: $accent 35%; }
+    DEFAULT_CSS = f"""
+    EpisodePlayButton:hover {{ background: {ACCENT} 15%; }}
+    EpisodePlayButton:focus {{ background: {ACCENT} 35%; }}
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -341,10 +342,10 @@ class EpisodePlayButton(Widget):
 
     def render(self) -> Text:
         if self._playing and not self._paused:
-            return Text("⏸ Pause",  style="bright_yellow bold")
+            return Text("⏸ Pause",  style=f"{ACCENT} bold")
         if self._playing and self._paused:
-            return Text("▶ Resume", style="bright_green bold")
-        return Text("▶ Play", style="bright_green bold")
+            return Text("▶ Resume", style=f"{ACCENT} bold")
+        return Text("▶ Play", style=f"{ACCENT} bold")
 
     def on_click(self) -> None:
         self.post_message(self.Pressed(self.feed_id))
@@ -365,15 +366,15 @@ class SeekButton(Widget):
             super().__init__()
             self.delta = delta
 
-    DEFAULT_CSS = """
-    SeekButton {
+    DEFAULT_CSS = f"""
+    SeekButton {{
         width: auto;
         height: auto;
         padding: 0 1;
-        border: round $panel;
-    }
-    SeekButton:hover { background: $boost; }
-    SeekButton:focus { border: round $accent; background: $accent 25%; }
+        border: round {BORDER};
+    }}
+    SeekButton:hover {{ background: {ACCENT} 15%; }}
+    SeekButton:focus {{ border: round {ACCENT}; background: {ACCENT} 25%; }}
     """
 
     def __init__(self, delta: int, **kwargs: Any) -> None:
@@ -404,10 +405,10 @@ class MarkListenedButton(Widget):
             self.feed_id    = feed_id
             self.episode_id = episode_id
 
-    DEFAULT_CSS = """
-    MarkListenedButton { width: 3; height: 1; }
-    MarkListenedButton:hover { background: $boost; }
-    MarkListenedButton:focus { background: $accent 50%; }
+    DEFAULT_CSS = f"""
+    MarkListenedButton {{ width: 3; height: 1; }}
+    MarkListenedButton:hover {{ background: $boost; }}
+    MarkListenedButton:focus {{ background: {ACCENT} 50%; }}
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -419,7 +420,7 @@ class MarkListenedButton(Widget):
         self._episode_id = episode_id
 
     def render(self) -> Text:
-        return Text(" ✓ ", style="dim green")
+        return Text(" ✓ ", style=f"dim {PERF_GREAT}")
 
     def on_click(self) -> None:
         if self._episode_id:
@@ -443,10 +444,10 @@ class ResetEpisodeButton(Widget):
             self.feed_id    = feed_id
             self.episode_id = episode_id
 
-    DEFAULT_CSS = """
-    ResetEpisodeButton { width: 3; height: 1; }
-    ResetEpisodeButton:hover { background: $boost; }
-    ResetEpisodeButton:focus { background: $accent 50%; }
+    DEFAULT_CSS = f"""
+    ResetEpisodeButton {{ width: 3; height: 1; }}
+    ResetEpisodeButton:hover {{ background: $boost; }}
+    ResetEpisodeButton:focus {{ background: {ACCENT} 50%; }}
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -481,10 +482,10 @@ class LatestEpisodeButton(Widget):
             super().__init__()
             self.feed_id = feed_id
 
-    DEFAULT_CSS = """
-    LatestEpisodeButton { width: 3; height: 1; }
-    LatestEpisodeButton:hover { background: $boost; }
-    LatestEpisodeButton:focus { background: $accent 50%; }
+    DEFAULT_CSS = f"""
+    LatestEpisodeButton {{ width: 3; height: 1; }}
+    LatestEpisodeButton:hover {{ background: $boost; }}
+    LatestEpisodeButton:focus {{ background: {ACCENT} 50%; }}
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -520,10 +521,10 @@ class PrevEpisodeButton(Widget):
             super().__init__()
             self.feed_id = feed_id
 
-    DEFAULT_CSS = """
-    PrevEpisodeButton { width: 3; height: 1; }
-    PrevEpisodeButton:hover { background: $boost; }
-    PrevEpisodeButton:focus { background: $accent 50%; }
+    DEFAULT_CSS = f"""
+    PrevEpisodeButton {{ width: 3; height: 1; }}
+    PrevEpisodeButton:hover {{ background: $boost; }}
+    PrevEpisodeButton:focus {{ background: {ACCENT} 50%; }}
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -559,10 +560,10 @@ class NextEpisodeButton(Widget):
             super().__init__()
             self.feed_id = feed_id
 
-    DEFAULT_CSS = """
-    NextEpisodeButton { width: 3; height: 1; }
-    NextEpisodeButton:hover { background: $boost; }
-    NextEpisodeButton:focus { background: $accent 50%; }
+    DEFAULT_CSS = f"""
+    NextEpisodeButton {{ width: 3; height: 1; }}
+    NextEpisodeButton:hover {{ background: $boost; }}
+    NextEpisodeButton:focus {{ background: {ACCENT} 50%; }}
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -612,13 +613,13 @@ class PlaybackBar(Widget):
     duration: reactive[float] = reactive(0.0)
     label:    reactive[str]   = reactive("")
 
-    DEFAULT_CSS = """
-    PlaybackBar {
+    DEFAULT_CSS = f"""
+    PlaybackBar {{
         height: 4;
-        border: round $panel;
+        border: round {BORDER};
         padding: 0 1;
-    }
-    PlaybackBar:hover { background: $boost; }
+    }}
+    PlaybackBar:hover {{ background: $boost; }}
     """
 
     def render(self) -> Group:
@@ -642,8 +643,8 @@ class PlaybackBar(Widget):
             filled = 0
 
         bar = Text(no_wrap=True)
-        bar.append("█" * filled,           style="bright_green")
-        bar.append("░" * (bar_w - filled), style="dim green")
+        bar.append("█" * filled,           style=ACCENT)
+        bar.append("░" * (bar_w - filled), style=f"dim {ACCENT}")
         bar.append(time_str,               style="dim")
 
         return Group(line1, bar)
@@ -676,45 +677,45 @@ class PlaybackBar(Widget):
 class PodcastCard(Widget):
     """One podcast section: artwork, episode info, and playback controls."""
 
-    DEFAULT_CSS = """
-    PodcastCard {
+    DEFAULT_CSS = f"""
+    PodcastCard {{
         height: 9;
         padding: 0 1 0 1;
         margin: 0;
-        border: round $panel;
-    }
-    PodcastCard .card-main {
+        border: round {BORDER};
+    }}
+    PodcastCard .card-main {{
         height: 7;
-    }
-    PodcastCard .card-cover {
+    }}
+    PodcastCard .card-cover {{
         width: 16;
         height: auto;
-    }
-    PodcastCard .card-right {
+    }}
+    PodcastCard .card-right {{
         width: 1fr;
         height: 7;
         padding: 0 1;
-    }
-    PodcastCard .card-title-row {
+    }}
+    PodcastCard .card-title-row {{
         width: 1fr;
         height: 1;
         align: left top;
-    }
-    PodcastCard .card-title {
+    }}
+    PodcastCard .card-title {{
         width: 1fr;
         height: 1;
-    }
-    PodcastCard .card-info {
+    }}
+    PodcastCard .card-info {{
         width: 1fr;
         height: 5;
-    }
-    PodcastCard .card-play {
+    }}
+    PodcastCard .card-play {{
         height: 1;
         width: 1fr;
         align: left middle;
-    }
-    PodcastCard .card-play EpisodePlayButton { width: auto; }
-    PodcastCard .card-play-spacer { width: 1fr; height: 1; }
+    }}
+    PodcastCard .card-play EpisodePlayButton {{ width: auto; }}
+    PodcastCard .card-play-spacer {{ width: 1fr; height: 1; }}
     """
 
     def __init__(self, feed_id: int, **kwargs: Any) -> None:
@@ -784,17 +785,17 @@ class PodcastCard(Widget):
 
         status = _progress.get_status(ep.id, ep.date_published)
         if status == "new":
-            info.append("  ● NEW", style="bold bright_green")
+            info.append("  ● NEW", style=f"bold {PERF_GREAT}")
         elif status == "started":
             saved_pos = _progress.get_position(ep.id)
-            info.append(f"  ▶ {_fmt_time(saved_pos)}", style="bright_yellow")
+            info.append(f"  ▶ {_fmt_time(saved_pos)}", style=PERF_BAD)
         elif status == "completed":
-            info.append("  ✓", style="dim green")
+            info.append("  ✓", style=f"dim {PERF_GREAT}")
 
         if is_latest:
-            info.append("  ● LAST", style="bold orange1")
+            info.append("  ● LAST", style=f"bold {ACCENT}")
         elif is_last:
-            info.append("  ● LAST", style="bold orange1")
+            info.append("  ● LAST", style=f"bold {ACCENT}")
 
         self.query_one(f"#info-{self._feed_id}", Static).update(info)
 
@@ -853,38 +854,38 @@ class PodcastsWidget(DashWidget):
 
     _mobile_scrollable = True
 
-    DEFAULT_CSS = """
-    PodcastsWidget { height: 100%; }
-    PodcastsWidget > Vertical { height: 100%; }
-    #podcasts-scroll { height: 1fr; padding: 0 1; }
-    #podcasts-grid {
+    DEFAULT_CSS = f"""
+    PodcastsWidget {{ height: 100%; }}
+    PodcastsWidget > Vertical {{ height: 100%; }}
+    #podcasts-scroll {{ height: 1fr; padding: 0 1; }}
+    #podcasts-grid {{
         layout: grid;
         grid-size: 2;
         grid-rows: 9;
         grid-gutter: 0;
         height: auto;
         width: 100%;
-    }
-    #podcasts-controls {
+    }}
+    #podcasts-controls {{
         height: 4;
         margin: 0 1 0 1;
         align: left middle;
-    }
-    #podcasts-bar {
+    }}
+    #podcasts-bar {{
         width: 1fr;
         height: 4;
-        border: round $panel;
-        border-title-color: $accent;
+        border: round {BORDER};
+        border-title-color: {ACCENT};
         border-title-style: bold;
         margin: 0 1;
-    }
-    #podcasts-controls SeekButton {
+    }}
+    #podcasts-controls SeekButton {{
         height: 4;
-        border: round $panel;
+        border: round {BORDER};
         padding: 0 1;
         width: auto;
         content-align: center middle;
-    }
+    }}
     """
 
     def __init__(self, **kwargs: Any) -> None:

@@ -25,6 +25,7 @@ from textual.widgets import ContentSwitcher, Footer
 
 from . import config
 from .screens import BasePage
+from .theme import ACCENT, BORDER, HEADER_BG, build_textual_theme
 from .widgets.base import DashWidget
 from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
@@ -50,50 +51,64 @@ class TuidashApp(App):
 
     TITLE = "tuidash"
 
-    CSS = """
-    Screen {
+    CSS = f"""
+    Screen {{
         background: $background;
         layers: base overlay;
-    }
-    ContentSwitcher {
+    }}
+    Widget {{
+        scrollbar-background: {HEADER_BG};
+        scrollbar-background-hover: {HEADER_BG};
+        scrollbar-background-active: {HEADER_BG};
+        scrollbar-color: {BORDER};
+        scrollbar-color-hover: {ACCENT};
+        scrollbar-color-active: {ACCENT};
+        scrollbar-corner-color: {HEADER_BG};
+    }}
+    ContentSwitcher {{
         height: 1fr;
-    }
+    }}
 
     /* ── mobile mode (narrow terminal / phone browser) ── */
 
     /* Dashboard page */
-    #dashboard-scroll { height: 1fr; overflow-y: hidden; }
-    .mobile #row-top { layout: vertical; height: auto; }
-    .mobile #row-mid { layout: vertical; height: auto; }
-    .mobile #row-bot { height: auto; }
-    .mobile ClockWidget    { width: 100%; height: 6; margin: 0; }
-    .mobile WeatherWidget  { width: 100%; height: auto; margin: 0; }
-    .mobile CalendarWidget { width: 100%; height: auto; }
-    .mobile GhostfolioWidget { width: 100%; height: auto; margin: 0; }
-    .mobile #conn-hosts-col  { width: 100%; }
-    .mobile ConnectivityWidget { height: auto; }
-    .mobile HostsWidget        { height: auto; }
-    .mobile EventsWidget { height: auto; }
-    .mobile #events-body { height: auto; }
+    #dashboard-scroll {{ height: 1fr; overflow-y: hidden; }}
+    .mobile #row-top {{ layout: vertical; height: auto; }}
+    .mobile #row-mid {{ layout: vertical; height: auto; }}
+    .mobile #row-bot {{ height: auto; }}
+    .mobile ClockWidget    {{ width: 100%; height: 6; margin: 0; }}
+    .mobile WeatherWidget  {{ width: 100%; height: auto; margin: 0; }}
+    .mobile CalendarWidget {{ width: 100%; height: auto; }}
+    .mobile GhostfolioWidget {{ width: 100%; height: auto; margin: 0; }}
+    .mobile #conn-hosts-col  {{ width: 100%; }}
+    .mobile ConnectivityWidget {{ height: auto; }}
+    .mobile HostsWidget        {{ height: auto; }}
+    .mobile EventsWidget {{ height: auto; }}
+    .mobile #events-body {{ height: auto; }}
 
     /* News page — vertical 30/70 split, each widget scrolls internally */
-    .mobile NewsPage Horizontal { layout: vertical; }
-    .mobile NewsPage RelayWidget      { width: 100%; height: 30%; }
-    .mobile NewsPage NewsReaderWidget { width: 100%; height: 70%; }
+    .mobile NewsPage Horizontal {{ layout: vertical; }}
+    .mobile NewsPage RelayWidget      {{ width: 100%; height: 30%; }}
+    .mobile NewsPage NewsReaderWidget {{ width: 100%; height: 70%; }}
 
     /* Calendar page */
-    .mobile CalendarPage { overflow-y: scroll; scrollbar-size-vertical: 1; }
+    .mobile CalendarPage {{ overflow-y: scroll; scrollbar-size-vertical: 1; }}
 
     /* Podcasts page — inner SC scrolls cards; controls stay pinned at bottom */
-    .mobile #podcasts-grid { grid-size: 1; }
+    .mobile #podcasts-grid {{ grid-size: 1; }}
 
     /* Portfolio page — vertical 30/70 split, each widget scrolls internally */
-    .mobile PortfolioPage Horizontal { layout: vertical; }
-    .mobile PortfolioPage RelayWidget            { width: 100%; height: 30%; }
-    .mobile PortfolioPage GhostfolioDetailWidget { width: 100%; height: 70%; }
+    .mobile PortfolioPage Horizontal {{ layout: vertical; }}
+    .mobile PortfolioPage RelayWidget            {{ width: 100%; height: 30%; }}
+    .mobile PortfolioPage GhostfolioDetailWidget {{ width: 100%; height: 70%; }}
 
     /* Scroll-captured widget highlight (mobile pointer lock) */
-    .scroll-captured { border: heavy $accent; }
+    .scroll-captured {{ border: heavy $accent; }}
+
+    /* btop-style footer */
+    Footer {{ background: {HEADER_BG}; }}
+    FooterKey .footer-key--key {{ background: {BORDER}; color: {ACCENT}; }}
+    FooterKey .footer-key--description {{ color: {ACCENT}; background: {HEADER_BG}; }}
     """
 
     privacy:          reactive[bool] = reactive(False)
@@ -146,6 +161,15 @@ class TuidashApp(App):
                 self._driver.close()
             except Exception:
                 pass
+        # After driver.close() the write thread has flushed its buffer, but custom
+        # background colors can leave stray SGR state on the terminal.  Write an
+        # explicit reset + show-cursor + alt-screen-exit after the driver is done
+        # so the terminal is fully clean before the process dies.
+        try:
+            sys.stdout.write("\033[?25h\033[?1049l\033[0m")
+            sys.stdout.flush()
+        except Exception:
+            pass
         os._exit(0)
 
     def compose(self) -> ComposeResult:
@@ -156,6 +180,13 @@ class TuidashApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
+        # Register the palette-derived Textual theme and activate it so that
+        # built-in widgets (notifications, OptionList, Button, …) use the same
+        # colours as the custom widgets.  TUIDASH_THEME can still override it.
+        palette_theme = build_textual_theme()
+        self.register_theme(palette_theme)
+        self.theme = palette_theme.name
+
         theme_name = config.get("TUIDASH_THEME")
         if theme_name:
             if theme_name in self.available_themes:

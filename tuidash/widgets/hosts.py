@@ -20,7 +20,8 @@ from textual import work
 
 from .. import config
 from ..scroll import SCROLL_INTERVAL, current_tick, scroll_offset
-from .base import DashWidget
+from ..theme import PERF_GREAT, PERF_TERRIBLE
+from .base import DashWidget, neon_bar
 
 
 _BAR_W = 8
@@ -130,21 +131,16 @@ def _monitor_host(name: str, url: str) -> HostData:
 def _pct_bar(pct: float | None) -> Text:
     if pct is None:
         return Text("?" * _BAR_W, style="dim")
-    filled = max(0, round(pct / 100 * _BAR_W))
-    color  = "red" if pct >= 80 else ("yellow" if pct >= 60 else "green")
-    t = Text()
-    t.append("█" * filled,            style=color)
-    t.append("░" * (_BAR_W - filled), style="dim")
-    return t
+    return neon_bar(pct, _BAR_W)
 
 
 def _container_color(c: ContainerInfo) -> str:
     if "running" not in c.status.lower():
         return "dim"
     if c.health == "healthy":
-        return "green"
+        return PERF_GREAT
     if c.health == "unhealthy":
-        return "red"
+        return PERF_TERRIBLE
     return ""
 
 
@@ -193,7 +189,7 @@ def _render_host(
     host_idx: int = 0,
     cont_width: int = 60,
 ) -> Group:
-    dot_color = "green" if hd.reachable else "red"
+    dot_color = PERF_GREAT if hd.reachable else PERF_TERRIBLE
 
     # Left: name + ping
     left = Text()
@@ -202,7 +198,7 @@ def _render_host(
     if hd.reachable and hd.rtt_ms is not None:
         left.append(f"  {hd.rtt_ms:.0f}ms", style="dim")
     elif not hd.reachable:
-        left.append("  unreachable", style="dim red")
+        left.append("  unreachable", style=f"dim {PERF_TERRIBLE}")
 
     # Right: CPU + MEM bars (right-aligned via ratio=1 on left column)
     right = Text()
@@ -214,7 +210,7 @@ def _render_host(
         right.append_text(_pct_bar(hd.mem_pct))
         right.append(f"{hd.mem_pct:3.0f}%" if hd.mem_pct is not None else "  ?%", style="dim")
     elif hd.glances_err:
-        right.append("glances unavailable", style="dim red")
+        right.append("glances unavailable", style=f"dim {PERF_TERRIBLE}")
 
     row1 = Table.grid(expand=True, padding=(0, 0))
     row1.add_column(ratio=1)

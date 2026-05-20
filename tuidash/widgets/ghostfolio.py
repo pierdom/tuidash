@@ -8,7 +8,7 @@ from typing import Any
 
 import requests
 from rich.console import Group
-from rich.progress_bar import ProgressBar
+from rich.measure import Measurement
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
@@ -19,7 +19,21 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
-from .base import DashWidget
+from ..theme import (
+    ACCENT,
+    PERF_BAD, PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE,
+)
+from .base import DashWidget, neon_bar
+
+
+class _FluidNeonBar:
+    """neon_bar that fills its Table column at Rich render time (no pre-computed width)."""
+    def __init__(self, pct: float) -> None:
+        self._pct = pct
+    def __rich_console__(self, console, options):
+        yield neon_bar(self._pct, options.max_width)
+    def __rich_measure__(self, console, options):
+        return Measurement(1, options.max_width)
 
 
 _TICKER_INTERVAL   = 0.125  # seconds per scroll step (≈8 chars/sec)
@@ -288,18 +302,28 @@ def _fmt(value: float, currency: str) -> str:
 _MASK = "•••••"
 
 
+def _perf_gradient_color(pct: float) -> str:
+    """Map a performance % to a btop-style heatmap color."""
+    if pct > 10:   return PERF_GREAT
+    if pct > 0:    return PERF_GOOD
+    if pct > -5:   return PERF_FLAT
+    if pct > -10:  return PERF_BAD
+    if pct > -20:  return PERF_POOR
+    return PERF_TERRIBLE
+
+
 def _stat_cell(label: str, stats: PerfStats, currency: str, privacy: bool = False) -> Text:
-    color = "green" if stats.pct >= 0 else "red"
+    color = _perf_gradient_color(stats.pct)
     arrow = "▲" if stats.pct >= 0 else "▼"
     t = Text()
-    t.append(f"{label}\n", style="bold white")
+    t.append(f"{label}\n", style=f"bold {ACCENT}")
     t.append(f"{arrow} {abs(stats.pct):.2f}%\n", style=f"bold {color}")
     t.append(_MASK if privacy else _fmt(stats.abs, currency), style=f"dim {color}")
     return t
 
 
 def _holding_line(h: Holding) -> Text:
-    color = "green" if h.perf_pct >= 0 else "red"
+    color = PERF_GOOD if h.perf_pct >= 0 else PERF_POOR
     arrow = "▲" if h.perf_pct >= 0 else "▼"
     t = Text()
     t.append(f"{h.symbol[:8]:<8}", style="bold")
@@ -324,11 +348,12 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     # ── net worth + progress bar ──────────────────────────────────────────────
     progress_pct = min(d.total_value / d.goal * 100, 100.0) if d.goal else 0.0
     if abs(d.today.pct) <= 0.1:
-        dot_color = "yellow"
+        dot_color = PERF_FLAT
     elif d.today.pct > 0:
-        dot_color = "green"
+        dot_color = PERF_GOOD
     else:
-        dot_color = "red"
+        dot_color = PERF_POOR
+
     nw = Text()
     nw.append("● ", style=f"bold {dot_color}")
     nw.append(f"{sym}{_MASK}" if privacy else f"{sym}{d.total_value:,.2f}", style="bold white")
@@ -340,7 +365,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     header.add_column(no_wrap=True)
     header.add_row(
         nw,
-        ProgressBar(total=100, completed=progress_pct, complete_style="green"),
+        _FluidNeonBar(progress_pct),
         Text(f"{progress_pct:.1f}%", style="dim"),
         Text(f"→ {sym}{_MASK}" if privacy else f"→ {sym}{_fmt_goal(d.goal)}", style="dim"),
     )
@@ -396,14 +421,14 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
 
 def _ticker_color(pct: float) -> str:
     if abs(pct) < 0.05:
-        return "yellow"
+        return PERF_FLAT
     if pct > 2.0:
-        return "bright_green"
+        return PERF_GREAT
     if pct > 0:
-        return "green"
+        return PERF_GOOD
     if pct < -2.0:
-        return "bright_red"
-    return "red"
+        return PERF_TERRIBLE
+    return PERF_POOR
 
 
 def _render_ticker(items: list[TickerItem], tick: int, width: int) -> Text:
@@ -512,7 +537,9 @@ class GhostfolioWidget(DashWidget):
     def set_privacy(self, value: bool) -> None:
         self._privacy = value
         if self.data is not None and not self._err:
-            self.query_one("#gf-body", Static).update(_render_portfolio(self.data, self._privacy))
+            self.query_one("#gf-body", Static).update(
+                _render_portfolio(self.data, self._privacy)
+            )
 
     def _ticker_width(self) -> int:
         return max(20, self.content_size.width or 80)

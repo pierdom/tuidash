@@ -17,6 +17,8 @@ from textual.widget import Widget
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
+from ..theme import ACCENT, BORDER, HEADER_BG, PERF_BAD, PERF_GREAT, PERF_TERRIBLE
+
 
 # ── data model ────────────────────────────────────────────────────────────────
 
@@ -261,13 +263,13 @@ def _linux_wifi_rssi(iface: str) -> int | None:
 
 def _rssi_bars(rssi: int) -> Text:
     if rssi >= -50:
-        filled, style = 4, "green"
+        filled, style = 4, PERF_GREAT
     elif rssi >= -60:
-        filled, style = 3, "green"
+        filled, style = 3, PERF_GREAT
     elif rssi >= -70:
-        filled, style = 2, "yellow"
+        filled, style = 2, PERF_BAD
     else:
-        filled, style = 1, "red"
+        filled, style = 1, PERF_TERRIBLE
     t = Text()
     for i, c in enumerate("▂▄▆█"):
         t.append(c, style=style if i < filled else "dim")
@@ -279,9 +281,9 @@ def _render_net(info: NetInfo) -> Text:
         return Text("no link", style="dim")
     t = Text()
     if info.is_wifi:
-        t.append("≋ ", style="cyan")
+        t.append("≋ ", style=ACCENT)
     else:
-        t.append("⌁ ", style="cyan")
+        t.append("⌁ ", style=ACCENT)
     t.append(info.iface, style="")
     if info.is_wifi:
         if info.ssid:
@@ -346,8 +348,8 @@ class PlayStatusWidget(Widget):
         if not self._playing:
             return Text(" ")
         if self._paused:
-            return Text("▶", style="bright_green")
-        return Text("⏸", style="bright_yellow")
+            return Text("▶", style=ACCENT)
+        return Text("⏸", style=ACCENT)
 
     def on_click(self) -> None:
         if self._playing:
@@ -357,13 +359,23 @@ class PlayStatusWidget(Widget):
 class PageMenu(OptionList):
     """Floating page-navigation dropdown, mounted on the Screen as an overlay."""
 
-    DEFAULT_CSS = """
-    PageMenu {
+    DEFAULT_CSS = f"""
+    PageMenu {{
         layer: overlay;
         height: auto;
-        border: tall $border;
-        background: $surface;
-    }
+        border: tall {BORDER};
+        background: {HEADER_BG};
+    }}
+    PageMenu:focus {{
+        border: tall {BORDER};
+    }}
+    PageMenu .option-list--option-highlighted {{
+        color: {HEADER_BG};
+        background: {ACCENT};
+    }}
+    PageMenu .option-list--option:hover {{
+        background: {BORDER};
+    }}
     """
 
     def __init__(self, pages: list[str], current: int = 0, **kwargs) -> None:
@@ -392,24 +404,24 @@ class PageMenu(OptionList):
 class DashHeader(Widget):
     """App header: net status (left) · title + subtitle (center) · play status + clock (right)."""
 
-    DEFAULT_CSS = """
-    DashHeader {
+    DEFAULT_CSS = f"""
+    DashHeader {{
         dock: top;
         height: 1;
-        background: $panel;
+        background: {HEADER_BG};
         color: $text;
         layout: horizontal;
-    }
-    DashHeader > NetStatusWidget {
+    }}
+    DashHeader > NetStatusWidget {{
         color: $text-muted;
-    }
-    DashHeader > #title-center {
+    }}
+    DashHeader > #title-center {{
         width: 1fr;
         height: 1;
         text-align: center;
         content-align: center middle;
-    }
-    DashHeader > #clock-right {
+    }}
+    DashHeader > #clock-right {{
         width: auto;
         min-width: 9;
         height: 1;
@@ -417,29 +429,29 @@ class DashHeader(Widget):
         text-align: right;
         content-align: right middle;
         color: $text-muted;
-    }
+    }}
     DashHeader > #nav-prev,
-    DashHeader > #nav-next {
+    DashHeader > #nav-next {{
         width: 3;
         height: 1;
         content-align: center middle;
-        color: $text-muted;
-    }
+        color: {ACCENT};
+    }}
     DashHeader > #nav-prev:hover,
     DashHeader > #nav-next:hover,
-    DashHeader > #title-center:hover {
-        background: $boost;
+    DashHeader > #title-center:hover {{
+        background: {ACCENT} 15%;
         color: $text;
-    }
-    DashHeader > #privacy-lock {
+    }}
+    DashHeader > #privacy-lock {{
         width: 2;
         height: 1;
         content-align: center middle;
         color: $warning;
-    }
-    DashHeader > #privacy-lock:hover {
+    }}
+    DashHeader > #privacy-lock:hover {{
         background: $boost;
-    }
+    }}
     """
 
     def compose(self) -> ComposeResult:

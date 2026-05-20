@@ -11,7 +11,9 @@ import requests
 from rich.console import Group
 from rich.markdown import Markdown as RichMarkdown
 from rich.rule import Rule
+from rich.style import Style
 from rich.text import Text
+from rich.theme import Theme
 from textual.app import ComposeResult
 from textual.containers import ScrollableContainer
 from textual.reactive import reactive
@@ -20,7 +22,27 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
+from ..theme import ACCENT
 from .base import DashWidget
+
+
+# ── palette-aware Markdown ──────────────────────────────────────────────────────
+
+_MD_THEME = Theme({
+    "markdown.h1":        Style(bold=True, color=ACCENT, underline=True),
+    "markdown.h1.border": Style(color=ACCENT),
+    "markdown.h2":        Style(bold=True, color=ACCENT),
+    "markdown.h3":        Style(bold=True, color=ACCENT),
+    "markdown.h4":        Style(bold=True, color=ACCENT),
+    "markdown.code":      Style(bold=True, color=ACCENT),
+    "markdown.link":      Style(color=ACCENT),
+})
+
+
+class _PaletteMarkdown(RichMarkdown):
+    def __rich_console__(self, console, options):
+        with console.use_theme(_MD_THEME):
+            yield from super().__rich_console__(console, options)
 
 
 _BASE_URL = (config.get("TUIDASH_RELAY_URL") or "").rstrip("/")
@@ -90,7 +112,7 @@ def _render_posts(posts: list[RelayPost], show_title: bool = True) -> Group:
             header.append(f"  {post.source}  {ts}", style="dim")
             items.append(header)
         if post.content.strip():
-            items.append(RichMarkdown(post.content))
+            items.append(_PaletteMarkdown(post.content))
 
     return Group(*items)
 
