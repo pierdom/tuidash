@@ -218,7 +218,7 @@ Widgets with long-lived background threads (e.g. `RelayWidget`'s SSE listener) s
 | `]` | Increase refresh interval by 60 s |
 | `←` | Previous page (wraps) |
 | `→` | Next page (wraps) |
-| `1`–`5` | Jump directly to page 1–5 (hidden from footer) |
+| `1`–`6` | Jump directly to page 1–6 (hidden from footer) |
 | `Space` | Play/pause podcast (only active while mpv is running) |
 | `,` | Previous month (Calendar page only) |
 | `.` | Next month (Calendar page only) |

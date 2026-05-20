@@ -29,6 +29,7 @@ from .theme import ACCENT, BORDER, HEADER_BG, build_textual_theme
 from .widgets.base import DashWidget
 from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
+from .screens.homelab import HomelabPage
 from .screens.news import NewsPage
 from .screens.podcasts import PodcastsPage
 from .screens.portfolio import PortfolioPage
@@ -43,6 +44,7 @@ _PAGES: list[tuple[str, str, type]] = [
     ("Calendar",  "page-calendar",   CalendarPage),
     ("Podcasts",  "page-podcasts",   PodcastsPage),
     ("Portfolio", "page-portfolio",  PortfolioPage),
+    ("Homelab",   "page-homelab",    HomelabPage),
 ]
 
 
