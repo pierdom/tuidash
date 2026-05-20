@@ -15,7 +15,6 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
-from ..theme import PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE
 from .base import DashWidget
 
 
@@ -293,13 +292,38 @@ def _fetch_weather(location: str, units: str) -> WeatherData:
 
 _BAR_W = 17  # horizontal bar width in characters
 
+# Temperature colour stops (°C → RGB). Values between stops are smoothly interpolated.
+_TEMP_STOPS: list[tuple[float, tuple[int, int, int]]] = [
+    (-5,  (0x22, 0x55, 0xff)),  # deep blue
+    ( 0,  (0x44, 0xaa, 0xff)),  # sky blue
+    ( 8,  (0x33, 0xdd, 0xcc)),  # cyan
+    (16,  (0x44, 0xcc, 0x55)),  # green
+    (24,  (0xff, 0xcc, 0x22)),  # yellow
+    (30,  (0xff, 0x77, 0x22)),  # orange
+    (38,  (0xff, 0x22, 0x22)),  # red
+]
 
-def _bar_color(temp_c: float) -> str:
-    if temp_c >= 30: return PERF_TERRIBLE
-    if temp_c >= 24: return PERF_POOR
-    if temp_c >= 16: return PERF_GOOD
-    if temp_c >= 8:  return PERF_FLAT
-    return PERF_GREAT
+
+def _lerp(a: int, b: int, t: float) -> int:
+    return round(a + (b - a) * t)
+
+
+def _temp_color(temp_c: float) -> str:
+    if temp_c <= _TEMP_STOPS[0][0]:
+        r, g, b = _TEMP_STOPS[0][1]
+    elif temp_c >= _TEMP_STOPS[-1][0]:
+        r, g, b = _TEMP_STOPS[-1][1]
+    else:
+        for i in range(len(_TEMP_STOPS) - 1):
+            t0, c0 = _TEMP_STOPS[i]
+            t1, c1 = _TEMP_STOPS[i + 1]
+            if t0 <= temp_c < t1:
+                frac = (temp_c - t0) / (t1 - t0)
+                r = _lerp(c0[0], c1[0], frac)
+                g = _lerp(c0[1], c1[1], frac)
+                b = _lerp(c0[2], c1[2], frac)
+                break
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 
 def _h_bar(t_min: float, t_max: float, g_min: float, g_max: float, metric: bool) -> Text:
@@ -313,7 +337,7 @@ def _h_bar(t_min: float, t_max: float, g_min: float, g_max: float, metric: bool)
         pos_t = g_min + (i / _BAR_W) * t_rng
         if not metric:
             pos_t = (pos_t - 32) * 5 / 9
-        bar.append("█", style=_bar_color(pos_t))
+        bar.append("█", style=_temp_color(pos_t))
     if hi < _BAR_W:
         bar.append("░" * (_BAR_W - hi), style="dim")
     return bar
