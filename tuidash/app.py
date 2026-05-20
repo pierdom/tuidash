@@ -40,8 +40,8 @@ from .widgets.header import DashHeader
 # Add a new entry here to register a new page in the carousel.
 _PAGES: list[tuple[str, str, type]] = [
     ("Dashboard", "page-dashboard",  DashboardPage),
-    ("News",      "page-news",       NewsPage),
     ("Calendar",  "page-calendar",   CalendarPage),
+    ("News",      "page-news",       NewsPage),
     ("Podcasts",  "page-podcasts",   PodcastsPage),
     ("Portfolio", "page-portfolio",  PortfolioPage),
     ("Homelab",   "page-homelab",    HomelabPage),
