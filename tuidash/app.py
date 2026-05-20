@@ -55,6 +55,8 @@ class TuidashApp(App):
     Screen {{
         background: $background;
         layers: base overlay;
+    }}
+    Widget {{
         scrollbar-background: {HEADER_BG};
         scrollbar-background-hover: {HEADER_BG};
         scrollbar-background-active: {HEADER_BG};
