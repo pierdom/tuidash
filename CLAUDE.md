@@ -44,11 +44,14 @@ All dependencies are managed with `uv`. Never use `pip` directly.
 ```
 Dockerfile             # python:3.13-slim + uv, serves on port 8080
 docker-compose.yml     # mounts .env, maps port 8080, sets TUIDASH_SERVE_URL=http://localhost:8080
+palettes/              # colour palette .toml files; drop custom files here
+│   └── default.toml   # bundled btop-inspired neon teal palette
 tuidash/
 ├── app.py              # TuidashApp — navigation, global reactives, config loading, serve entry point
 ├── config.py           # Thin wrapper around python-dotenv (get / require)
 ├── ics.py              # ICS calendar parser (events)
 ├── scroll.py           # Shared boomerang-scroll helper (scroll_offset, scroll_window, current_tick)
+├── theme.py            # Colour palette loader — reads palettes/<name>.toml, exports named constants
 ├── podcast_progress.py # ProgressStore — episode playback state persisted to ~/.local/share/tuidash/podcast_progress.json
 ├── screens/
 │   ├── dashboard.py    # Page 1 — overview dashboard (all widgets)
@@ -57,7 +60,7 @@ tuidash/
 │   ├── podcasts.py     # Page 4 — Podcast feed viewer and player
 │   └── portfolio.py    # Page 5 — RelayWidget (left) + GhostfolioDetailWidget (right), side by side
 └── widgets/
-    ├── base.py         # DashWidget — base class for all widgets
+    ├── base.py         # DashWidget — base class for all widgets; also exports neon_bar()
     ├── clock.py        # Pixel-art half-block clock
     ├── calendar.py     # Monthly calendar with holiday/family/personal/work highlighting
     ├── cal_full.py     # Full-page monthly calendar with ICS event highlighting (Calendar page)
@@ -167,12 +170,19 @@ async def _shutdown(self) -> None:
             self._driver.close()  # joins writer thread → flushes queued escape sequences
         except Exception:
             pass
+    try:
+        sys.stdout.write("\033[?25h\033[?1049l\033[0m")  # show cursor, leave alt-screen, reset colors
+        sys.stdout.flush()
+    except Exception:
+        pass
     os._exit(0)
 ```
 
 **Why:** Textual's `@work(thread=True)` workers run via `asyncio`'s default executor (`run_in_executor`). On quit, `_shutdown()` calls `_close_all()` which waits for every widget's message pump to drain — but pumps can't close until in-flight workers stop posting messages, which can take as long as the longest HTTP timeout. `os._exit(0)` bypasses this entirely.
 
 **Why it's safe:** The terminal is restored by `driver.stop_application_mode()` inside `_process_messages()` *before* `_shutdown()` is called. We only need to join the writer thread (`driver.close()`) so the queued alt-screen-off escape sequences are actually flushed to the terminal before the process dies.
+
+**Why the extra escape sequence:** Custom dark backgrounds (e.g. `NEON_BG = #0d2018`) can bleed into the shell prompt after `os._exit(0)` if the terminal's colour reset was queued but not yet flushed. The explicit `\033[0m` + `flush()` ensures no colour artefacts remain.
 
 Widgets with long-lived background threads (e.g. `RelayWidget`'s SSE listener) should still implement `on_unmount` to set a stop event and close any open response, so those threads exit cleanly if Textual ever manages to drain the pumps (e.g. in test mode).
 
@@ -341,7 +351,7 @@ from .base import DashWidget
 | Multiple renderables stacked | `Group(r1, r2, …)` |
 | Centred content | `Align.center(renderable)` |
 | Horizontal divider | `Rule(style="dim")` |
-| Progress bar | `ProgressBar(total=100, completed=pct, complete_style="green")` |
+| Blocky progress bar | `neon_bar(pct, width)` from `widgets/base.py` — gradient `█`/`░` bar (0–60% green, 60–80% yellow, 80–100% red) |
 | Half-block pixel art | `▀` / `▄` / `█` via `zip(top_row, bot_row)` |
 
 Never pass raw markup strings to `Static.update()` — always use a Rich renderable.
@@ -350,6 +360,7 @@ Never pass raw markup strings to `Static.update()` — always use a Rich rendera
 
 - Keep all CSS in `DEFAULT_CSS` on the widget class or in the app `CSS` string
 - Width: use `width: Nfr` (fractional) or `width: N` (fixed chars) or `width: N%`
+- When `DEFAULT_CSS` or `CSS` interpolates theme colours, make it an **f-string** and escape all literal `{`/`}` as `{{`/`}}`
 
 ### Error handling
 
@@ -381,6 +392,24 @@ offset = tick % full_len   # wraps seamlessly using doubled segment list
 
 ### Theme colours
 
+All palette colours are centralised in `tuidash/theme.py`, which loads `palettes/<name>.toml` at import time (selected via `TUIDASH_PALETTE`, defaulting to `default`). Import the named constants from there — never hardcode hex colours or Rich colour names in widget files:
+
+```python
+from ..theme import NEON_PRIMARY, NEON_BORDER, NEON_BG, BAR_LOW, BAR_MID, BAR_HIGH
+from ..theme import PERF_GREAT, PERF_GOOD, PERF_FLAT, PERF_BAD, PERF_POOR, PERF_TERRIBLE
+```
+
+When a widget's `DEFAULT_CSS` needs a theme colour, convert the string to an **f-string** and escape all literal CSS braces as `{{`/`}}`:
+
+```python
+DEFAULT_CSS = f"""
+MyWidget {{
+    border: round {NEON_BORDER};
+    border-title-color: {NEON_PRIMARY};
+}}
+"""
+```
+
 Avoid `"blue"` as a Rich style — it renders as purple/violet in dark themes like `tokyo-night`. Use `""` (default text colour) for neutral running containers.
 
 ---
@@ -394,6 +423,7 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_SERVE_URL` | auto-detected | Public URL for `--serve` WebSocket (required in Docker) |
 | `TUIDASH_SERVE_MDNS` | `false` | Use `hostname.local` as the public URL for `--serve` (mDNS/Bonjour) |
 | `TUIDASH_THEME` | `textual-dark` | Textual theme name |
+| `TUIDASH_PALETTE` | `default` | Stem of a `.toml` file inside `palettes/`; controls all neon accent and bar colours |
 | `TUIDASH_REFRESH` | `300` | Auto-refresh interval in seconds |
 | `TUIDASH_PRIVACY_DEFAULT` | `false` | Start in privacy mode; `p` toggle still works |
 | `TUIDASH_PRIVACY_FORCE` | `false` | Force privacy mode on startup; disables `p` toggle |
@@ -438,6 +468,9 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 - Fetches 6 endpoints in parallel: portfolio performance ×3, holdings, orders, user settings
 - Base currency comes from Ghostfolio user settings (`/api/v1/user` → `settings.baseCurrency`), not inferred from holdings
 - Goal label is compact: `1M`, `500K`, `2.5M`, etc.
+- Goal progress bar uses `neon_bar(progress_pct, 20)` from `base.py` — gradient `█`/`░` blocks
+- Performance stat cells (`YTD`, `1Y`, `Max`) use `_perf_gradient_color(pct)` which maps to `PERF_*` theme constants: `bright_green` (>+10%), `green` (0–+10%), `cyan` (−5–0%), `yellow` (−10–−5%), `red` (−20–−10%), `bright_red` (<−20%)
+- Top Gainers / Top Losers lines use plain `"green"`/`"red"` binary colouring (not the gradient)
 - Live ticker at the bottom shows today's % change per equity, colour-coded: `bright_green` (>2%), `green` (0–2%), `yellow` (flat ±0.05%), `red` (0–−2%), `bright_red` (<−2%)
 - Ticker prev-close is cached per symbol keyed by calendar date — the full market history fetch (~540 KB/symbol) only happens once per day; subsequent refreshes compute the change from `marketPrice` in the holdings response vs the cached prev-close
 
