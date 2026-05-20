@@ -304,30 +304,26 @@ _TEMP_STOPS: list[tuple[float, tuple[int, int, int]]] = [
 ]
 
 
-_TROUGH_ALPHA = 0.15  # how much of the temperature colour bleeds into the trough
-_TROUGH_BG = (0x0d, 0x0d, 0x10)  # approximate dark terminal background for blending
-
-
 def _lerp(a: int, b: int, t: float) -> int:
     return round(a + (b - a) * t)
 
 
-def _temp_rgb(temp_c: float) -> tuple[int, int, int]:
+def _temp_color(temp_c: float) -> str:
     if temp_c <= _TEMP_STOPS[0][0]:
-        return _TEMP_STOPS[0][1]
-    if temp_c >= _TEMP_STOPS[-1][0]:
-        return _TEMP_STOPS[-1][1]
-    for i in range(len(_TEMP_STOPS) - 1):
-        t0, c0 = _TEMP_STOPS[i]
-        t1, c1 = _TEMP_STOPS[i + 1]
-        if t0 <= temp_c < t1:
-            frac = (temp_c - t0) / (t1 - t0)
-            return (
-                _lerp(c0[0], c1[0], frac),
-                _lerp(c0[1], c1[1], frac),
-                _lerp(c0[2], c1[2], frac),
-            )
-    return _TEMP_STOPS[-1][1]
+        r, g, b = _TEMP_STOPS[0][1]
+    elif temp_c >= _TEMP_STOPS[-1][0]:
+        r, g, b = _TEMP_STOPS[-1][1]
+    else:
+        for i in range(len(_TEMP_STOPS) - 1):
+            t0, c0 = _TEMP_STOPS[i]
+            t1, c1 = _TEMP_STOPS[i + 1]
+            if t0 <= temp_c < t1:
+                frac = (temp_c - t0) / (t1 - t0)
+                r = _lerp(c0[0], c1[0], frac)
+                g = _lerp(c0[1], c1[1], frac)
+                b = _lerp(c0[2], c1[2], frac)
+                break
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 
 def _h_bar(t_min: float, t_max: float, g_min: float, g_max: float, metric: bool) -> Text:
@@ -335,18 +331,15 @@ def _h_bar(t_min: float, t_max: float, g_min: float, g_max: float, metric: bool)
     lo = max(0, min(_BAR_W - 1, round((t_min - g_min) / t_rng * _BAR_W)))
     hi = max(lo + 1, min(_BAR_W, round((t_max - g_min) / t_rng * _BAR_W)))
     bar = Text()
-    for i in range(_BAR_W):
+    if lo:
+        bar.append("░" * lo, style="dim")
+    for i in range(lo, hi):
         pos_t = g_min + (i / _BAR_W) * t_rng
         if not metric:
             pos_t = (pos_t - 32) * 5 / 9
-        r, g, b = _temp_rgb(pos_t)
-        if lo <= i < hi:
-            bar.append("█", style=f"#{r:02x}{g:02x}{b:02x}")
-        else:
-            tr = _lerp(_TROUGH_BG[0], r, _TROUGH_ALPHA)
-            tg = _lerp(_TROUGH_BG[1], g, _TROUGH_ALPHA)
-            tb = _lerp(_TROUGH_BG[2], b, _TROUGH_ALPHA)
-            bar.append("░", style=f"#{tr:02x}{tg:02x}{tb:02x}")
+        bar.append("█", style=_temp_color(pos_t))
+    if hi < _BAR_W:
+        bar.append("░" * (_BAR_W - hi), style="dim")
     return bar
 
 
