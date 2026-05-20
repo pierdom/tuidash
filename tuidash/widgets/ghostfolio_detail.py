@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from rich.console import Group
+from rich.measure import Measurement
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
@@ -482,6 +483,21 @@ def _perf_cell(label: str, s: PerfStats, cur: str, privacy: bool) -> Text:
     return t
 
 
+class _FluidBar:
+    """ACCENT progress bar that fills its Table column at Rich render time."""
+    def __init__(self, pct: float) -> None:
+        self._pct = pct
+    def __rich_console__(self, console, options):
+        w = options.max_width
+        filled = round(self._pct / 100 * w)
+        t = Text()
+        t.append("█" * filled, style=ACCENT)
+        t.append("░" * (w - filled), style="dim")
+        yield t
+    def __rich_measure__(self, console, options):
+        return Measurement(1, options.max_width)
+
+
 def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     cur  = data.base_currency
     sym  = _CURRENCY_SYMBOLS.get(cur, f"{cur} ")
@@ -493,25 +509,23 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         else (PERF_GOOD if data.today.pct > 0 else PERF_POOR)
     )
     progress_pct = min(data.total_value / data.goal * 100, 100.0) if data.goal else 0.0
-    value_str = _MASK if privacy else f"{data.total_value:,.0f}"
-    goal_str  = _MASK if privacy else _fmt_goal(data.goal)
-    pct_str   = f"  {progress_pct:.1f}%"
-    suffix    = f"  → {sym}"
-    # "● " + sym + value + "  " + bar + pct_str + suffix + goal_str
-    fixed_w   = 2 + len(sym) + len(value_str) + 2 + len(pct_str) + len(suffix) + len(goal_str)
-    bar_w     = max(8, width - fixed_w)
-    filled    = round(progress_pct / 100 * bar_w)
 
-    nw_line = Text()
-    nw_line.append("● ", style=f"bold {dot_color}")
-    nw_line.append(sym, style="bold dim")
-    nw_line.append(value_str, style="bold")
-    nw_line.append("  ")
-    nw_line.append("█" * filled, style=ACCENT)
-    nw_line.append("░" * (bar_w - filled), style="dim")
-    nw_line.append(pct_str, style="dim")
-    nw_line.append(suffix, style="dim")
-    nw_line.append(goal_str, style="dim")
+    nw_left = Text()
+    nw_left.append("● ", style=f"bold {dot_color}")
+    nw_left.append(sym, style="bold dim")
+    nw_left.append(_MASK if privacy else f"{data.total_value:,.0f}", style="bold")
+    nw_left.append("  ")
+
+    nw_right = Text()
+    nw_right.append(f"  {progress_pct:.1f}%", style="dim")
+    nw_right.append(f"  → {sym}", style="dim")
+    nw_right.append(_MASK if privacy else _fmt_goal(data.goal), style="dim")
+
+    nw_line = Table.grid(expand=True, padding=0)
+    nw_line.add_column(no_wrap=True)
+    nw_line.add_column(ratio=1)
+    nw_line.add_column(no_wrap=True)
+    nw_line.add_row(nw_left, _FluidBar(progress_pct), nw_right)
 
     # ── performance grid ─────────────────────────────────────────────────────
     perf_cells = [("Today", data.today), ("WTD", data.wtd), ("MTD", data.mtd), ("YTD", data.ytd)]
@@ -770,18 +784,6 @@ class GhostfolioDetailWidget(DashWidget):
         if self.data is not None and not self._err:
             self._redraw()
 
-    def _body_width(self) -> int:
-        # Query the Static's own content_size — Textual already subtracts its
-        # padding (0 1) and the SC's scrollbar width, so this is the exact
-        # rendering area. Fall back to a conservative estimate on first call.
-        try:
-            w = self.query_one("#gfd-body", Static).content_size.width
-            if w > 0:
-                return max(8, w)
-        except Exception:
-            pass
-        return max(8, (self.content_size.width or 80) - 4)
-
     def _ticker_width(self) -> int:
         return max(20, self.content_size.width or 80)
 
@@ -801,7 +803,7 @@ class GhostfolioDetailWidget(DashWidget):
         if self.data is None:
             return
         self.query_one("#gfd-body", Static).update(
-            _render_detail(self.data, self._body_width(), self._privacy)
+            _render_detail(self.data, self.content_size.width or 80, self._privacy)
         )
 
     def watch_data(self, data: DetailData | None) -> None:
