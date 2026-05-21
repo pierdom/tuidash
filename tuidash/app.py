@@ -77,7 +77,7 @@ class TuidashApp(App):
 
     /* Dashboard page */
     #dashboard-scroll {{ height: 1fr; overflow-y: hidden; }}
-    .mobile #row-top {{ layout: grid; grid-size: 2; height: auto; }}
+    .mobile #row-top {{ layout: grid; grid-size: 2; grid-gutter: 0; height: auto; }}
     .mobile #row-top WeatherWidget {{ column-span: 2; }}
     .mobile #row-mid {{ layout: vertical; height: auto; }}
     .mobile #row-bot {{ height: auto; }}
