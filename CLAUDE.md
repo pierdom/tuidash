@@ -1,7 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 Personal terminal dashboard built with [Textual](https://textual.textualize.io/) + [Rich](https://rich.readthedocs.io/).
 
 ---
@@ -12,7 +10,7 @@ Personal terminal dashboard built with [Textual](https://textual.textualize.io/)
 uv sync          # install all dependencies into the managed venv
 ```
 
-There are no tests and no linting config in `pyproject.toml`. Run the app directly to verify changes.
+No tests and no linting config in `pyproject.toml`. Run the app directly to verify changes.
 
 ---
 
@@ -28,12 +26,9 @@ uv run python -m tuidash.app          # alternative (terminal only)
 `--serve` invokes `textual serve -c "{venv_python} -m tuidash.app" -h HOST -p PORT -u PUBLIC_URL` via subprocess. The `textual` binary comes from the `textual-dev` dependency.
 
 ```bash
-# Docker (serves on http://localhost:8080)
 docker pull ghcr.io/pierdom/tuidash:latest
 docker compose up -d
 ```
-
-The published image is `ghcr.io/pierdom/tuidash:latest` (multi-arch: `amd64` + `arm64`), built automatically by GitHub Actions on every push to `main`. `docker-compose.yml` pulls it directly — no local build needed. It mounts a `tuidash-data` named volume at `/root/.local/share/tuidash` to persist podcast playback positions across container restarts.
 
 All dependencies are managed with `uv`. Never use `pip` directly.
 
@@ -44,17 +39,7 @@ All dependencies are managed with `uv`. Never use `pip` directly.
 ```
 Dockerfile             # python:3.13-slim + uv, serves on port 8080
 docker-compose.yml     # mounts .env, maps port 8080, sets TUIDASH_SERVE_URL=http://localhost:8080
-palettes/              # colour palette .toml files; drop custom files here
-│   ├── default.toml   # bundled btop-inspired neon teal palette
-│   ├── earthy.toml    # warm terracotta / sandstone alternative
-│   ├── pastel.toml    # soft lavender / muted rainbow
-│   ├── candy.toml     # bold neon sweets (hot pink, electric lime, cherry red)
-│   ├── solarized.toml # Solarized Dark (Ethan Schoonover)
-│   ├── gruvbox.toml   # Gruvbox Dark (morhetz)
-│   ├── nord.toml      # Nord (Arctic Ice Studio)
-│   ├── dracula.toml   # Dracula (Zeno Rocha)
-│   ├── molokai.toml   # Molokai (Tomas Restrepo)
-│   └── tango.toml     # Tango (GNOME / freedesktop.org)
+palettes/              # 10 bundled palettes; drop custom files here
 tuidash/
 ├── app.py              # TuidashApp — navigation, global reactives, config loading, serve entry point
 ├── config.py           # Thin wrapper around python-dotenv (get / require)
@@ -112,7 +97,7 @@ TuidashApp (App)                    ← navigation, global reactives, config
 └── Footer
 ```
 
-`#row-mid` and the three widgets it contains (Ghostfolio, Connectivity, Servers) use `height: auto` — they shrink to their content with no blank rows.
+`#row-mid` and its three child widgets use `height: auto` — they shrink to content with no blank rows.
 
 `NewsTickerWidget` is a **sibling of `#row-bot`** at the `DashboardPage` level (not nested inside it). This lets `EventsWidget` keep `height: 100%` inside `#row-bot`, while `#row-bot`'s `1fr` naturally leaves 3 rows at the bottom for the ticker.
 
@@ -120,23 +105,14 @@ TuidashApp (App)                    ← navigation, global reactives, config
 
 Pages are defined in `_PAGES` in `app.py` as an ordered list of `(label, widget-id, class)` tuples. Add a new entry there to register a new page — no other changes needed.
 
-- All pages are mounted once at startup and kept in the DOM; `ContentSwitcher` hides/shows them via CSS `display`, so navigation is instant with no data reload
-- `←` / `→` arrow keys cycle through pages (wraps); bindings are on the App so they work everywhere
-- The app `sub_title` shows `[n/total] PageName  ↻ Xs`; privacy state is shown via the `◉`/`○` icon in `DashHeader`
-- Pages extend `BasePage` (`screens/__init__.py`). Pages that support privacy implement `set_privacy(value: bool)`; pages that support refresh implement `set_refresh_interval(seconds: int)` and `refresh_all()`. The App iterates `self.query(BasePage)` to propagate reactive changes to all pages; `action_refresh` targets only the currently visible page by ID.
-
-Widget border titles are set by each screen's `on_mount()`:
-- `DashboardPage`: Clock, Weather, Calendar, Ghostfolio, Connectivity, **Servers** (HostsWidget), Events, **News** (NewsTickerWidget)
-- `NewsPage`: News (NewsReaderWidget) — RelayWidget sets its own
-- `CalendarPage`: Calendar (CalFullWidget)
-- `PodcastsPage`: Podcasts (PodcastsWidget)
-- `PortfolioPage`: Portfolio detail (GhostfolioDetailWidget) — RelayWidget sets its own
+- All pages are mounted once at startup and kept in the DOM; `ContentSwitcher` hides/shows via CSS `display`, so navigation is instant with no data reload
+- Pages extend `BasePage` (`screens/__init__.py`). Pages that support privacy implement `set_privacy(value: bool)`; pages that support refresh implement `set_refresh_interval(seconds: int)` and `refresh_all()`. The App iterates `self.query(BasePage)` to propagate reactive changes; `action_refresh` targets only the currently visible page by ID.
 
 Border chrome (`border-title-color`, `border-title-style`, `border-subtitle-color`) is defined once in `DashWidget.DEFAULT_CSS` and inherited by all widgets.
 
-`DashWidget.DEFAULT_CSS` also defines `DashWidget:focus, DashWidget:focus-within { border: round {ACCENT}; }` — the border switches to accent colour whenever the widget or any of its descendants (e.g. an inner `ScrollableContainer`) holds keyboard focus, providing TAB-navigation visual feedback.
+`DashWidget.DEFAULT_CSS` defines `DashWidget:focus, DashWidget:focus-within { border: round {ACCENT}; }` — border switches to accent colour when the widget or any descendant holds keyboard focus, providing TAB-navigation visual feedback.
 
-`RelayWidget` sets its own `border_title` in `on_mount()` as `"  {self._title}"` (defaulting to `"  Relay ({topic})"`) — no external assignment needed.
+`RelayWidget` sets its own `border_title` in `on_mount()` as `"  {self._title}"` — no external assignment needed.
 
 ### Widget contract
 
@@ -144,18 +120,16 @@ Every widget:
 1. Inherits `DashWidget` (which inherits `textual.widget.Widget`)
 2. Declares its own `DEFAULT_CSS` (height: 100%; child body height: 100%)
 3. Sets `border_title` in the screen's `on_mount()`; sets `border_subtitle` itself when data arrives
-4. Has a `set_refresh_interval(seconds: int)` method — called by the app when the global interval changes or the user presses `[` / `]`
+4. Has a `set_refresh_interval(seconds: int)` method
 5. Has a `_load()` method decorated with `@work(thread=True)` that fetches data and calls `self.app.call_from_thread(self._show_data, data)`
-
-All data widgets (including `CalendarWidget`) are wired into both `watch_refresh_interval` and `action_refresh`.
 
 ### Threading pattern
 
 ```python
 @work(thread=True)
 def _load(self) -> None:
-    data = fetch_something()                          # blocking I/O, off main thread
-    self.app.call_from_thread(self._show_data, data)  # back to main thread
+    data = fetch_something()
+    self.app.call_from_thread(self._show_data, data)
 
 def _show_data(self, data: SomeData) -> None:
     self.data = data                                  # triggers watch_data
@@ -251,19 +225,17 @@ def compose(self) -> ComposeResult:
         yield Static(...)
 ```
 
-**Exception — Homelab page widgets** (`HomelabHostWidget`, `TailscaleWidget`): their `ScrollableContainer`s are intentionally focusable (no `can_focus = False`) to allow TAB-cycling and keyboard scrolling. This is safe because the Homelab page is never the initial focused page (it is page 6), so their bindings don't corrupt the footer order at startup.
+**Exception — Homelab page widgets** (`HomelabHostWidget`, `TailscaleWidget`): their `ScrollableContainer`s are intentionally focusable to allow TAB-cycling and keyboard scrolling. This is safe because the Homelab page is never the initial focused page (it is page 6), so their bindings don't corrupt the footer order at startup.
 
 ### Mobile mode
 
-The app automatically switches to a mobile-optimised layout when the terminal (or browser) width is below 100 columns.
-
-**Mechanism:** `HORIZONTAL_BREAKPOINTS = [(0, "mobile"), (100, "wide")]` — Textual adds the `.mobile` CSS class to the `Screen` when width < 100. All mobile overrides in `app.py` use `.mobile` selector prefixes. No code branching is needed; CSS handles everything.
+**Mechanism:** `HORIZONTAL_BREAKPOINTS = [(0, "mobile"), (100, "wide")]` — Textual adds the `.mobile` CSS class to the `Screen` when width < 100. All mobile overrides in `app.py` use `.mobile` selector prefixes. No code branching needed; CSS handles everything.
 
 **DashHeader tap navigation** (relevant for phone browsers via `--serve`):
-- `‹` / `›` buttons at header edges — prev/next page
-- Title tap — opens a `PageMenu` dropdown (`OptionList` overlay) listing all pages; current page is highlighted; selecting closes the menu; tapping title again or pressing `Escape` also closes it
+- `‹` / `›` buttons — prev/next page
+- Title tap — opens a `PageMenu` dropdown (`OptionList` overlay); current page highlighted
 - Privacy lock (`◉`/`○`) tap — toggles privacy mode
-- **Auto-relock:** if the app starts with `TUIDASH_PRIVACY_DEFAULT=true` and the user disables privacy, it automatically re-enables after 5 minutes
+- **Auto-relock:** if `TUIDASH_PRIVACY_DEFAULT=true` and user disables privacy, re-enables after 5 minutes
 
 **Mobile layouts by widget/page:**
 
@@ -277,9 +249,9 @@ The app automatically switches to a mobile-optimised layout when the terminal (o
 | `#conn-hosts-col` | `width: 100%` |
 | `EventsWidget` | `height: auto`; vertical day stacking with `─` separators between days |
 | `CalFullWidget` (Calendar page) | Shows colored square indicators (■) per calendar instead of event text |
-| `NewsPage` | `RelayWidget` + `NewsReaderWidget` stack vertically (not side-by-side), 30/70 height split |
+| `NewsPage` | `RelayWidget` + `NewsReaderWidget` stack vertically, 30/70 height split |
 | `PodcastsPage #podcasts-grid` | `grid-size: 1` — single-column card list |
-| `PortfolioPage` | `RelayWidget` + `GhostfolioDetailWidget` stack vertically (not side-by-side), 30/70 height split |
+| `PortfolioPage` | `RelayWidget` + `GhostfolioDetailWidget` stack vertically, 30/70 height split |
 | `HomelabPage #homelab-top` | `layout: vertical; height: auto` — host widgets stack vertically, each `height: 5` |
 
 ### Known pending issues — Dashboard mobile scroll
@@ -308,9 +280,9 @@ Two issues on the Dashboard page in mobile mode remain unsolved after multiple a
 ### Public URL detection priority
 
 1. `TUIDASH_SERVE_URL` env var — explicit override, always wins. **Required in Docker.**
-2. Tailscale IP (`100.x.x.x`) — detected by connecting a UDP socket to `100.100.100.100` (Tailscale Magic DNS). If the socket's local address starts with `100.`, that's the Tailscale interface.
+2. Tailscale IP (`100.x.x.x`) — detected by connecting a UDP socket to `100.100.100.100` (Tailscale Magic DNS).
 3. LAN IP (`192.168.x.x`) — enumerated from `hostname -I` (Linux) or `ifconfig` (macOS/BSD).
-4. Private IP (`10.x.x.x`) — covers many private VPN ranges (e.g. ProtonVPN).
+4. Private IP (`10.x.x.x`) — covers many private VPN ranges.
 5. Other private IPs (`172.x.x.x`).
 6. `localhost` — last resort.
 
@@ -318,37 +290,15 @@ Two issues on the Dashboard page in mobile mode remain unsolved after multiple a
 
 **Why not 0.0.0.0:** Chrome 94+ blocks WebSocket connections to `0.0.0.0` — the browser shows a "Textual App placeholder" instead of the dashboard.
 
-**Docker:** The container gets a bridge IP (e.g. `172.20.0.2`) which is unreachable from the host. `docker-compose.yml` hardcodes `TUIDASH_SERVE_URL=http://localhost:8080` so the browser connects to the host's mapped port instead.
+**Docker:** The container gets a bridge IP unreachable from the host. `docker-compose.yml` hardcodes `TUIDASH_SERVE_URL=http://localhost:8080` so the browser connects to the host's mapped port instead.
 
 ---
 
 ## Coding conventions
 
-### Imports (always in this order)
+### Imports
 
-```python
-from __future__ import annotations   # always first
-
-# stdlib
-import platform
-from dataclasses import dataclass, field
-from datetime import date, timedelta
-
-# third-party
-import requests
-from rich.console import Group
-from rich.table import Table
-from rich.text import Text
-from textual.app import ComposeResult
-from textual.reactive import reactive
-from textual.timer import Timer
-from textual.widgets import Static
-from textual import work
-
-# local
-from .. import config
-from .base import DashWidget
-```
+Order: `from __future__` → stdlib → third-party → local
 
 ### Data layer
 
@@ -407,16 +357,16 @@ offset = tick % full_len   # wraps seamlessly using doubled segment list
 
 ### Theme colours
 
-All palette colours are centralised in `tuidash/theme.py`, which loads `palettes/<name>.toml` at import time (selected via `TUIDASH_PALETTE`, defaulting to `default`). Import the named constants from there — never hardcode hex colours or Rich colour names in widget files:
+All palette colours are centralised in `tuidash/theme.py`. Import named constants from there — never hardcode hex colours or Rich colour names in widget files:
 
 ```python
 from ..theme import ACCENT, BORDER, HEADER_BG, BAR_LOW, BAR_MID, BAR_HIGH, BAR_BG
 from ..theme import PERF_GREAT, PERF_GOOD, PERF_FLAT, PERF_BAD, PERF_POOR, PERF_TERRIBLE
 ```
 
-`TUIDASH_PALETTE` accepts either a stem name (looks up `palettes/<name>.toml`) or an **absolute path** to any `.toml` file, for custom palettes stored outside the repo.
+`TUIDASH_PALETTE` accepts either a stem name (looks up `palettes/<name>.toml`) or an **absolute path** to any `.toml` file.
 
-When a widget's `DEFAULT_CSS` needs a theme colour, convert the string to an **f-string** and escape all literal CSS braces as `{{`/`}}`:
+When a widget's `DEFAULT_CSS` needs a theme colour, convert to an **f-string** and escape all literal CSS braces as `{{`/`}}`:
 
 ```python
 DEFAULT_CSS = f"""
@@ -427,7 +377,7 @@ MyWidget {{
 """
 ```
 
-Scrollbar colours are set globally in `App.CSS` using a `Widget { ... }` rule (not `Screen`). `Screen` only overrides the screen's own scrollbar; child `ScrollableContainer` widgets resolve their colour from `Widget.DEFAULT_CSS` (`$scrollbar` → theme primary). A `Widget` rule in App CSS sits above DEFAULT_CSS in Textual's cascade and covers all scrollable descendants.
+Scrollbar colours are set globally in `App.CSS` using a `Widget { ... }` rule (not `Screen`). `Screen` only overrides the screen's own scrollbar; child `ScrollableContainer` widgets resolve their colour from `Widget.DEFAULT_CSS`. A `Widget` rule in App CSS sits above DEFAULT_CSS in Textual's cascade and covers all scrollable descendants.
 
 Footer keyboard shortcut colours use Textual v8 component classes: `FooterKey .footer-key--key` and `FooterKey .footer-key--description` (the old `Footer > .footer--key` selector from ≤v7 no longer applies).
 
@@ -435,9 +385,7 @@ Footer keyboard shortcut colours use Textual v8 component classes: `FooterKey .f
 
 ### Palette ↔ Textual theme bridge
 
-`theme.py` exports `build_textual_theme()`, which constructs a Textual `Theme` object from the active palette constants. `TuidashApp.on_mount` registers it and sets it as the active Textual theme, so built-in Textual widgets (toasts/notifications, `OptionList`, `Button`, etc.) automatically inherit palette colours without per-widget overrides.
-
-Mapping:
+`theme.py` exports `build_textual_theme()`, which constructs a Textual `Theme` from the active palette constants. `TuidashApp.on_mount` registers it and sets it as the active Textual theme so built-in Textual widgets automatically inherit palette colours.
 
 | Textual variable | Palette constant |
 |---|---|
@@ -448,13 +396,13 @@ Mapping:
 | `$error` | `PERF_TERRIBLE` |
 | `$success` | `PERF_GREAT` |
 
-`PERF_*` values are only forwarded when they are hex strings — bare Rich colour names (used as fallback defaults when no TOML is loaded) are skipped, letting Textual fall back to its own defaults rather than crashing.
+`PERF_*` values are only forwarded when they are hex strings — bare Rich colour names are skipped, letting Textual fall back to its own defaults rather than crashing.
 
-`TUIDASH_THEME` still works as an escape hatch: if set, it overrides the palette-derived theme after it is registered.
+`TUIDASH_THEME` overrides the palette-derived theme after it is registered.
 
-**Intentional non-palette colours:** weather condition icon colours (sun yellow, rain blue, snow white) and temperature gradient colours are hardcoded because they carry universal semantic meaning. ICS calendar colours (`TUIDASH_FAMILY_COLOR` etc.) are user-configurable Rich colour names. These are not expected to follow the palette.
+**Intentional non-palette colours:** weather condition icon colours and temperature gradient colours are hardcoded because they carry universal semantic meaning. ICS calendar colours (`TUIDASH_FAMILY_COLOR` etc.) are user-configurable Rich colour names.
 
-Avoid `"blue"` as a Rich style — it renders as purple/violet in dark themes like `tokyo-night`. Use `""` (default text colour) for neutral running containers.
+Avoid `"blue"` as a Rich style — it renders as purple/violet in dark themes like `tokyo-night`.
 
 ---
 
@@ -466,7 +414,7 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 |---|---|---|
 | `TUIDASH_SERVE_URL` | auto-detected | Public URL for `--serve` WebSocket (required in Docker) |
 | `TUIDASH_SERVE_MDNS` | `false` | Use `hostname.local` as the public URL for `--serve` (mDNS/Bonjour) |
-| `TUIDASH_THEME` | — | Textual theme override; replaces the palette-derived theme if set (e.g. `nord`, `dracula`, `tokyo-night`) |
+| `TUIDASH_THEME` | — | Textual theme override; replaces the palette-derived theme if set |
 | `TUIDASH_PALETTE` | `default` | Stem of a `.toml` file inside `palettes/`, or an absolute path to any `.toml` file |
 | `TUIDASH_REFRESH` | `300` | Auto-refresh interval in seconds |
 | `TUIDASH_PRIVACY_DEFAULT` | `false` | Start in privacy mode; `p` toggle still works |
@@ -500,9 +448,7 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_PODCASTINDEX_IDS` | — | Comma-separated PodcastIndex feed IDs to display |
 | `TUIDASH_TAILSCALE_KEY` | — | API key from https://login.tailscale.com/admin/settings/keys (must be `tskey-api-…`) |
 
-Missing values for widget-specific vars show an inline error — they do not crash the app.
-
-Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.env`.
+Missing values for widget-specific vars show an inline error — they do not crash the app. Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.env`.
 
 ---
 
@@ -510,25 +456,21 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 
 ### GhostfolioWidget
 
-- Fetches 6 endpoints in parallel: portfolio performance ×3, holdings, orders, user settings
-- Base currency comes from Ghostfolio user settings (`/api/v1/user` → `settings.baseCurrency`), not inferred from holdings
-- Goal label is compact: `1M`, `500K`, `2.5M`, etc.
-- Goal progress bar uses `_FluidNeonBar` — a custom Rich renderable that calls `neon_bar(pct, options.max_width)` inside `__rich_console__`, placed in a `Table.grid` column with `ratio=1` so it fills the exact remaining space at render time without any manual width arithmetic
-- Performance stat cells (`YTD`, `1Y`, `Max`) use `_perf_gradient_color(pct)` which maps to `PERF_*` palette constants: `PERF_GREAT` (>+10%), `PERF_GOOD` (0–+10%), `PERF_FLAT` (−5–0%), `PERF_BAD` (−10–−5%), `PERF_POOR` (−20–−10%), `PERF_TERRIBLE` (<−20%)
-- Top Gainers / Top Losers lines use `PERF_GREAT`/`PERF_GOOD` and `PERF_TERRIBLE`/`PERF_POOR` (not a continuous gradient)
-- Live ticker uses `_ticker_color(pct)` → `PERF_FLAT` (±0.05%), `PERF_GREAT` (>2%), `PERF_GOOD` (0–2%), `PERF_POOR` (0–−2%), `PERF_TERRIBLE` (<−2%)
+- Base currency comes from `/api/v1/user` → `settings.baseCurrency`, not inferred from holdings
+- Goal progress bar uses `_FluidNeonBar` — a custom Rich renderable placed in a `Table.grid` column with `ratio=1` that calls `neon_bar(pct, options.max_width)` inside `__rich_console__`, filling the exact remaining space without manual width arithmetic
 - Ticker prev-close is cached per symbol keyed by calendar date — the full market history fetch (~540 KB/symbol) only happens once per day; subsequent refreshes compute the change from `marketPrice` in the holdings response vs the cached prev-close
+- Performance `_perf_gradient_color(pct)` maps to `PERF_*` constants: `PERF_GREAT` (>+10%), `PERF_GOOD` (0–+10%), `PERF_FLAT` (−5–0%), `PERF_BAD` (−10–−5%), `PERF_POOR` (−20–−10%), `PERF_TERRIBLE` (<−20%)
+- Live ticker `_ticker_color(pct)` → `PERF_FLAT` (±0.05%), `PERF_GREAT` (>2%), `PERF_GOOD` (0–2%), `PERF_POOR` (0–−2%), `PERF_TERRIBLE` (<−2%)
 
 ### WeatherWidget
 
-- Forecast temperature bars use a 7-stop RGB gradient (`_TEMP_STOPS`: −5 °C deep blue → 0 °C sky blue → 8 °C cyan → 16 °C green → 24 °C yellow → 30 °C orange → 38 °C red). Each filled `■` character is coloured by linearly interpolating between the two surrounding stops for the temperature at that bar position — producing a smooth per-character gradient. Unfilled positions use `■` in `BAR_BG` (palette-aware dim background colour).
-- Temperature colours are hardcoded hex values (not palette-driven) because they carry universal semantic meaning (cold = blue, hot = red). Only the unfilled bar background (`BAR_BG`) follows the palette.
-- Weather condition icon colours (sun, rain, snow, etc.) are likewise hardcoded for the same reason.
+- Forecast temperature bars use a 7-stop RGB gradient (`_TEMP_STOPS`: −5 °C deep blue → 0 °C sky blue → 8 °C cyan → 16 °C green → 24 °C yellow → 30 °C orange → 38 °C red), linearly interpolating between stops per bar position. Unfilled positions use `BAR_BG` (palette-aware).
+- Temperature and weather condition icon colours are hardcoded hex (not palette-driven) because they carry universal semantic meaning; only `BAR_BG` follows the palette.
 
 ### GhostfolioDetailWidget
 
-- Net worth progress bar uses `_FluidBar` — a custom Rich renderable placed in a `Table.grid` column with `ratio=1` that renders `ACCENT`-coloured `█`/`░` blocks at `options.max_width` at Rich render time, filling the exact available space without any manual arithmetic
-- `_resize_pending` + `on_resize` trigger a redraw on the next ticker tick when the widget resizes, so charts and other width-dependent content re-render at the new width
+- Net worth progress bar uses `_FluidBar` — same `Table.grid ratio=1` pattern as `_FluidNeonBar`; renders `ACCENT`-coloured `█`/`░` blocks at `options.max_width`
+- `_resize_pending` + `on_resize` trigger a redraw on the next ticker tick when the widget resizes, so width-dependent content re-renders at the new width
 
 ### ConnectivityWidget
 
@@ -537,93 +479,53 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 
 ### HostsWidget (border title: "Servers")
 
-- `_name_from_url` returns the first hostname label for FQDN hosts (e.g. `myserver` from `myserver.local`); returns the full IP string for bare IP addresses (e.g. `192.168.1.1`, not `192`)
+- `_name_from_url` returns the first hostname label for FQDNs (e.g. `myserver` from `myserver.local`); returns the full IP string for bare IP addresses (e.g. `192.168.1.1`, not `192`)
 - Glances API: tries v4 (`/api/4/`) first, falls back to v3 (`/api/3/`)
-- Container colours: `PERF_GREAT` (healthy), `PERF_TERRIBLE` (unhealthy), `dim` (not running), `""` default (running, no healthcheck)
+- Container colours: `PERF_GREAT` (healthy), `PERF_TERRIBLE` (unhealthy), `dim` (not running), `""` default (running, no healthcheck) — avoid `"blue"`, which renders as purple in dark themes
 
 ### HomelabPage (`screens/homelab.py`)
 
-- Layout: top 45% (`#homelab-top`) hosts widgets side-by-side; bottom 55% (`#homelab-bottom`) stacks `TailscaleWidget` above `HetznerWidget`
-- All three widget types (`HomelabHostWidget`, `TailscaleWidget`) have `_mobile_scrollable = True` — their inner `ScrollableContainer` stays scrollable in mobile mode
-- TAB / SHIFT+TAB cycles focus across all scrollable containers on the page; the focused widget's border turns accent colour via `DashWidget:focus-within`
+- All three widget types have `_mobile_scrollable = True` — their inner `ScrollableContainer` stays scrollable in mobile mode
+- TAB / SHIFT+TAB cycles focus across all scrollable containers; the focused widget's border turns accent colour via `DashWidget:focus-within`
 
 ### HomelabHostWidget (`widgets/homelab.py`)
 
-- One widget per host URL from `TUIDASH_HOSTS`; fetches CPU, MEM, disk, uptime, and Docker containers via Glances
-- Container section uses `_build_container_col(containers, name_w)` helper; when widget width ≥ 62 columns and there are ≥ 2 containers, splits into two side-by-side columns filled left-to-right (even indices left, odd right); single column otherwise
-- Container memory shows used only (no `/ limit`) — total host memory is already visible in the MEM bar above
+- When widget width ≥ 62 columns and there are ≥ 2 containers, splits into two side-by-side columns filled left-to-right (even indices left, odd right); single column otherwise
 - `_render_host_body(hd, width)` receives `self.size.width` from `_redraw()` so the column layout responds to resize
 
 ### TailscaleWidget (`widgets/tailscale.py`)
 
-- Devices table: exit-node devices show a ` ↗` suffix in bold accent colour (name truncated to 13 chars to fit within the 16-char column)
+- Exit-node devices show a ` ↗` suffix in bold accent colour; name truncated to 13 chars to fit within the 16-char column
 - `TsDevice.exit_node` is derived from `advertisedRoutes` containing `"0.0.0.0/0"`
-- **Mobile mode:** devices and services tables stack vertically (single column); in wide mode they sit side-by-side in a 50/50 grid
 - `on_resize` uses `call_after_refresh(self._redraw)` to ensure `.mobile` class is already applied before checking it
 
 ### HetznerWidget (`widgets/hetzner.py`)
 
-- Renders servers and storage boxes in one unified table (shared dot + name columns guarantee alignment)
-- Columns: dot(1) · name(name_w) · LOC(6) · IP/HOST(host_w) · TRAFFIC/USED(flexible, `min_width=0`) · COST/MO(9)
-- `min_width=0` on the flexible column ensures COST/MO is always visible even on very narrow screens
-- `HetznerServer` fields: `name`, `status`, `location`, `ipv4`, `monthly_net`, `traffic_used_gb`, `traffic_total_gb` — TYPE, OS, specs removed (not rendered)
-- `HetznerStorageBox` fields: `name`, `status`, `location`, `server`, `used_bytes`, `total_bytes`, `monthly_net` — box_type removed
-- **Mobile mode:** `host_w=12` (vs 30 wide), `name_w=10` (vs 16), compact used string (`9 GB/1 TB (10%)` vs spaced form); IP column dropped for servers
-- Total monthly cost (servers + storage boxes) shown in `border_subtitle` alongside running/storage counts — no extra vertical space
+- `min_width=0` on the flexible traffic/used column ensures COST/MO is always visible even on very narrow screens
 - `HetznerWidget` has no `ScrollableContainer` (intentional — `height: auto` widget expands to content; a SC caused height inflation)
+- Total monthly cost shown in `border_subtitle` alongside running/storage counts — no extra vertical space
+- **Mobile mode:** `host_w=12` (vs 30 wide), `name_w=10` (vs 16); IP column dropped for servers
 
 ### CalendarWidget
 
-- Supports up to four ICS feeds: public holidays (`TUIDASH_HOLIDAY_CALENDAR`), family (`TUIDASH_FAMILY_ICS`), personal (`TUIDASH_PERSONAL_ICS`), work (`TUIDASH_WORK_ICS`)
-- Day highlight priority: today > holiday (red) > family > personal > work > weekend; each custom calendar has its own configurable Rich color
-- Weekend column headers use `dim {ACCENT} on {BORDER}` — a dimmed variant of the weekday header style, fully palette-aware (previously a hardcoded 256-color index)
-- All ICS feeds refresh at the same rate as `TUIDASH_REFRESH` (wired to `set_refresh_interval`)
-- Calendar grid updates every 60 s regardless of refresh interval (no network dependency)
-- Manual `r` triggers `_load()`, which re-fetches all four ICS feeds in parallel (holiday, family, personal, work)
-- **`CalFullWidget`** weekend columns use `on {BORDER}` as a background tint — palette-aware (previously a hardcoded `color(237)` 256-color index)
-- **Mobile mode:** `CalFullWidget` shows colored square indicators (■) per calendar type instead of event text, to fit narrow terminals
-
-### EventsWidget
-
-- Shows upcoming events from the three user ICS feeds (family/personal/work) in a 4-day view: today + next 3 days
-- Each day column scrolls long event names using boomerang scroll (same `scroll_window` helper as `RssWidget`)
-- Uses `TUIDASH_FAMILY_ICS`, `TUIDASH_PERSONAL_ICS`, `TUIDASH_WORK_ICS` and their corresponding `_COLOR` vars
-- Occupies `#row-bot` (full width, `1fr` height) on the dashboard
-- **Mobile mode:** Switches to vertical layout — day blocks stacked top-to-bottom, separated by a dim `─` rule; header shows "Today / Tomorrow / [Weekday name]" with date
-
-### NewsTickerWidget
-
-- Reads the same `TUIDASH_RSS_FEEDS` as `rss.py`; imports `FeedData`, `_fetch_feed`, `_parse_dt` from `rss.py`
-- Filters to articles published in the last 6 hours; shows nothing if no recent articles
-- Continuous left-scroll: `tick % full_len` offset over a doubled segment list — same technique as Ghostfolio ticker
-- Format per item: `◆   SourceName  Headline title`; source name is `bold {color}`, title is `{color}`
-- `height: 3` (border + 1 content row); sits as a sibling of `#row-bot` at the `DashboardPage` level
+- Day highlight priority: today > holiday (red) > family > personal > work > weekend
+- Weekend column headers use `dim {ACCENT} on {BORDER}` — palette-aware (previously a hardcoded 256-color index)
+- Calendar grid updates every 60 s regardless of refresh interval (no network dependency); ICS feeds refresh at `TUIDASH_REFRESH` rate
+- **`CalFullWidget`** weekend columns use `on {BORDER}` as background tint — palette-aware (previously a hardcoded `color(237)` 256-color index)
 
 ### RelayWidget
 
-- Generic Markdown feed widget backed by a self-hosted relay server (see [pierdom/relay](https://github.com/pierdom/relay))
-- Instantiated with a `topic` (tag name) and an optional `title`; border title defaults to `Relay ({topic})`
-- Multiple instances with different topics can coexist on the same page
-- **Live updates via SSE**: connects to `GET /events?tag={topic}`, parses the stream with `iter_content` (so blank-line event delimiters are never swallowed), and calls `call_from_thread` on each `post` event
-- **Seed + fallback via REST**: `GET /posts?tag={topic}&limit=20` on mount and on each periodic refresh tick; response shape is `{"items": [...], "total": N, ...}`
-- Both paths merge through `_merge_posts` (dedup by `id`, sorted newest-first) on the main thread
+- SSE stream parsed with `iter_content` so blank-line event delimiters are never swallowed
 - SSE reconnects with exponential backoff (2 s → 60 s cap); sends `Last-Event-ID` header on reconnect to replay missed posts
-- Missing `TUIDASH_RELAY_URL` or `TUIDASH_RELAY_TOKEN`: `_load()` shows an inline error; `_listen()` exits immediately without retrying
-- Markdown is rendered via `_PaletteMarkdown` (subclass of `rich.markdown.Markdown`) which pushes a Rich `Theme` overlay in `__rich_console__`, mapping `markdown.h1`–`h4`, `markdown.h1.border`, `markdown.code`, and `markdown.link` to the palette `ACCENT` colour — replacing Rich's hardcoded yellow/cyan/bright_blue defaults
-- Currently placed on **NewsPage** (page 2) as a `1fr`-wide left panel beside `NewsReaderWidget`
+- Both SSE and REST paths merge through `_merge_posts` (dedup by `id`, sorted newest-first) on the main thread
+- Markdown rendered via `_PaletteMarkdown` — subclass of `rich.markdown.Markdown` that pushes a Rich `Theme` overlay in `__rich_console__`, mapping `markdown.h1`–`h4`, `markdown.h1.border`, `markdown.code`, and `markdown.link` to palette `ACCENT`, replacing Rich's hardcoded yellow/cyan/bright_blue defaults
 
 ### PodcastsWidget
 
-- Fetches podcast feeds from the PodcastIndex API using `TUIDASH_PODCASTINDEX_KEY` / `TUIDASH_PODCASTINDEX_SECRET` and `TUIDASH_PODCASTINDEX_IDS` (comma-separated feed IDs)
-- Each podcast is displayed as a card with: half-block pixel-art artwork (or text fallback), episode title, publication date, duration, and playback controls
-- Playback controls per card: play/pause, ◀◀/▶▶ seek ±10 s, ◀/→ episode prev/next, ● jump to latest, ✓ mark listened, ↺ reset progress
-- Global play/pause via `Space` key or the `⏸`/`▶` indicator in `DashHeader` (only active while mpv is running)
-- Playback via `_MpvPlayer` — thin wrapper around `mpv --no-video --input-ipc-server=/tmp/tuidash-mpv.sock` (Unix socket IPC for seek/pause without restarting)
-- Episode playback position stored in `~/.local/share/tuidash/podcast_progress.json` (keyed by episode GUID + date); resumes from last position on re-open
-- Missing API key/secret: widget shows an inline error; missing `mpv` binary: error toast, all other functionality unaffected
-- All colours (buttons, progress bar, episode status badges, card borders) use palette constants — `ACCENT` for interactive elements, `BORDER` for borders, `PERF_GREAT`/`PERF_BAD` for status badges; no hardcoded terminal colour names
-- Sub-widgets (`PlaybackBar`, `PodcastCard`, small control buttons) use f-string `DEFAULT_CSS` with `BORDER`/`ACCENT` rather than Textual's `$panel`/`$accent` theme variables
-- **Mobile mode:** `#podcasts-grid` switches to `grid-size: 1` — cards stack vertically in a single column
+- Playback via `_MpvPlayer` — thin wrapper around `mpv --no-video --input-ipc-server=/tmp/tuidash-mpv.sock` (Unix socket IPC for seek/pause without restarting the process)
+- Episode playback position stored in `~/.local/share/tuidash/podcast_progress.json` keyed by episode GUID + date; resumes from last position on re-open
+- Missing `mpv` binary: error toast shown, all other functionality unaffected
+- Sub-widgets (`PlaybackBar`, `PodcastCard`) use f-string `DEFAULT_CSS` with `BORDER`/`ACCENT` rather than Textual's `$panel`/`$accent` — required because these widgets are composed before the Textual theme is registered
 
 ---
 
@@ -656,4 +558,4 @@ Config is loaded from `~/.config/tuidash/.env` first, then the project-local `.e
 
 Ping, DNS, and IP detection use only the stdlib.
 
-`mpv` (system package, not a Python dep) is required for podcast playback. Install via `sudo pacman -S mpv` (Arch/CachyOS), `sudo apt install mpv` (Debian/Ubuntu), or `brew install mpv` (macOS). The widget shows an error toast if mpv is not found; all other functionality works without it.
+`mpv` (system package) is required for podcast playback. The widget shows an error toast if mpv is not found; all other functionality works without it.
