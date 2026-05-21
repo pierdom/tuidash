@@ -686,9 +686,15 @@ def main() -> None:
             _s.bind(("127.0.0.1", 0))
             internal_port = _s.getsockname()[1]
 
+        # Tell textual-serve its own localhost URL, not the public one.
+        # textual-serve uses the -u URL for internal operations; giving it the
+        # public URL (e.g. a Tailscale IP) causes those operations to route
+        # through the external network and adds significant latency.
+        # The public URL is handled entirely by the proxy + JS injection.
+        internal_url = f"http://127.0.0.1:{internal_port}"
         proc = subprocess.Popen([
             textual_bin, "serve", "-c", f"{sys.executable} -m tuidash.app",
-            "-h", "127.0.0.1", "-p", str(internal_port), "-u", public_url,
+            "-h", "127.0.0.1", "-p", str(internal_port), "-u", internal_url,
         ])
         try:
             asyncio.run(_run_proxy(args.host, args.port, internal_port, proc))
