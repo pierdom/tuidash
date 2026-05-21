@@ -48,19 +48,20 @@ def _build_slots(
     sources: list[_Source],
     days: list[date],
     avail_h: int,
+    max_cols: int = 4,
 ) -> list[_Slot]:
-    """Distribute days into at most 4 column slots, overflowing busy days into extra slots."""
+    """Distribute days into at most max_cols column slots, overflowing busy days into extra slots."""
     slots: list[_Slot] = []
     chunk_size = max(1, avail_h)
     for day in days:
-        if len(slots) >= 4:
+        if len(slots) >= max_cols:
             break
         pairs = _events_for_day(sources, day)
         if not pairs:
             slots.append(_Slot(day=day, events=[]))
             continue
         for chunk_start in range(0, len(pairs), chunk_size):
-            if len(slots) >= 4:
+            if len(slots) >= max_cols:
                 break
             slots.append(_Slot(
                 day=day,
@@ -200,7 +201,7 @@ def _render_events(
 
 
 class EventsWidget(DashWidget):
-    """6-day calendar event view across all configured ICS sources (4-column layout)."""
+    """6-day calendar event view across all configured ICS sources (4 cols, 5 cols above 120 chars)."""
 
     data: reactive[list[_Source] | None] = reactive(None, always_update=True)
 
@@ -278,7 +279,8 @@ class EventsWidget(DashWidget):
             day_events = [(d, _events_for_day(self.data, d)) for d in days]
             renderable = _render_events_mobile(day_events, today, col_w, self._tick)
         else:
-            slots = _build_slots(self.data, days, self._avail_h())
+            max_cols = 5 if (self.content_size.width or 0) > 120 else 4
+            slots = _build_slots(self.data, days, self._avail_h(), max_cols)
             renderable = _render_events(slots, today, self._col_w(len(slots)), self._tick)
 
         self.query_one("#events-body", Static).update(renderable)
