@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import os
 import re
 import selectors
@@ -470,14 +471,20 @@ def _detect_serve_ip() -> str:
     return "localhost"
 
 
-# ── favicon ───────────────────────────────────────────────────────────────────
+# ── HTTP proxy ────────────────────────────────────────────────────────────────
+# textual-serve renders the TUI inside xterm.js in the browser.  xterm.js keeps
+# a hidden <textarea> focused so it can receive keyboard events; on mobile OSes
+# this causes the virtual keyboard to pop up on every touch.  Setting
+# inputmode="none" on that element suppresses the keyboard while still allowing
+# hardware keyboards to work.  We achieve this by running a thin asyncio TCP
+# proxy that intercepts the HTML page response and injects fixes into <head>;
+# WebSocket connections (the actual TUI stream) are tunneled transparently.
 
-def _build_favicon(size: int = 64) -> bytes | None:
+def _build_favicon() -> bytes | None:
     try:
-        import io
         from PIL import Image
         img = Image.open(Path(__file__).parent / "tuidash.png").resize(
-            (size, size), Image.LANCZOS
+            (64, 64), Image.LANCZOS
         )
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -487,18 +494,9 @@ def _build_favicon(size: int = 64) -> bytes | None:
 
 _FAVICON_PNG: bytes | None = _build_favicon()
 
-# ── mobile HTTP proxy ─────────────────────────────────────────────────────────
-# textual-serve renders the TUI inside xterm.js in the browser.  xterm.js keeps
-# a hidden <textarea> focused so it can receive keyboard events; on mobile OSes
-# this causes the virtual keyboard to pop up on every touch.  Setting
-# inputmode="none" on that element suppresses the keyboard while still allowing
-# hardware keyboards to work.  We achieve this by running a thin asyncio TCP
-# proxy that intercepts the HTML page response and injects the one-liner fix;
-# WebSocket connections (the actual TUI stream) are tunneled transparently.
-
-_MOBILE_INJECT = (
-    b'<link rel="icon" type="image/png" href="/favicon.ico">'
-    b'<script>(function(){'
+_HEAD_INJECT = (
+    (b'<link rel="icon" type="image/png" href="/favicon.ico">' if _FAVICON_PNG else b"")
+    + b'<script>(function(){'
     # Shared URL rewriter: replaces scheme+host with location.host.
     b'var O=window.WebSocket;'
     b'function rw(u){try{var x=new URL(u);'
@@ -650,7 +648,7 @@ async def _proxy_conn(cr, cw, internal_port: int) -> None:
                 body = await ur.read(resp_cl)
             else:
                 body = await ur.read()
-            body = body.replace(b"</head>", _MOBILE_INJECT + b"</head>", 1)
+            body = body.replace(b"</head>", _HEAD_INJECT + b"</head>", 1)
             # textual-serve bakes its public URL into static-asset src/href attributes.
             # Strip scheme+host+port (only when a port is explicit, to avoid matching
             # external URLs like Google Fonts or W3C namespace URIs without ports).
