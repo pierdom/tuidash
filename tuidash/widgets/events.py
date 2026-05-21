@@ -200,7 +200,7 @@ def _render_events(
 
 
 class EventsWidget(DashWidget):
-    """3-day calendar event view across all configured ICS sources."""
+    """6-day calendar event view across all configured ICS sources (4-column layout)."""
 
     data: reactive[list[_Source] | None] = reactive(None, always_update=True)
 
@@ -270,7 +270,7 @@ class EventsWidget(DashWidget):
         if self.data is None:
             return
         today = date.today()
-        days = [today + timedelta(days=i) for i in range(4)]
+        days = [today + timedelta(days=i) for i in range(6)]
 
         mobile = self.screen.has_class("mobile")
         if mobile:
@@ -282,7 +282,7 @@ class EventsWidget(DashWidget):
             renderable = _render_events(slots, today, self._col_w(len(slots)), self._tick)
 
         self.query_one("#events-body", Static).update(renderable)
-        self.border_subtitle = "  ".join(d.strftime("%a %d %b") for d in days)
+        self.border_subtitle = f"{days[0].strftime('%a %d %b')} – {days[-1].strftime('%a %d %b')}"
 
     def set_refresh_interval(self, seconds: int) -> None:
         if self._data_timer is not None:
