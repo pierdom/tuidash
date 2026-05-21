@@ -348,8 +348,8 @@ class PlayStatusWidget(Widget):
         if not self._playing:
             return Text(" ")
         if self._paused:
-            return Text("▶", style=ACCENT)
-        return Text("⏸", style=ACCENT)
+            return Text("▶", style="dim")
+        return Text("⏸", style=PERF_GREAT)
 
     def on_click(self) -> None:
         if self._playing:
@@ -447,7 +447,6 @@ class DashHeader(Widget):
         width: 2;
         height: 1;
         content-align: center middle;
-        color: $warning;
     }}
     DashHeader > #privacy-lock:hover {{
         background: $boost;
@@ -476,7 +475,7 @@ class DashHeader(Widget):
 
     def _refresh_title(self, subtitle: str = "") -> None:
         t = Text(no_wrap=True, overflow="ellipsis")
-        t.append(self.app.TITLE, style="bold")
+        t.append(self.app.TITLE, style=f"bold {ACCENT}")
         if subtitle:
             t.append("  ")
             t.append(subtitle, style="dim")
@@ -486,7 +485,8 @@ class DashHeader(Widget):
         self._refresh_title(text)
 
     def set_privacy(self, value: bool) -> None:
-        self.query_one("#privacy-lock", Static).update("◉" if value else "○")
+        t = Text("◉", style=ACCENT) if value else Text("○", style="dim")
+        self.query_one("#privacy-lock", Static).update(t)
 
     def set_playback(self, playing: bool, paused: bool) -> None:
         try:
