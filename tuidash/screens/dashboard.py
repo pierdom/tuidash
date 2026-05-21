@@ -48,12 +48,11 @@ class DashboardPage(BasePage):
     }
 
     WeatherWidget {
-        width: 2fr;
-        margin: 0 1 0 0;
+        width: 1fr;
     }
 
     #clock-cal-pair {
-        width: 2fr;
+        width: 50%;
         height: auto;
         margin: 0 1 0 0;
     }
