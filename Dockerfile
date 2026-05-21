@@ -2,10 +2,9 @@ FROM python:3.13-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
-    mpv \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.13 /uv /usr/local/bin/uv
 
 WORKDIR /app
 
@@ -16,6 +15,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project
 
+COPY palettes/ ./palettes/
 COPY tuidash/ ./tuidash/
 RUN uv sync --frozen
 
