@@ -244,10 +244,10 @@ def compose(self) -> ComposeResult:
 
 | Widget / page | Mobile change |
 |---|---|
-| `DashboardPage #row-top` | `layout: grid; grid-size: 2` — ClockWidget + CalendarWidget share row 1; WeatherWidget spans both columns in row 2 |
+| `DashboardPage #row-top` | `layout: vertical` — `#clock-cal-pair` (Clock + Calendar side-by-side, `width: 100%`) stacks above WeatherWidget |
 | `DashboardPage #row-mid` | `layout: vertical; height: auto` |
 | `DashboardPage #row-bot` | `height: auto` |
-| `ClockWidget` | `width: 1fr; height: 100%` — fills its grid cell, matching CalendarWidget height |
+| `ClockWidget` | `width: 1fr; height: 100%` — fills `#clock-cal-pair` height, matching CalendarWidget |
 | `CalendarWidget` | `width: 1fr` |
 | `WeatherWidget`, `GhostfolioWidget` | `width: 100%` |
 | `#conn-hosts-col` | `width: 100%` |
@@ -463,6 +463,7 @@ Missing values for widget-specific vars show an inline error — they do not cra
 
 - Forecast temperature bars use a 7-stop RGB gradient (`_TEMP_STOPS`: −5 °C deep blue → 0 °C sky blue → 8 °C cyan → 16 °C green → 24 °C yellow → 30 °C orange → 38 °C red), linearly interpolating between stops per bar position. Unfilled positions use `BAR_BG` (palette-aware).
 - Temperature and weather condition icon colours are hardcoded hex (not palette-driven) because they carry universal semantic meaning; only `BAR_BG` follows the palette.
+- **Night mode:** `sunrise` and `sunset` are fetched as `daily` parameters from Open-Meteo (`timezone: auto` → local time). When the current time is before sunrise or after sunset and the WMO condition is 0 or 1 (clear/sunny), the pixel art switches from the sun to a crescent moon (`"moon"` key in `_PIXELS`).
 
 ### GhostfolioDetailWidget
 
