@@ -470,6 +470,23 @@ def _detect_serve_ip() -> str:
     return "localhost"
 
 
+# ── favicon ───────────────────────────────────────────────────────────────────
+
+def _build_favicon(size: int = 64) -> bytes | None:
+    try:
+        import io
+        from PIL import Image
+        img = Image.open(Path(__file__).parent / "tuidash.png").resize(
+            (size, size), Image.LANCZOS
+        )
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:
+        return None
+
+_FAVICON_PNG: bytes | None = _build_favicon()
+
 # ── mobile HTTP proxy ─────────────────────────────────────────────────────────
 # textual-serve renders the TUI inside xterm.js in the browser.  xterm.js keeps
 # a hidden <textarea> focused so it can receive keyboard events; on mobile OSes
@@ -480,6 +497,7 @@ def _detect_serve_ip() -> str:
 # WebSocket connections (the actual TUI stream) are tunneled transparently.
 
 _MOBILE_INJECT = (
+    b'<link rel="icon" type="image/png" href="/favicon.ico">'
     b'<script>(function(){'
     # Shared URL rewriter: replaces scheme+host with location.host.
     b'var O=window.WebSocket;'
@@ -548,6 +566,17 @@ async def _proxy_conn(cr, cw, internal_port: int) -> None:
     try:
         line = await cr.readline()
         if not line:
+            return
+        if line.startswith(b"GET /favicon") and _FAVICON_PNG:
+            while (h := await cr.readline()) not in (b"\r\n", b"\n", b""):
+                pass
+            cw.write(
+                b"HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: "
+                + str(len(_FAVICON_PNG)).encode()
+                + b"\r\nCache-Control: max-age=86400\r\n\r\n"
+                + _FAVICON_PNG
+            )
+            await cw.drain()
             return
         raw = bytearray(line)
         is_ws = False
