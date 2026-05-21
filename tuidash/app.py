@@ -503,7 +503,7 @@ _MOBILE_INJECT = (
     b't.setAttribute("inputmode","none");'
     b'return true;}'
     b'if(!f()){var m=new MutationObserver(function(){if(f())m.disconnect();});'
-    b'm.observe(document.body,{childList:true,subtree:true});}'
+    b'm.observe(document.documentElement,{childList:true,subtree:true});}'
     b'})();</script>'
 )
 
