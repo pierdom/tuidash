@@ -479,32 +479,38 @@ def _detect_serve_ip() -> str:
 # WebSocket connections (the actual TUI stream) are tunneled transparently.
 
 _MOBILE_INJECT = (
-    # Intercept WebSocket constructor so all connections use location.host —
-    # makes the same HTML work behind any hostname (LAN, Tailscale, mDNS, etc.)
-    # regardless of what URL textual-serve bakes into the page.
     b'<script>(function(){'
+    # Shared URL rewriter: replaces scheme+host with location.host.
     b'var O=window.WebSocket;'
-    b'function P(u,p){'
-    b'try{var x=new URL(u);'
-    b'u=(location.protocol==="https:"?"wss:":"ws:")+"//"+location.host+x.pathname+x.search;}'
-    b'catch(e){}'
-    b'return p!==undefined?new O(u,p):new O(u);}'
+    b'function rw(u){try{var x=new URL(u);'
+    b'return(location.protocol==="https:"?"wss:":"ws:")+"//"+location.host+x.pathname+x.search;}'
+    b'catch(e){return u;}}'
+    # Wrap WebSocket constructor so every new WebSocket() uses location.host.
+    b'function P(u,p){return p!==undefined?new O(rw(u),p):new O(rw(u));}'
     b'P.prototype=O.prototype;'
     b'P.CONNECTING=O.CONNECTING;P.OPEN=O.OPEN;P.CLOSING=O.CLOSING;P.CLOSED=O.CLOSED;'
     b'window.WebSocket=P;'
-    b'})();</script>'
-    # Prevent the browser page from showing its own scrollbar alongside the
-    # Textual scrollbar rendered inside the xterm.js canvas.
-    b'<style>html,body{overflow:hidden!important;height:100%!important;}</style>'
-    b'<script>(function(){'
-    b'function f(){'
+    # Also patch data-session-websocket-url on #terminal before textual.js reads
+    # it (textual.js may use it for fetch() calls, not just new WebSocket()).
+    # MutationObserver fires synchronously when #terminal is inserted into the DOM
+    # — before DOMContentLoaded, so before textual.js's handler runs.
+    b'var gOk=false,fOk=false;'
+    b'function g(){if(gOk)return true;'
+    b'var t=document.getElementById("terminal");'
+    b'if(!t||!t.dataset.sessionWebsocketUrl)return false;'
+    b't.dataset.sessionWebsocketUrl=rw(t.dataset.sessionWebsocketUrl);'
+    b'return gOk=true;}'
+    # Suppress the virtual keyboard on mobile (inputmode=none on xterm textarea).
+    b'function f(){if(fOk)return true;'
     b'var t=document.querySelector(".xterm-helper-textarea");'
     b'if(!t)return false;'
-    b't.setAttribute("inputmode","none");'
-    b'return true;}'
-    b'if(!f()){var m=new MutationObserver(function(){if(f())m.disconnect();});'
+    b't.setAttribute("inputmode","none");return fOk=true;}'
+    b'g();f();'
+    b'if(!gOk||!fOk){'
+    b'var m=new MutationObserver(function(){g();f();if(gOk&&fOk)m.disconnect();});'
     b'm.observe(document.documentElement,{childList:true,subtree:true});}'
     b'})();</script>'
+    b'<style>html,body{overflow:hidden!important;height:100%!important;}</style>'
 )
 
 
