@@ -560,3 +560,11 @@ class GhostfolioWidget(DashWidget):
             return
         self.query_one("#gf-body", Static).update(_render_portfolio(data, self._privacy))
         self._redraw_ticker()
+
+    def pause_animations(self) -> None:
+        if self._ticker_timer is not None:
+            self._ticker_timer.pause()
+
+    def resume_animations(self) -> None:
+        if self._ticker_timer is not None:
+            self._ticker_timer.resume()

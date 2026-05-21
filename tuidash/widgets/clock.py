@@ -64,14 +64,24 @@ class ClockWidget(DashWidget):
     #clock-body { height: 100%; content-align: center middle; text-align: center; }
     """
 
+    _clock_timer: object = None
+
     def compose(self) -> ComposeResult:
         yield Static("", id="clock-body")
 
     def on_mount(self) -> None:
         self._tick()
-        self.set_interval(1.0, self._tick)
+        self._clock_timer = self.set_interval(1.0, self._tick)
 
     def _tick(self) -> None:
         now = datetime.now()
         self.query_one("#clock-body", Static).update(_render_clock(now))
         self.border_subtitle = now.strftime("%d/%m/%Y  %A")
+
+    def pause_animations(self) -> None:
+        if self._clock_timer is not None:
+            self._clock_timer.pause()
+
+    def resume_animations(self) -> None:
+        if self._clock_timer is not None:
+            self._clock_timer.resume()

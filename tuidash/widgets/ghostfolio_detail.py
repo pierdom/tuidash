@@ -734,6 +734,7 @@ class GhostfolioDetailWidget(DashWidget):
         self._ticker_timer:    Timer | None            = None
         self._ticker_tick:     int                     = 0
         self._resize_pending:  bool                    = False
+        self._initial_load_done: bool                  = False
 
     def compose(self) -> ComposeResult:
         with ScrollableContainer() as sc:
@@ -751,7 +752,12 @@ class GhostfolioDetailWidget(DashWidget):
             self._show_error(str(exc))
             return
         self._ticker_timer = self.set_interval(_TICKER_INTERVAL, self._advance_ticker)
-        self._load()
+
+    def on_show(self) -> None:
+        if not self._initial_load_done:
+            self._initial_load_done = True
+            if self._client is not None:
+                self._load()
 
     def set_refresh_interval(self, seconds: int) -> None:
         if self._data_timer is not None:
@@ -810,3 +816,11 @@ class GhostfolioDetailWidget(DashWidget):
         if data is None or self._err:
             return
         self._redraw()
+
+    def pause_animations(self) -> None:
+        if self._ticker_timer is not None:
+            self._ticker_timer.pause()
+
+    def resume_animations(self) -> None:
+        if self._ticker_timer is not None:
+            self._ticker_timer.resume()

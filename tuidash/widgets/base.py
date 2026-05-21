@@ -108,3 +108,9 @@ class DashWidget(Widget):
             self._scroll_captured = True
             self.add_class("scroll-captured")
             event.stop()
+
+    def pause_animations(self) -> None:
+        pass
+
+    def resume_animations(self) -> None:
+        pass

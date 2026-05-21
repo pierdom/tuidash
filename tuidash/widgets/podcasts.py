@@ -899,6 +899,7 @@ class PodcastsWidget(DashWidget):
         self._poll_timer: Timer | None = None
         self._now_playing = ""
         self._auto_resumed = False
+        self._initial_load_done: bool = False
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -931,8 +932,12 @@ class PodcastsWidget(DashWidget):
             self._error("No podcasts configured — set TUIDASH_PODCASTINDEX_IDS")
             return
 
-        self._poll_timer = self.set_interval(0.5, self._trigger_poll)
-        self._load()
+    def on_show(self) -> None:
+        if not self._initial_load_done:
+            self._initial_load_done = True
+            if self._feed_ids:
+                self._poll_timer = self.set_interval(0.5, self._trigger_poll)
+                self._load()
 
     def _error(self, msg: str) -> None:
         self.query_one("#podcasts-placeholder", Static).update(f"[dim red]{msg}[/dim red]")

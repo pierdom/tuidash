@@ -144,3 +144,11 @@ class NewsTickerWidget(DashWidget):
         if feeds is None:
             return
         self._redraw()
+
+    def pause_animations(self) -> None:
+        if self._ticker_timer is not None:
+            self._ticker_timer.pause()
+
+    def resume_animations(self) -> None:
+        if self._ticker_timer is not None:
+            self._ticker_timer.resume()

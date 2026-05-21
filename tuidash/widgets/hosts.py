@@ -319,6 +319,14 @@ class HostsWidget(DashWidget):
             return
         self._redraw()
 
+    def pause_animations(self) -> None:
+        if self._scroll_timer is not None:
+            self._scroll_timer.pause()
+
+    def resume_animations(self) -> None:
+        if self._scroll_timer is not None:
+            self._scroll_timer.resume()
+
 
 def _name_from_url(url: str) -> str:
     hostname = urlparse(url).hostname or url

@@ -174,6 +174,7 @@ class NewsReaderWidget(DashWidget):
         self._feeds: list[tuple[str, str]] = []
         self._data_timer: Timer | None = None
         self._show_pictures: bool = True
+        self._initial_load_done: bool = False
 
     def compose(self) -> ComposeResult:
         with ScrollableContainer(id="news-reader-scroll") as sc:
@@ -190,7 +191,11 @@ class NewsReaderWidget(DashWidget):
             )
             return
         self._feeds = [(url, _COLORS[i % len(_COLORS)]) for i, url in enumerate(urls)]
-        self._load()
+
+    def on_show(self) -> None:
+        if not self._initial_load_done:
+            self._initial_load_done = True
+            self._load()
 
     def set_refresh_interval(self, seconds: int) -> None:
         if self._data_timer is not None:

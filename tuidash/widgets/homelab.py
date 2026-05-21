@@ -422,6 +422,7 @@ class HomelabHostWidget(DashWidget):
         self._url  = url
         self._name = _name_from_url(url)
         self._data_timer: Timer | None = None
+        self._initial_load_done: bool = False
 
     def compose(self) -> ComposeResult:
         with ScrollableContainer(id="host-scroll"):
@@ -430,7 +431,11 @@ class HomelabHostWidget(DashWidget):
     def on_mount(self) -> None:
         self.border_title    = f"  {self._name}"
         self.border_subtitle = "loading…"
-        self._load()
+
+    def on_show(self) -> None:
+        if not self._initial_load_done:
+            self._initial_load_done = True
+            self._load()
 
     def set_refresh_interval(self, seconds: int) -> None:
         if self._data_timer is not None:

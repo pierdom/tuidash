@@ -228,6 +228,7 @@ class TailscaleWidget(DashWidget):
         super().__init__(**kwargs)
         self._api_key: str = ""
         self._data_timer: Timer | None = None
+        self._initial_load_done: bool = False
 
     def compose(self) -> ComposeResult:
         with ScrollableContainer(id="ts-scroll"):
@@ -242,7 +243,12 @@ class TailscaleWidget(DashWidget):
                 Text("Set TUIDASH_TAILSCALE_KEY to enable", style="dim")
             )
             return
-        self._load()
+
+    def on_show(self) -> None:
+        if not self._initial_load_done:
+            self._initial_load_done = True
+            if self._api_key:
+                self._load()
 
     def set_refresh_interval(self, seconds: int) -> None:
         if self._data_timer is not None:

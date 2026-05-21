@@ -212,6 +212,8 @@ class CalFullWidget(DashWidget):
         self._personal_color: str = ""
         self._work_color: str = ""
         self._data_timer: Timer | None = None
+        self._scroll_timer: Timer | None = None
+        self._initial_load_done: bool = False
         self._tick: int = 0
         self._scroll_epoch: int = 0
         self._month_offset: int = 0
@@ -227,12 +229,14 @@ class CalFullWidget(DashWidget):
         self._personal_color = config.get("TUIDASH_PERSONAL_COLOR") or ""
         self._work_url   = config.get("TUIDASH_WORK_ICS")
         self._work_color = config.get("TUIDASH_WORK_COLOR") or ""
-        self._load()
         self._data_timer = self.set_interval(3600.0, self._load)
         self.set_interval(60.0, self._redraw)  # re-render for today highlight at midnight
-        self.set_interval(SCROLL_INTERVAL, self._advance_scroll)
+        self._scroll_timer = self.set_interval(SCROLL_INTERVAL, self._advance_scroll)
 
     def on_show(self) -> None:
+        if not self._initial_load_done:
+            self._initial_load_done = True
+            self._load()
         self.call_after_refresh(self.reset_scroll)
 
     def on_resize(self) -> None:
@@ -259,6 +263,14 @@ class CalFullWidget(DashWidget):
         if self._data_timer is not None:
             self._data_timer.stop()
         self._data_timer = self.set_interval(float(seconds), self._load)
+
+    def pause_animations(self) -> None:
+        if self._scroll_timer is not None:
+            self._scroll_timer.pause()
+
+    def resume_animations(self) -> None:
+        if self._scroll_timer is not None:
+            self._scroll_timer.resume()
 
     @work(thread=True)
     def _load(self) -> None:

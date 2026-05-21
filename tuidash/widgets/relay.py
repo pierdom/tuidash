@@ -148,6 +148,7 @@ class RelayWidget(DashWidget):
         self._data_timer: Timer | None = None
         self._stop     = threading.Event()
         self._sse_resp: requests.Response | None = None
+        self._initial_load_done: bool = False
 
     def compose(self) -> ComposeResult:
         with ScrollableContainer() as sc:
@@ -156,8 +157,12 @@ class RelayWidget(DashWidget):
 
     def on_mount(self) -> None:
         self.border_title = f"  {self._title}"
-        self._load()
-        self._listen()
+
+    def on_show(self) -> None:
+        if not self._initial_load_done:
+            self._initial_load_done = True
+            self._load()
+            self._listen()
 
     def on_unmount(self) -> None:
         self._stop.set()
