@@ -86,8 +86,8 @@ class DashboardPage(BasePage):
             sc.can_focus = False
             with Horizontal(id="row-top"):
                 yield ClockWidget()
-                yield WeatherWidget()
                 yield CalendarWidget()
+                yield WeatherWidget()
             with Horizontal(id="row-mid"):
                 yield GhostfolioWidget()
                 with Vertical(id="conn-hosts-col"):
