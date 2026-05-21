@@ -21,7 +21,8 @@ from textual import work
 from .. import config
 from ..scroll import SCROLL_INTERVAL, current_tick, scroll_offset
 from ..theme import PERF_GREAT, PERF_TERRIBLE
-from .base import DashWidget, neon_bar
+from ..theme import BAR_BG, BAR_HIGH, BAR_LOW, BAR_MID
+from .base import DashWidget
 
 
 _BAR_W = 8
@@ -131,7 +132,12 @@ def _monitor_host(name: str, url: str) -> HostData:
 def _pct_bar(pct: float | None) -> Text:
     if pct is None:
         return Text("?" * _BAR_W, style="dim")
-    return neon_bar(pct, _BAR_W)
+    filled = round(pct / 100 * _BAR_W)
+    color = BAR_LOW if pct < 60 else (BAR_MID if pct < 80 else BAR_HIGH)
+    t = Text()
+    t.append("■" * filled, style=color)
+    t.append("■" * (_BAR_W - filled), style=BAR_BG)
+    return t
 
 
 def _container_color(c: ContainerInfo) -> str:

@@ -20,18 +20,23 @@ from textual import work
 
 from .. import config
 from ..theme import (
-    ACCENT,
+    ACCENT, BAR_BG,
     PERF_BAD, PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE,
 )
-from .base import DashWidget, neon_bar
+from .base import DashWidget
 
 
-class _FluidNeonBar:
-    """neon_bar that fills its Table column at Rich render time (no pre-computed width)."""
+class _FluidSquareBar:
+    """Fluid-width ■ progress bar (ACCENT filled, BAR_BG empty), no gradient."""
     def __init__(self, pct: float) -> None:
         self._pct = pct
     def __rich_console__(self, console, options):
-        yield neon_bar(self._pct, options.max_width)
+        w = options.max_width
+        filled = round(self._pct / 100 * w)
+        t = Text()
+        t.append("■" * filled, style=ACCENT)
+        t.append("■" * (w - filled), style=BAR_BG)
+        yield t
     def __rich_measure__(self, console, options):
         return Measurement(1, options.max_width)
 
@@ -365,7 +370,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     header.add_column(no_wrap=True)
     header.add_row(
         nw,
-        _FluidNeonBar(progress_pct),
+        _FluidSquareBar(progress_pct),
         Text(f"{progress_pct:.1f}%", style="dim"),
         Text(f"→ {sym}{_MASK}" if privacy else f"→ {sym}{_fmt_goal(d.goal)}", style="dim"),
     )

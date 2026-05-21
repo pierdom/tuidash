@@ -22,8 +22,8 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
-from ..theme import PERF_BAD, PERF_GOOD, PERF_GREAT, PERF_TERRIBLE
-from .base import DashWidget, neon_bar
+from ..theme import BAR_BG, PERF_BAD, PERF_GOOD, PERF_GREAT, PERF_TERRIBLE
+from .base import DashWidget
 
 
 _DEFAULT_IPS      = ["1.1.1.1", "8.8.8.8", "192.168.1.1"]
@@ -234,8 +234,8 @@ def _speed_bar(actual: float, max_val: float) -> Text:
     # High speed = good: invert the semantic vs CPU/mem bars
     color  = PERF_GREAT if pct >= 80 else (PERF_GOOD if pct >= 50 else (PERF_BAD if pct >= 20 else PERF_TERRIBLE))
     bar    = Text()
-    bar.append("█" * filled,                   style=color)
-    bar.append("░" * (_SPEED_BAR_W - filled),  style="dim")
+    bar.append("■" * filled,                   style=color)
+    bar.append("■" * (_SPEED_BAR_W - filled),  style=BAR_BG)
     return bar
 
 
