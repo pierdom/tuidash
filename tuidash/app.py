@@ -22,6 +22,7 @@ from textual.binding import Binding
 from textual.containers import ScrollableContainer
 from textual.reactive import reactive
 from textual.timer import Timer
+from textual.widget import Widget
 from textual.widgets import ContentSwitcher, Footer
 
 from . import config
@@ -150,7 +151,7 @@ class TuidashApp(App):
         ],
     ]
 
-    # Add "mobile" class to Screen when terminal width < 90 columns.
+    # Add "mobile" class to Screen when terminal width < 100 columns.
     # Textual handles both startup and subsequent resizes automatically.
     HORIZONTAL_BREAKPOINTS = [(0, "mobile"), (100, "wide")]
 
@@ -492,6 +493,7 @@ def _build_favicon() -> bytes | None:
     except Exception:
         return None
 
+
 _FAVICON_PNG: bytes | None = _build_favicon()
 
 _HEAD_INJECT = (
@@ -717,9 +719,9 @@ def main() -> None:
             public_url = f"http://{public_host}:{args.port}"
 
         # Pick a free localhost port for the internal textual-serve instance.
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as _s:
-            _s.bind(("127.0.0.1", 0))
-            internal_port = _s.getsockname()[1]
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            internal_port = sock.getsockname()[1]
 
         # Tell textual-serve its own localhost URL, not the public one.
         # textual-serve uses the -u URL for internal operations; giving it the
