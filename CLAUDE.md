@@ -64,7 +64,7 @@ tuidash/
     ├── ghostfolio.py   # Ghostfolio portfolio tracker + live ticker
     ├── connectivity.py # Ping / DNS / speed-test connectivity checks
     ├── hosts.py        # Server monitoring via ping + Glances (CPU, MEM, Docker)
-    ├── events.py       # 6-day calendar event list (today + 5 days, 4-column layout) from ICS feeds
+    ├── events.py       # 6-day calendar event list (today + 5 days); 4 columns, 5 columns above 128 chars
     ├── news_ticker.py  # Single-row continuous news ticker (last 6 h, all RSS sources)
     ├── news_reader.py  # Full-page news reader used on page 2
     ├── relay.py        # Generic relay server feed widget (SSE + REST, per-topic)
