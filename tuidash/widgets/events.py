@@ -279,7 +279,8 @@ class EventsWidget(DashWidget):
             day_events = [(d, _events_for_day(self.data, d)) for d in days]
             renderable = _render_events_mobile(day_events, today, col_w, self._tick)
         else:
-            max_cols = 5 if (self.content_size.width or 0) > 128 else 4
+            w = self.content_size.width or 0
+            max_cols = 6 if w > 144 else 5 if w > 128 else 4
             slots = _build_slots(self.data, days, self._avail_h(), max_cols)
             renderable = _render_events(slots, today, self._col_w(len(slots)), self._tick)
 
