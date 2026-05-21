@@ -52,6 +52,12 @@ class DashboardPage(BasePage):
         margin: 0 1 0 0;
     }
 
+    #clock-cal-pair {
+        width: 2fr;
+        height: auto;
+        margin: 0 1 0 0;
+    }
+
     CalendarWidget {
         width: 1fr;
     }
@@ -85,8 +91,9 @@ class DashboardPage(BasePage):
         with ScrollableContainer(id="dashboard-scroll") as sc:
             sc.can_focus = False
             with Horizontal(id="row-top"):
-                yield ClockWidget()
-                yield CalendarWidget()
+                with Horizontal(id="clock-cal-pair"):
+                    yield ClockWidget()
+                    yield CalendarWidget()
                 yield WeatherWidget()
             with Horizontal(id="row-mid"):
                 yield GhostfolioWidget()
