@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 import requests
@@ -80,6 +80,16 @@ _C: dict[str, str | None] = {
 }
 
 _PIXELS: dict[str, list[str]] = {
+    "moon": [
+        "....WWW.....",
+        "..WWWWWWW...",
+        ".WWWW.......",
+        ".WWW........",
+        ".WWW........",
+        ".WWWW.......",
+        "..WWWWWWW...",
+        "....WWW.....",
+    ],
     "clear": [
         "....YYYY....",
         "...YYYYYY...",
@@ -216,6 +226,8 @@ class WeatherData:
     unit_temp: str       # "°C" or "°F"
     unit_wind: str       # "km/h" or "mph"
     forecast: list[ForecastDay] = field(default_factory=list)
+    sunrise: datetime | None = None
+    sunset: datetime | None = None
 
 
 # ── Open-Meteo client ──────────────────────────────────────────────────────────
@@ -253,7 +265,7 @@ def _fetch_weather(location: str, units: str) -> WeatherData:
             "latitude":         lat,
             "longitude":        lon,
             "current":          "temperature_2m,apparent_temperature,weathercode,windspeed_10m",
-            "daily":            "weathercode,temperature_2m_max,temperature_2m_min",
+            "daily":            "weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset",
             "temperature_unit": "celsius" if metric else "fahrenheit",
             "wind_speed_unit":  "kmh" if metric else "mph",
             "forecast_days":    7,
@@ -277,6 +289,13 @@ def _fetch_weather(location: str, units: str) -> WeatherData:
         for i in range(0, min(6, len(daily["time"])))
     ]
 
+    sunrise = sunset = None
+    try:
+        sunrise = datetime.fromisoformat(daily["sunrise"][0])
+        sunset  = datetime.fromisoformat(daily["sunset"][0])
+    except Exception:
+        pass
+
     return WeatherData(
         location=location,
         temp=cur["temperature_2m"],
@@ -286,6 +305,8 @@ def _fetch_weather(location: str, units: str) -> WeatherData:
         unit_temp="°C" if metric else "°F",
         unit_wind="km/h" if metric else "mph",
         forecast=forecast,
+        sunrise=sunrise,
+        sunset=sunset,
     )
 
 
@@ -346,6 +367,10 @@ def _h_bar(t_min: float, t_max: float, g_min: float, g_max: float, metric: bool)
 
 def _render_weather(d: WeatherData) -> Table:
     art_key = _PIXEL_KEY.get(d.condition, "cloudy")
+    if art_key == "clear" and d.sunrise is not None and d.sunset is not None:
+        now = datetime.now()
+        if now < d.sunrise or now >= d.sunset:
+            art_key = "moon"
 
     # ── left: pixel art + current reading ────────────────────────────────
     left = _render_pixels(art_key)
