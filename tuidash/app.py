@@ -478,20 +478,21 @@ def _detect_serve_ip() -> str:
 # proxy that intercepts the HTML page response and injects the one-liner fix;
 # WebSocket connections (the actual TUI stream) are tunneled transparently.
 
-# Rewrites the hardcoded absolute WebSocket URL that textual-serve bakes into
-# data-session-websocket-url so the same HTML works regardless of which
-# hostname/proxy the browser used to reach the page (LAN, Tailscale, NGINX…).
-# Injected synchronously just before </body> so #terminal already exists and
-# the attribute is patched before textual.js's DOMContentLoaded listener fires.
-_WS_URL_REWRITE = (
-    b'<script>(function(){'
-    b'var t=document.getElementById("terminal");'
-    b'if(t){t.dataset.sessionWebsocketUrl='
-    b'(location.protocol==="https:"?"wss:":"ws:")+"//"+ location.host+"/ws";}'
-    b'})();</script>'
-)
-
 _MOBILE_INJECT = (
+    # Intercept WebSocket constructor so all connections use location.host —
+    # makes the same HTML work behind any hostname (LAN, Tailscale, mDNS, etc.)
+    # regardless of what URL textual-serve bakes into the page.
+    b'<script>(function(){'
+    b'var O=window.WebSocket;'
+    b'function P(u,p){'
+    b'try{var x=new URL(u);'
+    b'u=(location.protocol==="https:"?"wss:":"ws:")+"//"+location.host+x.pathname+x.search;}'
+    b'catch(e){}'
+    b'return p!==undefined?new O(u,p):new O(u);}'
+    b'P.prototype=O.prototype;'
+    b'P.CONNECTING=O.CONNECTING;P.OPEN=O.OPEN;P.CLOSING=O.CLOSING;P.CLOSED=O.CLOSED;'
+    b'window.WebSocket=P;'
+    b'})();</script>'
     # Prevent the browser page from showing its own scrollbar alongside the
     # Textual scrollbar rendered inside the xterm.js canvas.
     b'<style>html,body{overflow:hidden!important;height:100%!important;}</style>'
@@ -519,6 +520,20 @@ async def _pipe(r, w) -> None:
             w.close()
         except Exception:
             pass
+
+
+async def _read_chunked(r) -> bytes:
+    body = bytearray()
+    while True:
+        size_line = await r.readline()
+        size = int(size_line.split(b";", 1)[0].strip(), 16)
+        if size == 0:
+            await r.readline()
+            break
+        chunk = await r.readexactly(size)
+        await r.readline()
+        body += chunk
+    return bytes(body)
 
 
 async def _proxy_conn(cr, cw, internal_port: int) -> None:
@@ -585,15 +600,24 @@ async def _proxy_conn(cr, cw, internal_port: int) -> None:
             if h in (b"\r\n", b"\n"):
                 break
 
-        if is_html and resp_cl and not is_chunked:
-            body = await ur.read(resp_cl)
+        if is_html:
+            if is_chunked:
+                body = await _read_chunked(ur)
+            elif resp_cl:
+                body = await ur.read(resp_cl)
+            else:
+                body = await ur.read()
             body = body.replace(b"</head>", _MOBILE_INJECT + b"</head>", 1)
-            body = body.replace(b"</body>", _WS_URL_REWRITE + b"</body>", 1)
+            resp_bytes = re.sub(rb"(?i)transfer-encoding:[^\r\n]+\r?\n", b"", bytes(resp))
             resp_bytes = re.sub(
                 rb"(?i)(content-length:\s*)\d+",
                 lambda m: m.group(1) + str(len(body)).encode(),
-                bytes(resp),
+                resp_bytes,
             )
+            if b"content-length:" not in resp_bytes.lower():
+                resp_bytes = resp_bytes.rstrip(b"\r\n") + (
+                    b"\r\nContent-Length: " + str(len(body)).encode() + b"\r\n\r\n"
+                )
             cw.write(resp_bytes + body)
         else:
             cw.write(bytes(resp))
