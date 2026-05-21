@@ -397,19 +397,23 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     def _tx_side() -> Table:
         s = _CURRENCY_SYMBOLS.get(d.currency, f"{d.currency} ")
 
-        def _tx_row(count: int, label: str, vol: float) -> Text:
-            row = Text()
-            row.append(f"{label}", style="")
-            row.append(f"  {count}", style="dim")
-            row.append(f"  {_MASK if privacy else f'{s}{vol:,.0f}'}", style="dim")
-            return row
+        outer = Table.grid(padding=(0, 0))
+        outer.add_column()
+        outer.add_row(Text("● Trades", style="bold dim"))
 
-        t = Table.grid(padding=(0, 0))
-        t.add_column()
-        t.add_row(Text("● Trades", style="bold dim"))
-        t.add_row(_tx_row(d.tx_7d,  "7d",  d.tx_7d_vol))
-        t.add_row(_tx_row(d.tx_30d, "30d", d.tx_30d_vol))
-        return t
+        rows = Table.grid(padding=(0, 1))
+        rows.add_column(no_wrap=True)
+        rows.add_column(no_wrap=True, justify="right")
+        rows.add_column(no_wrap=True, justify="right")
+        for label, count, vol in [("7d", d.tx_7d, d.tx_7d_vol), ("30d", d.tx_30d, d.tx_30d_vol)]:
+            rows.add_row(
+                Text(label),
+                Text(str(count), style="dim"),
+                Text(_MASK if privacy else f"{s}{vol:,.0f}", style="dim"),
+            )
+
+        outer.add_row(rows)
+        return outer
 
     gl = Table.grid(expand=True, padding=(0, 2))
     gl.add_column(ratio=1)
