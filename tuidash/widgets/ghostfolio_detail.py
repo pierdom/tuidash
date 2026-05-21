@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from calendar import monthrange
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import date as _D
 from typing import Any
 
 from rich.console import Group
@@ -255,15 +257,11 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
         h.today_pct = ticker_map.get(h.symbol)
 
     # ── monthly activity ───────────────────────────────────────────────────────
-    from datetime import date as _D
-    from calendar import monthrange
-
     def _month_perf(year: int, month: int) -> PerfStats:
         """Extract performance for a complete month from the 1y chart."""
-        import datetime
-        start_iso = datetime.date(year, month, 1).isoformat()
+        start_iso = _D(year, month, 1).isoformat()
         _, last = monthrange(year, month)
-        end_iso = datetime.date(year, month, last).isoformat()
+        end_iso = _D(year, month, last).isoformat()
         prev_entry: dict = {}
         end_entry: dict = {}
         for entry in chart_1y:

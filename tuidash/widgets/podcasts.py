@@ -793,9 +793,9 @@ class PodcastCard(Widget):
             info.append("  ✓", style=f"dim {PERF_GREAT}")
 
         if is_latest:
-            info.append("  ● LAST", style=f"bold {ACCENT}")
+            info.append("  ● LATEST", style=f"bold {ACCENT}")
         elif is_last:
-            info.append("  ● LAST", style=f"bold {ACCENT}")
+            info.append("  ● OLDEST", style=f"bold {ACCENT}")
 
         self.query_one(f"#info-{self._feed_id}", Static).update(info)
 

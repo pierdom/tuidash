@@ -277,8 +277,8 @@ class CalFullWidget(DashWidget):
         sources = [
             (self._holiday_url,  "red",                 0),
             (self._family_url,   self._family_color,    1),
-            (self._work_url,     self._work_color,      2),
-            (self._personal_url, self._personal_color,  3),
+            (self._personal_url, self._personal_color,  2),
+            (self._work_url,     self._work_color,      3),
         ]
 
         def _fetch(args: tuple) -> list[tuple[date, _Event]]:
