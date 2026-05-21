@@ -365,7 +365,7 @@ def _h_bar(t_min: float, t_max: float, g_min: float, g_max: float, metric: bool)
     return bar
 
 
-def _render_weather(d: WeatherData) -> Table:
+def _render_weather(d: WeatherData, width: int = 999) -> Table:
     art_key = _PIXEL_KEY.get(d.condition, "cloudy")
     if art_key == "clear" and d.sunrise is not None and d.sunset is not None:
         now = datetime.now()
@@ -380,6 +380,9 @@ def _render_weather(d: WeatherData) -> Table:
     left.append(f"{d.feels_like:.0f}{d.unit_temp}  ↗{d.wind_speed:.0f}{d.unit_wind}", style="dim")
 
     # ── right: 3-day forecast (today / +1 / +2) as horizontal range bars ──
+    # Layout overhead: 22 chars (art col 16 + sep col 4 + per-col padding 2).
+    # Forecast with day label: 32 chars; without: 27. Drop label below width 54.
+    show_label = width >= 54
     fc = d.forecast[:6]
     metric = d.unit_temp == "°C"
     if not fc:
@@ -389,21 +392,24 @@ def _render_weather(d: WeatherData) -> Table:
         g_max = max(f.t_max for f in fc)
 
         t = Table.grid(padding=(0, 0))
-        t.add_column(width=5,      justify="left")    # "Today" / "Mon" / "Tue"
-        t.add_column(width=1,      justify="left")    # weather icon (all exactly 1 terminal cell)
-        t.add_column(width=5,      justify="right")   # t_min (right-justify adds 1-char buffer)
-        t.add_column(width=_BAR_W)                    # horizontal bar
-        t.add_column(width=4,      justify="left")    # t_max (0 gap after bar)
+        if show_label:
+            t.add_column(width=5, justify="left")      # "Today" / "Mon" / "Tue"
+        t.add_column(width=1,      justify="left")     # weather icon (all exactly 1 terminal cell)
+        t.add_column(width=5,      justify="right")    # t_min (right-justify adds 1-char buffer)
+        t.add_column(width=_BAR_W)                     # horizontal bar
+        t.add_column(width=4,      justify="left")     # t_max (0 gap after bar)
 
         for i, f in enumerate(fc):
-            label = "Today" if i == 0 else f.date.strftime("%a")
-            t.add_row(
-                label,
+            row: list[Any] = []
+            if show_label:
+                row.append("Today" if i == 0 else f.date.strftime("%a"))
+            row += [
                 _wx_icon(f.condition),
                 f"{f.t_min:.0f}{d.unit_temp}",
                 _h_bar(f.t_min, f.t_max, g_min, g_max, metric),
                 f"{f.t_max:.0f}{d.unit_temp}",
-            )
+            ]
+            t.add_row(*row)
 
         right = t
 
@@ -468,8 +474,17 @@ class WeatherWidget(DashWidget):
         self._err = msg
         self.query_one("#wx-body", Static).update(f"[red]Error:[/red] {msg}")
 
+    def on_resize(self) -> None:
+        if self.data is not None and not self._err:
+            self._redraw()
+
     def watch_data(self, data: WeatherData | None) -> None:
         if data is None or self._err:
             return
+        self._redraw()
+
+    def _redraw(self) -> None:
         self.border_subtitle = self._location
-        self.query_one("#wx-body", Static).update(_render_weather(data))
+        self.query_one("#wx-body", Static).update(
+            _render_weather(self.data, self.content_size.width)  # type: ignore[arg-type]
+        )

@@ -26,27 +26,47 @@ def _render_month(
     personal_color: str = "",
     work_dates: frozenset[date] = frozenset(),
     work_color: str = "",
+    width: int = 999,
 ) -> Align:
     year, month = today.year, today.month
     _, num_days = monthrange(year, month)
     first_wd = date(year, month, 1).weekday()  # 0=Mon … 6=Sun
 
-    # week-number col (5) + 7 day cols (3 each) = 26 chars total
+    # week-number col (5) + 7 day cols (3 each) = 26 chars; drop week col below 26.
+    # Below 21: trim extreme cols to width 2 (Mon left-aligned, Sun right-aligned)
+    # to remove the outer blank — total 2+3×5+2 = 19 chars.
+    show_wn = width >= 26
+    trim    = width < 21
     grid = Table.grid(padding=(0, 0))
-    grid.add_column(width=5, justify="left")
-    for _ in range(7):
-        grid.add_column(width=3, justify="right")
+    if show_wn:
+        grid.add_column(width=5, justify="left")
+    if trim:
+        grid.add_column(width=2, justify="left")   # Mon: digit at col 0, no leading blank
+        for _ in range(5):
+            grid.add_column(width=3, justify="right")
+        grid.add_column(width=2, justify="right")  # Sun: no trailing blank
+    else:
+        for _ in range(7):
+            grid.add_column(width=3, justify="right")
 
     _wd = f"bold {ACCENT} on {BORDER}"
     _we = f"dim {ACCENT} on {BORDER}"
-    grid.add_row(
-        Text("     "),
-        Text(" M ", style=_wd), Text(" T ", style=_wd), Text(" W ", style=_wd),
-        Text(" T ", style=_wd), Text(" F ", style=_wd),
-        Text(" S ", style=_we), Text(" S ", style=_we),
-    )
+    if trim:
+        header = [
+            Text("M", style=_wd), Text(" T ", style=_wd), Text(" W ", style=_wd),
+            Text(" T ", style=_wd), Text(" F ", style=_wd),
+            Text(" S ", style=_we), Text("S", style=_we),
+        ]
+    else:
+        header = [
+            Text(" M ", style=_wd), Text(" T ", style=_wd), Text(" W ", style=_wd),
+            Text(" T ", style=_wd), Text(" F ", style=_wd),
+            Text(" S ", style=_we), Text(" S ", style=_we),
+        ]
+    grid.add_row(*([Text("     ")] + header if show_wn else header))
 
-    cells: list[Text] = [Text("   ")] * first_wd
+    _blank = Text("  ") if trim else Text("   ")
+    cells: list[Text] = [_blank] * first_wd
 
     for day_n in range(1, num_days + 1):
         d = date(year, month, day_n)
@@ -84,9 +104,13 @@ def _render_month(
         cells.append(Text(str(day_n), style=style, justify="right"))
 
     while len(cells) % 7:
-        cells.append(Text("   "))
+        cells.append(_blank)
 
     for i in range(0, len(cells), 7):
+        day_cells = cells[i : i + 7]
+        if not show_wn:
+            grid.add_row(*day_cells)
+            continue
         first_valid = max(i, first_wd)
         if first_valid < first_wd + num_days:
             wn = Text()
@@ -97,7 +121,7 @@ def _render_month(
             wn.append(" ")
         else:
             wn = Text("     ")
-        grid.add_row(wn, *cells[i : i + 7])
+        grid.add_row(wn, *day_cells)
 
     return Align.center(grid)
 
@@ -235,11 +259,15 @@ class CalendarWidget(DashWidget):
         self._work_dates = dates
         self._update_calendar()
 
+    def on_resize(self) -> None:
+        self._update_calendar()
+
     def _update_calendar(self) -> None:
         today = date.today()
         self.query_one("#cal-body", Static).update(
             _render_month(today, self._holidays, self._family_dates, self._family_color,
                           self._personal_dates, self._personal_color,
-                          self._work_dates, self._work_color)
+                          self._work_dates, self._work_color,
+                          width=self.content_size.width)
         )
         self.border_subtitle = today.strftime("%B %Y")
