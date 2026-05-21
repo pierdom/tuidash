@@ -42,6 +42,7 @@ docker-compose.yml     # mounts .env, maps port 8080, sets TUIDASH_SERVE_URL=htt
 palettes/              # 10 bundled palettes; drop custom files here
 tuidash/
 ├── app.py              # TuidashApp — navigation, global reactives, config loading, serve entry point
+├── tuidash.png         # Bundled logo; resized to 64×64 and served as /favicon.ico in --serve mode
 ├── config.py           # Thin wrapper around python-dotenv (get / require)
 ├── ics.py              # ICS calendar parser (events)
 ├── scroll.py           # Shared boomerang-scroll helper (scroll_offset, scroll_window, current_tick)
@@ -49,10 +50,11 @@ tuidash/
 ├── podcast_progress.py # ProgressStore — episode playback state persisted to ~/.local/share/tuidash/podcast_progress.json
 ├── screens/
 │   ├── dashboard.py    # Page 1 — overview dashboard (all widgets)
-│   ├── news.py         # Page 2 — RelayWidget (left) + NewsReaderWidget (right), side by side
-│   ├── calendar.py     # Page 3 — Full-page monthly calendar with events
+│   ├── calendar.py     # Page 2 — Full-page monthly calendar with events
+│   ├── news.py         # Page 3 — RelayWidget (left) + NewsReaderWidget (right), side by side
 │   ├── podcasts.py     # Page 4 — Podcast feed viewer and player
-│   └── portfolio.py    # Page 5 — RelayWidget (left) + GhostfolioDetailWidget (right), side by side
+│   ├── portfolio.py    # Page 5 — RelayWidget (left) + GhostfolioDetailWidget (right), side by side
+│   └── homelab.py      # Page 6 — HomelabHostWidget + TailscaleWidget + HetznerWidget
 └── widgets/
     ├── base.py         # DashWidget — base class for all widgets; also exports neon_bar()
     ├── clock.py        # Pixel-art half-block clock
@@ -68,6 +70,10 @@ tuidash/
     ├── relay.py        # Generic relay server feed widget (SSE + REST, per-topic)
     ├── podcasts.py     # Podcast feed viewer + mpv player (PodcastIndex API)
     ├── header.py       # App header bar: nav buttons (‹/›), net status, title (tap → page menu), play status, privacy lock (◉/○), clock
+    ├── homelab.py      # HomelabHostWidget — host card with Glances stats + container list
+    ├── tailscale.py    # TailscaleWidget — device list from Tailscale API
+    ├── hetzner.py      # HetznerWidget — server + storage list from Hetzner Cloud API
+    ├── ghostfolio_detail.py  # GhostfolioDetailWidget — full portfolio breakdown + monthly activity
     └── rss.py          # RSS feed-fetching library (FeedData, _fetch_feed, _parse_dt)
 ```
 
@@ -84,7 +90,7 @@ TuidashApp (App)                    ← navigation, global reactives, config
 ├── Header
 ├── ContentSwitcher                 ← shows one page at a time (CSS display toggle, no remounting)
 │   ├── DashboardPage (BasePage)    ← page 1 — always mounted
-│   │   ├── #row-top  28%   │ ClockWidget(30) │ WeatherWidget(2fr) │ CalendarWidget(1fr) │
+│   │   ├── #row-top  28%   │ ClockWidget(30) │ CalendarWidget(1fr) │ WeatherWidget(2fr) │
 │   │   ├── #row-mid  auto  │ GhostfolioWidget(50%) │ Vertical: ConnectivityWidget + HostsWidget │
 │   │   ├── #row-bot  1fr   │ EventsWidget(100%)                                            │
 │   │   └── (sibling)  3    │ NewsTickerWidget(100%) — full-width, 1-row ticker             │
@@ -92,8 +98,9 @@ TuidashApp (App)                    ← navigation, global reactives, config
 │   │   └── Horizontal              │ RelayWidget("news", 1fr) │ NewsReaderWidget(1fr) │
 │   ├── CalendarPage (BasePage)     ← page 3 — always mounted
 │   ├── PodcastsPage (BasePage)     ← page 4 — always mounted
-│   └── PortfolioPage (BasePage)    ← page 5 — always mounted
-│       └── Horizontal              │ RelayWidget("financial-analyst", 1fr) │ GhostfolioDetailWidget(1fr) │
+│   ├── PortfolioPage (BasePage)    ← page 5 — always mounted
+│   │   └── Horizontal              │ RelayWidget("financial-analyst", 1fr) │ GhostfolioDetailWidget(1fr) │
+│   └── HomelabPage (BasePage)      ← page 6 — always mounted
 └── Footer
 ```
 
@@ -163,13 +170,9 @@ async def _shutdown(self) -> None:
     os._exit(0)
 ```
 
-**Why:** Textual's `@work(thread=True)` workers run via `asyncio`'s default executor (`run_in_executor`). On quit, `_shutdown()` calls `_close_all()` which waits for every widget's message pump to drain — but pumps can't close until in-flight workers stop posting messages, which can take as long as the longest HTTP timeout. `os._exit(0)` bypasses this entirely.
+**Why `os._exit(0)`:** Textual's default `_shutdown()` waits for all widget message pumps to drain, which blocks until every in-flight `@work(thread=True)` worker finishes — up to the longest HTTP timeout. `os._exit(0)` bypasses this. It's safe because the terminal is already restored by `driver.stop_application_mode()` before `_shutdown()` is called; we only need `driver.close()` to flush the writer thread's queued escape sequences. The explicit `\033[0m` + `flush()` prevents custom background colours from bleeding into the shell prompt.
 
-**Why it's safe:** The terminal is restored by `driver.stop_application_mode()` inside `_process_messages()` *before* `_shutdown()` is called. We only need to join the writer thread (`driver.close()`) so the queued alt-screen-off escape sequences are actually flushed to the terminal before the process dies.
-
-**Why the extra escape sequence:** Custom dark backgrounds (e.g. `HEADER_BG = #0d2018`) can bleed into the shell prompt after `os._exit(0)` if the terminal's colour reset was queued but not yet flushed. The explicit `\033[0m` + `flush()` ensures no colour artefacts remain.
-
-Widgets with long-lived background threads (e.g. `RelayWidget`'s SSE listener) should still implement `on_unmount` to set a stop event and close any open response, so those threads exit cleanly if Textual ever manages to drain the pumps (e.g. in test mode).
+Widgets with long-lived background threads (e.g. `RelayWidget`'s SSE listener) should implement `on_unmount` to signal those threads to stop.
 
 ### Global reactives (app.py)
 
@@ -241,11 +244,12 @@ def compose(self) -> ComposeResult:
 
 | Widget / page | Mobile change |
 |---|---|
-| `DashboardPage #row-top` | `layout: vertical; height: auto` — widgets stack vertically |
+| `DashboardPage #row-top` | `layout: grid; grid-size: 2` — ClockWidget + CalendarWidget share row 1; WeatherWidget spans both columns in row 2 |
 | `DashboardPage #row-mid` | `layout: vertical; height: auto` |
 | `DashboardPage #row-bot` | `height: auto` |
-| `ClockWidget` | `width: 100%; height: 6` |
-| `WeatherWidget`, `CalendarWidget`, `GhostfolioWidget` | `width: 100%` |
+| `ClockWidget` | `width: 1fr; height: 100%` — fills its grid cell, matching CalendarWidget height |
+| `CalendarWidget` | `width: 1fr` |
+| `WeatherWidget`, `GhostfolioWidget` | `width: 100%` |
 | `#conn-hosts-col` | `width: 100%` |
 | `EventsWidget` | `height: auto`; vertical day stacking with `─` separators between days |
 | `CalFullWidget` (Calendar page) | Shows colored square indicators (■) per calendar instead of event text |
@@ -256,20 +260,9 @@ def compose(self) -> ComposeResult:
 
 ### Known pending issues — Dashboard mobile scroll
 
-Two issues on the Dashboard page in mobile mode remain unsolved after multiple attempts:
+**Issue 1 — Scroll doesn't work on first visit.** The `.mobile` CSS class is applied during the first resize event (after `_on_mount`), so `show_vertical_scrollbar` starts `False` and Textual's `_scroll_to` bails out. Navigating away and back fixes it. The workaround (`_sync_scroll_mode` called from `on_resize` and `on_show → call_after_refresh`) sets `overflow_y = "scroll"` and `show_vertical_scrollbar = True` as inline Python styles, but the symptom persists.
 
-**Issue 1 — Scroll doesn't work on first visit.** Opening the app in mobile mode, the Dashboard cannot be scrolled. Navigating to another page and back fixes it. Root cause: `show_vertical_scrollbar` (a Textual reactive) starts `False` on the `#dashboard-scroll` `ScrollableContainer`. For `overflow-y: scroll` it is set `True` in widget `_on_mount`, but the `.mobile` CSS class is not yet on the Screen at that point — it is applied during the first resize event (`Screen._on_resize → update_classes`), which fires after `_on_mount`. So the CSS rule `.mobile #dashboard-scroll { overflow-y: scroll; }` never matches at mount, and `show_vertical_scrollbar` stays `False`. Textual's `_scroll_to` checks `allow_vertical_scroll` (= `is_scrollable AND show_vertical_scrollbar`) before scrolling — it bails out while `show_vertical_scrollbar` is `False`.
-
-**Issue 3 — Double scrollbar.** In mobile mode the `#dashboard-scroll` SC shows two adjacent vertical lines that look like a double scrollbar. Suspected cause: `scrollbar-size-vertical` defaulting to 2 chars at mount time before the CSS override takes effect.
-
-**What was tried:**
-
-- Setting `overflow-y: scroll` via `.mobile #dashboard-scroll { ... }` app CSS — ineffective because `.mobile` is absent at mount time.
-- Setting `sc.styles.overflow_y = "scroll"` and `sc.show_vertical_scrollbar = True` as Python inline styles in `DashboardPage._sync_scroll_mode()`, called from `on_resize` and `_sync_scroll` (`on_show → call_after_refresh`) — `on_resize` fires after `.mobile` is applied, so this should work, but the symptoms persist.
-- Adding `scrollbar-size-vertical: 1` to `DashboardPage.DEFAULT_CSS` for `#dashboard-scroll` — applied at parse time, should be timing-safe, but the double-scrollbar still appears.
-- Wrapping all dashboard rows in a `ScrollableContainer(id="dashboard-scroll")` — this did fix Issue 2 (widget right border hidden by scrollbar overlap), but Issues 1 and 3 remain.
-
-**Current state of the code:** `DashboardPage` has `on_resize → _sync_scroll_mode` and `on_show → call_after_refresh(_sync_scroll) → _sync_scroll_mode`. `_sync_scroll_mode` sets `overflow_y = "scroll"` and `show_vertical_scrollbar = True` as inline styles when `.mobile` is active. `DEFAULT_CSS` has `#dashboard-scroll { scrollbar-size-vertical: 1; }`. The `.mobile #dashboard-scroll` rule was removed from `app.py` CSS as it was redundant with the Python approach.
+**Issue 2 — Double scrollbar.** `#dashboard-scroll` shows two adjacent vertical lines in mobile mode. Suspected cause: `scrollbar-size-vertical` defaulting to 2 chars at mount before the `DEFAULT_CSS` override (`scrollbar-size-vertical: 1`) takes effect.
 
 ---
 
@@ -291,6 +284,10 @@ Two issues on the Dashboard page in mobile mode remain unsolved after multiple a
 **Why not 0.0.0.0:** Chrome 94+ blocks WebSocket connections to `0.0.0.0` — the browser shows a "Textual App placeholder" instead of the dashboard.
 
 **Docker:** The container gets a bridge IP unreachable from the host. `docker-compose.yml` hardcodes `TUIDASH_SERVE_URL=http://localhost:8080` so the browser connects to the host's mapped port instead.
+
+### Favicon
+
+The proxy intercepts `GET /favicon*` and serves `tuidash.png` resized to 64×64 via Pillow. It also injects `<link rel="icon" …>` into the HTML `<head>` via `_HEAD_INJECT`. If `tuidash.png` is missing or Pillow fails, the link tag is omitted and the browser falls back to its default.
 
 ---
 
@@ -525,6 +522,7 @@ Missing values for widget-specific vars show an inline error — they do not cra
 - Playback via `_MpvPlayer` — thin wrapper around `mpv --no-video --input-ipc-server=/tmp/tuidash-mpv.sock` (Unix socket IPC for seek/pause without restarting the process)
 - Episode playback position stored in `~/.local/share/tuidash/podcast_progress.json` keyed by episode GUID + date; resumes from last position on re-open
 - Missing `mpv` binary: error toast shown, all other functionality unaffected
+- Episode badges: `● LATEST` (idx 0, newest in feed), `● OLDEST` (last idx, oldest in feed)
 - Sub-widgets (`PlaybackBar`, `PodcastCard`) use f-string `DEFAULT_CSS` with `BORDER`/`ACCENT` rather than Textual's `$panel`/`$accent` — required because these widgets are composed before the Textual theme is registered
 
 ---
@@ -554,7 +552,7 @@ Missing values for widget-specific vars show an inline error — they do not cra
 | `textual-dev>=1.7.0` | Provides the `textual serve` binary used by `--serve` |
 | `requests>=2.33.1` | HTTP client (weather, Ghostfolio, Speedtest Tracker, Glances, RSS) |
 | `python-dotenv>=1.2.2` | `.env` file loading |
-| `pillow>=11.0.0` | Half-block pixel art thumbnails in the News page reader |
+| `pillow>=11.0.0` | Half-block pixel art thumbnails in the News page reader; favicon resizing in `--serve` mode |
 
 Ping, DNS, and IP detection use only the stdlib.
 
