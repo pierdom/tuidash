@@ -609,8 +609,9 @@ async def _proxy_conn(cr, cw, internal_port: int) -> None:
                 body = await ur.read()
             body = body.replace(b"</head>", _MOBILE_INJECT + b"</head>", 1)
             # textual-serve bakes its public URL into static-asset src/href attributes.
-            # Strip scheme+host+port so the browser fetches them through the proxy.
-            body = re.sub(rb"https?://[^/\"']+(?::\d+)?(?=/)", b"", body)
+            # Strip scheme+host+port (only when a port is explicit, to avoid matching
+            # external URLs like Google Fonts or W3C namespace URIs without ports).
+            body = re.sub(rb"https?://[^/\"':]+:\d+(?=/)", b"", body)
             resp_bytes = re.sub(rb"(?i)transfer-encoding:[^\r\n]+\r?\n", b"", bytes(resp))
             resp_bytes = re.sub(
                 rb"(?i)(content-length:\s*)\d+",
