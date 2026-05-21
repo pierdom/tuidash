@@ -551,9 +551,9 @@ async def _proxy_conn(cr, cw, internal_port: int) -> None:
         raw = bytearray(line)
         is_ws = False
         req_cl = 0
+        internal_host = f"127.0.0.1:{internal_port}".encode()
         while True:
             h = await cr.readline()
-            raw += h
             low = h.lower()
             if b"upgrade" in low and b"websocket" in low:
                 is_ws = True
@@ -562,6 +562,13 @@ async def _proxy_conn(cr, cw, internal_port: int) -> None:
                     req_cl = int(h.split(b":", 1)[1].strip())
                 except Exception:
                     pass
+            # Rewrite Host and Origin so textual-serve sees its own localhost
+            # URL and doesn't reject connections from external hostnames/IPs.
+            if low.startswith(b"host:"):
+                h = b"Host: " + internal_host + b"\r\n"
+            elif low.startswith(b"origin:"):
+                h = b"Origin: http://" + internal_host + b"\r\n"
+            raw += h
             if h in (b"\r\n", b"\n") or not h:
                 break
 
