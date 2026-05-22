@@ -33,27 +33,27 @@ _DESC: dict[int, str] = {
 }
 
 _ICON: dict[int, tuple[str, str]] = {
-    0:  ("☀", "bright_yellow"),
-    1:  ("☀", "bright_yellow"),
-    2:  ("☁", "yellow"),           # partly cloudy: cloud in yellow (vs white for overcast)
-    3:  ("☁", "white"),
+    0:  ("☀︎", "bright_yellow"),
+    1:  ("☀︎", "bright_yellow"),
+    2:  ("☁︎", "yellow"),           # partly cloudy: cloud in yellow (vs white for overcast)
+    3:  ("☁︎", "white"),
     45: ("≋", "grey62"),
     48: ("≋", "grey62"),
-    51: ("☂", "cyan"),             # ☂ U+2602 replaces ☔ U+2614 (Wide → Ambiguous)
-    53: ("☂", "cyan"),
-    55: ("☂", "deep_sky_blue1"),
-    61: ("☂", "deep_sky_blue1"),
-    63: ("☂", "deep_sky_blue1"),
-    65: ("☂", "bold deep_sky_blue1"),
-    71: ("❄", "bright_white"),
-    73: ("❄", "bright_white"),
-    75: ("❄", "bold bright_white"),
-    77: ("❄", "bright_white"),
-    80: ("☂", "cyan"),
-    81: ("☂", "deep_sky_blue1"),
-    82: ("☂", "bold deep_sky_blue1"),
-    85: ("❄", "bright_white"),
-    86: ("❄", "bold bright_white"),
+    51: ("☂︎", "cyan"),             # ☂ U+2602 replaces ☔ U+2614 (Wide → Ambiguous)
+    53: ("☂︎", "cyan"),
+    55: ("☂︎", "deep_sky_blue1"),
+    61: ("☂︎", "deep_sky_blue1"),
+    63: ("☂︎", "deep_sky_blue1"),
+    65: ("☂︎", "bold deep_sky_blue1"),
+    71: ("❄︎", "bright_white"),
+    73: ("❄︎", "bright_white"),
+    75: ("❄︎", "bold bright_white"),
+    77: ("❄︎", "bright_white"),
+    80: ("☂︎", "cyan"),
+    81: ("☂︎", "deep_sky_blue1"),
+    82: ("☂︎", "bold deep_sky_blue1"),
+    85: ("❄︎", "bright_white"),
+    86: ("❄︎", "bold bright_white"),
     95: ("↯", "bright_yellow"),    # ↯ U+21AF replaces ⚡ U+26A1 (Wide → Narrow)
     96: ("↯", "bright_yellow"),
     99: ("↯", "bright_yellow"),
@@ -377,7 +377,7 @@ def _render_weather(d: WeatherData, width: int = 999) -> Table:
     left.append(f"{d.temp:.0f}{d.unit_temp}", style="bold white")
     desc = _DESC.get(d.condition, "")
     left.append(f"  {desc}\n" if desc else "\n", style="dim")
-    left.append(f"{d.feels_like:.0f}{d.unit_temp}  ↗{d.wind_speed:.0f}{d.unit_wind}", style="dim")
+    left.append(f"{d.feels_like:.0f}{d.unit_temp}  ↗︎{d.wind_speed:.0f}{d.unit_wind}", style="dim")
 
     # ── right: 3-day forecast (today / +1 / +2) as horizontal range bars ──
     # Layout overhead: 22 chars (art col 16 + sep col 4 + per-col padding 2).

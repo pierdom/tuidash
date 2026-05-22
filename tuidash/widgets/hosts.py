@@ -199,7 +199,7 @@ def _render_host(
 
     # Left: name + ping
     left = Text()
-    left.append("●", style=f"bold {dot_color}")
+    left.append("●︎", style=f"bold {dot_color}")
     left.append(f" {hd.name}", style="bold")
     if hd.reachable and hd.rtt_ms is not None:
         left.append(f"  {hd.rtt_ms:.0f}ms", style="dim")

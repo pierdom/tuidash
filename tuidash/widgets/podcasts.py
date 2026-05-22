@@ -298,8 +298,8 @@ class PlayPauseButton(Widget):
 
     def render(self) -> Text:
         if self._playing:
-            return Text("⏸", style=f"{ACCENT} bold")
-        return Text("▶", style=f"{ACCENT} bold")
+            return Text("⏸︎", style=f"{ACCENT} bold")
+        return Text("▶︎", style=f"{ACCENT} bold")
 
     def set_playing(self, value: bool) -> None:
         self._playing = value
@@ -342,10 +342,10 @@ class EpisodePlayButton(Widget):
 
     def render(self) -> Text:
         if self._playing and not self._paused:
-            return Text("⏸ Pause",  style=f"{ACCENT} bold")
+            return Text("⏸︎ Pause",  style=f"{ACCENT} bold")
         if self._playing and self._paused:
-            return Text("▶ Resume", style=f"{ACCENT} bold")
-        return Text("▶ Play", style=f"{ACCENT} bold")
+            return Text("▶︎ Resume", style=f"{ACCENT} bold")
+        return Text("▶︎ Play", style=f"{ACCENT} bold")
 
     def on_click(self) -> None:
         self.post_message(self.Pressed(self.feed_id))
@@ -382,7 +382,7 @@ class SeekButton(Widget):
         self.delta = delta
 
     def render(self) -> Text:
-        label = "◀◀ -10s" if self.delta < 0 else "+10s ▶▶"
+        label = "◀︎◀︎ -10s" if self.delta < 0 else "+10s ▶︎▶︎"
         return Text(label, style="bold")
 
     def on_click(self) -> None:
@@ -498,7 +498,7 @@ class LatestEpisodeButton(Widget):
         self.refresh()
 
     def render(self) -> Text:
-        return Text(" ● ", style="" if self._enabled else "dim")
+        return Text(" ●︎ ", style="" if self._enabled else "dim")
 
     def on_click(self) -> None:
         if self._enabled:
@@ -785,17 +785,17 @@ class PodcastCard(Widget):
 
         status = _progress.get_status(ep.id, ep.date_published)
         if status == "new":
-            info.append("  ● NEW", style=f"bold {PERF_GREAT}")
+            info.append("  ●︎ NEW", style=f"bold {PERF_GREAT}")
         elif status == "started":
             saved_pos = _progress.get_position(ep.id)
-            info.append(f"  ▶ {_fmt_time(saved_pos)}", style=PERF_BAD)
+            info.append(f"  ▶︎ {_fmt_time(saved_pos)}", style=PERF_BAD)
         elif status == "completed":
             info.append("  ✓", style=f"dim {PERF_GREAT}")
 
         if is_latest:
-            info.append("  ● LATEST", style=f"bold {ACCENT}")
+            info.append("  ●︎ LATEST", style=f"bold {ACCENT}")
         elif is_last:
-            info.append("  ● OLDEST", style=f"bold {ACCENT}")
+            info.append("  ●︎ OLDEST", style=f"bold {ACCENT}")
 
         self.query_one(f"#info-{self._feed_id}", Static).update(info)
 

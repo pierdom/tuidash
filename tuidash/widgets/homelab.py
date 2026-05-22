@@ -116,7 +116,7 @@ def _container_badge(c: ContainerDetail) -> tuple[str, str]:
         return "✗", PERF_TERRIBLE
     if c.health == "starting":
         return "⚡", PERF_BAD
-    return "●", ACCENT
+    return "●︎", ACCENT
 
 
 # ── Glances fetch ─────────────────────────────────────────────────────────────

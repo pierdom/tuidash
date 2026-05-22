@@ -150,13 +150,13 @@ def _build_devices_table(devices: list[TsDevice]) -> Table:
     )
 
     for d in devices:
-        dot        = "●" if d.online else "○"
+        dot        = "●︎" if d.online else "○︎"
         seen       = "online" if d.online else _fmt_last_seen(d.last_seen)
         dim        = "" if d.online else "dim"
         name_trunc = 13 if d.exit_node else 16
         name_text  = Text(d.name[:name_trunc], style=f"bold {dim}".strip())
         if d.exit_node:
-            name_text.append(" ↗", style=f"bold {ACCENT}")
+            name_text.append(" ↗︎", style=f"bold {ACCENT}")
         tbl.add_row(
             Text(dot,      style=f"bold {ACCENT}" if d.online else f"dim {PERF_TERRIBLE}"),
             name_text,
@@ -182,7 +182,7 @@ def _build_services_table(services: list[TsService]) -> Table:
 
     for s in services:
         tbl.add_row(
-            Text("◆",         style=f"bold {ACCENT}"),
+            Text("◆︎",         style=f"bold {ACCENT}"),
             Text(s.name[:16], style="bold"),
             Text(s.ip,        style="dim"),
         )

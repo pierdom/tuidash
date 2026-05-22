@@ -348,8 +348,8 @@ class PlayStatusWidget(Widget):
         if not self._playing:
             return Text(" ")
         if self._paused:
-            return Text("▶", style="dim")
-        return Text("⏸", style=PERF_GREAT)
+            return Text("▶︎", style="dim")
+        return Text("⏸︎", style=PERF_GREAT)
 
     def on_click(self) -> None:
         if self._playing:
@@ -490,7 +490,7 @@ class DashHeader(Widget):
         self._refresh_title(text)
 
     def set_privacy(self, value: bool) -> None:
-        t = Text("◉", style=ACCENT) if value else Text("○", style="dim")
+        t = Text("◉︎", style=ACCENT) if value else Text("○︎", style="dim")
         self.query_one("#privacy-lock", Static).update(t)
 
     def set_playback(self, playing: bool, paused: bool) -> None:

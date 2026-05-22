@@ -218,7 +218,7 @@ def _summary_col(
         t.append(f"  {subtitle}", style="dim")
     t.append("\n")
     for p in passed:
-        t.append("●", style=PERF_GREAT if p else PERF_TERRIBLE)
+        t.append("●︎", style=PERF_GREAT if p else PERF_TERRIBLE)
         t.append(" ")
     t.append(" ")
     t.append("OK" if ok else "FAIL", style=f"bold {color}")

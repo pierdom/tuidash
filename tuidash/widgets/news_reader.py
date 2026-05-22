@@ -48,7 +48,7 @@ def _render_image(data: bytes) -> Text | None:
 
 def _article_renderable(fd: FeedData, art: Article, show_pictures: bool = True):
     header = Text()
-    header.append("● ", style=fd.color)
+    header.append("●︎ ", style=fd.color)
     header.append(fd.source.upper(), style=f"bold {fd.color}")
     age = _relative_time(art.pub_date)
     if age:
@@ -126,7 +126,7 @@ def _render_articles(feeds: list[FeedData], show_pictures: bool = True) -> Group
     for fd in feeds:
         if not fd.articles:
             line = Text()
-            line.append(f"● {fd.source.upper()}", style=f"bold {fd.color}")
+            line.append(f"●︎ {fd.source.upper()}", style=f"bold {fd.color}")
             line.append(f"  {fd.error}" if fd.error else "  no articles",
                         style="dim red" if fd.error else "dim")
             parts.append(line)

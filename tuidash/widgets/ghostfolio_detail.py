@@ -342,7 +342,7 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
 
 def _perf_cell(label: str, s: PerfStats, cur: str, privacy: bool) -> Text:
     color = PERF_GOOD if s.pct >= 0 else PERF_POOR
-    arrow = "▲" if s.pct >= 0 else "▼"
+    arrow = "▲︎" if s.pct >= 0 else "▼︎"
     t = Text()
     t.append(f"{label}\n", style=f"bold {ACCENT}")
     t.append(f"{arrow} {abs(s.pct):.2f}%\n", style=f"bold {color}")
@@ -438,7 +438,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     progress_pct = min(data.total_value / data.goal * 100, 100.0) if data.goal else 0.0
 
     nw_left = Text()
-    nw_left.append("● ", style=f"bold {dot_color}")
+    nw_left.append("●︎ ", style=f"bold {dot_color}")
     nw_left.append(sym, style="bold dim")
     nw_left.append(_MASK if privacy else f"{data.total_value:,.0f}", style="bold")
     if not privacy and data.today.abs != 0:
@@ -465,7 +465,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     perf.add_row(*[_perf_cell(lbl, s, cur, privacy) for lbl, s in perf_cells])
 
     yr_up    = data.one_year.pct >= 0
-    yr_arrow = "▲" if yr_up else "▼"
+    yr_arrow = "▲︎" if yr_up else "▼︎"
     yr_color = PERF_GOOD if yr_up else PERF_POOR
 
     # ── top movers today ──────────────────────────────────────────────────────
@@ -481,12 +481,12 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         cells: list[Text] = []
         for t in gainers:
             c = Text()
-            c.append(f"▲ {t.symbol}", style=f"bold {PERF_GREAT}")
+            c.append(f"▲︎ {t.symbol}", style=f"bold {PERF_GREAT}")
             c.append(f"  +{t.change_pct:.2f}%", style=PERF_GOOD)
             cells.append(c)
         for t in losers:
             c = Text()
-            c.append(f"▼ {t.symbol}", style=f"bold {PERF_TERRIBLE}")
+            c.append(f"▼︎ {t.symbol}", style=f"bold {PERF_TERRIBLE}")
             c.append(f"  {t.change_pct:.2f}%", style=PERF_POOR)
             cells.append(c)
         if cells:
@@ -519,12 +519,12 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     for h in data.holdings:
         _, cls_color = _ASSET_CLASS.get(h.asset_class.upper(), ("", ""))
         ret_color = PERF_GOOD if h.total_return_pct >= 0 else PERF_POOR
-        ret_arrow = "▲" if h.total_return_pct >= 0 else "▼"
+        ret_arrow = "▲︎" if h.total_return_pct >= 0 else "▼︎"
         ret_str   = f"{ret_arrow}{abs(h.total_return_pct):.1f}%"
 
         day_t = Text()
         if h.today_pct is not None:
-            arr   = "▲" if h.today_pct > 0.05 else ("▼" if h.today_pct < -0.05 else "─")
+            arr   = "▲︎" if h.today_pct > 0.05 else ("▼︎" if h.today_pct < -0.05 else "─")
             day_t = Text(f"{arr}{abs(h.today_pct):.2f}%", style=_ticker_color(h.today_pct))
         val_str  = _MASK if privacy else f"{sym}{h.value:,.0f}"
         hdg.add_row(
@@ -602,7 +602,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     act_max_neg = max((-ma.perf_abs for ma in data.activity if ma.perf_abs < 0), default=0.0)
     for ma in data.activity:
         color = PERF_GOOD if ma.perf_pct >= 0 else PERF_POOR
-        arrow = "▲" if ma.perf_pct >= 0 else "▼"
+        arrow = "▲︎" if ma.perf_pct >= 0 else "▼︎"
         act_tbl.add_row(
             Text(ma.label, style="dim"),
             Text(str(ma.trades), style="dim"),

@@ -17,7 +17,7 @@ from .rss import _COLORS, FeedData, _fetch_feed, _parse_dt
 
 
 _TICKER_INTERVAL = 0.125   # seconds per step (≈8 chars/sec)
-_SEP             = "   ◆   "
+_SEP             = "   ◆︎   "
 _MAX_AGE_HOURS   = 6
 
 

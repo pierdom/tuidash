@@ -42,7 +42,7 @@ class _FluidSquareBar:
 
 
 _TICKER_INTERVAL   = 0.125  # seconds per scroll step (≈8 chars/sec)
-_TICKER_SEP        = "   ◆   "
+_TICKER_SEP        = "   ◆︎   "
 _CURRENCY_SYMBOLS  = {"USD": "$", "EUR": "€", "GBP": "£", "CHF": "Fr "}
 
 
@@ -319,7 +319,7 @@ def _perf_gradient_color(pct: float) -> str:
 
 def _stat_cell(label: str, stats: PerfStats, currency: str, privacy: bool = False) -> Text:
     color = _perf_gradient_color(stats.pct)
-    arrow = "▲" if stats.pct >= 0 else "▼"
+    arrow = "▲︎" if stats.pct >= 0 else "▼︎"
     t = Text()
     t.append(f"{label}\n", style=f"bold {ACCENT}")
     t.append(f"{arrow} {abs(stats.pct):.2f}%\n", style=f"bold {color}")
@@ -329,7 +329,7 @@ def _stat_cell(label: str, stats: PerfStats, currency: str, privacy: bool = Fals
 
 def _holding_line(h: Holding) -> Text:
     color = PERF_GOOD if h.perf_pct >= 0 else PERF_POOR
-    arrow = "▲" if h.perf_pct >= 0 else "▼"
+    arrow = "▲︎" if h.perf_pct >= 0 else "▼︎"
     t = Text()
     t.append(f"{h.symbol[:8]:<8}", style="bold")
     t.append(f"{arrow}{abs(h.perf_pct):.2f}%", style=color)
@@ -360,7 +360,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
         dot_color = PERF_POOR
 
     nw = Text()
-    nw.append("● ", style=f"bold {dot_color}")
+    nw.append("●︎ ", style=f"bold {dot_color}")
     nw.append(f"{sym}{_MASK}" if privacy else f"{sym}{d.total_value:,.2f}", style="bold white")
 
     header = Table.grid(expand=True, padding=(0, 1))
@@ -399,7 +399,7 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
 
         outer = Table.grid(padding=(0, 0))
         outer.add_column()
-        outer.add_row(Text("● Trades", style="bold dim"))
+        outer.add_row(Text("●︎ Trades", style="bold dim"))
 
         rows = Table.grid(padding=(0, 1))
         rows.add_column(no_wrap=True)
@@ -420,8 +420,8 @@ def _render_portfolio(d: PortfolioData, privacy: bool = False) -> Group:
     gl.add_column(ratio=1)
     gl.add_column(ratio=1)
     gl.add_row(
-        _side("▲ Gainers", d.gainers),
-        _side("▼ Losers",  d.losers),
+        _side("▲︎ Gainers", d.gainers),
+        _side("▼︎ Losers",  d.losers),
         _tx_side(),
     )
 
@@ -448,7 +448,7 @@ def _render_ticker(items: list[TickerItem], tick: int, width: int) -> Text:
     for item in items:
         pct   = item.change_pct
         color = _ticker_color(pct)
-        arrow = "▲" if pct > 0.05 else ("▼" if pct < -0.05 else "─")
+        arrow = "▲︎" if pct > 0.05 else ("▼︎" if pct < -0.05 else "─")
 
         segments.append((_TICKER_SEP, "dim"))
         segments.append((item.symbol, f"bold {color}"))
