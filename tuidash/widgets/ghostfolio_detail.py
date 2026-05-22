@@ -19,7 +19,7 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
-from ..theme import ACCENT, PERF_BAD, PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE
+from ..theme import ACCENT, BAR_BG, PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE
 from .base import DashWidget
 from .ghostfolio import (
     GhostfolioClient,
@@ -27,6 +27,7 @@ from .ghostfolio import (
     TickerItem,
     _CURRENCY_SYMBOLS,
     _TICKER_INTERVAL,
+    _FluidSquareBar,
     _ticker_color,
     _render_ticker,
     _fmt_goal,
@@ -47,11 +48,6 @@ _ASSET_CLASS: dict[str, tuple[str, str]] = {
 }
 
 _MASK = "•••••"
-
-# Braille dot bit tables — left col rows 0-3 (top→bottom): 1,2,4,64
-#                           right col rows 0-3 (top→bottom): 8,16,32,128
-_BR_LEFT  = [0x01, 0x02, 0x04, 0x40]
-_BR_RIGHT = [0x08, 0x10, 0x20, 0x80]
 
 
 # ── data models ────────────────────────────────────────────────────────────────
@@ -88,7 +84,7 @@ class AccountDetail:
 
 @dataclass
 class MonthActivity:
-    label: str        # e.g. "Apr 2026" or "May 2026 (MTD)"
+    label: str        # e.g. "Apr 2026"
     trades: int
     perf_pct: float
     perf_abs: float
@@ -109,9 +105,7 @@ class DetailData:
     ticker: list[TickerItem]       = field(default_factory=list)
     accounts: list[AccountDetail]  = field(default_factory=list)
     activity: list[MonthActivity]  = field(default_factory=list)
-    chart_pct: list[float]              = field(default_factory=list)
-    chart_dates: list[str]              = field(default_factory=list)
-    chart_monthly: list[tuple[str, float]] = field(default_factory=list)
+    yearly_trades: int                  = 0
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -300,19 +294,14 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
 
     today_d = _D.today()
     activity: list[MonthActivity] = []
-    for i in range(3):
+    for i in range(13):
         m = today_d.month - i
         y = today_d.year
         while m <= 0:
             m += 12
             y -= 1
-        month_name = _D(y, m, 1).strftime("%b %Y")
-        if i == 0:
-            label = f"{month_name} (MTD)"
-            ps    = mtd
-        else:
-            label = month_name
-            ps    = _month_perf(y, m)
+        label = _D(y, m, 1).strftime("%b %Y")
+        ps    = mtd if i == 0 else _month_perf(y, m)
         activity.append(MonthActivity(
             label=label,
             trades=_count_trades(y, m),
@@ -320,20 +309,16 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
             perf_abs=ps.abs,
         ))
 
-    chart_pct   = [e.get("netPerformanceInPercentage", 0.0) * 100 for e in chart_1y]
-    chart_dates = [e.get("date", "") for e in chart_1y]
-
-    # 12-month bar chart data: incremental monthly performance, oldest first
-    chart_monthly: list[tuple[str, float]] = []
-    for i in range(11, -1, -1):
-        m = today_d.month - i
-        y = today_d.year
-        while m <= 0:
-            m += 12
-            y -= 1
-        label = _D(y, m, 1).strftime("%b")
-        ps = mtd if i == 0 else _month_perf(y, m)
-        chart_monthly.append((label, ps.pct))
+    one_year_ago = _D(today_d.year - 1, today_d.month, today_d.day)
+    yearly_trades = 0
+    for o in orders_raw:
+        if o.get("type") not in ("BUY", "SELL"):
+            continue
+        try:
+            if one_year_ago <= _D.fromisoformat((o.get("date") or "")[:10]) <= today_d:
+                yearly_trades += 1
+        except ValueError:
+            pass
 
     return DetailData(
         total_value=total_value,
@@ -349,124 +334,8 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
         ticker=ticker,
         accounts=accounts,
         activity=activity,
-        chart_pct=chart_pct,
-        chart_dates=chart_dates,
-        chart_monthly=chart_monthly,
+        yearly_trades=yearly_trades,
     )
-
-
-# ── braille monthly bar chart ──────────────────────────────────────────────────
-
-def _braille_monthly_bars(
-    months: list[tuple[str, float]],
-    width: int,
-    height: int,
-) -> tuple[list[Text], Text]:
-    """12-column braille bar chart. Positive months green (up), negative red (down)."""
-    dot_h = height * 4
-    _blank = [Text(chr(0x2800) * width, style="dim") for _ in range(height)]
-    if not months or width < len(months) or dot_h < 4:
-        return _blank, Text(" " * width, style="dim")
-
-    n     = len(months)
-    vals  = [v for _, v in months]
-    max_pos = max((v for v in vals if v > 0), default=0.01)
-    max_neg = max((-v for v in vals if v < 0), default=0.01)
-
-    # Place zero proportionally between positive and negative extents
-    pos_dots = max(2, round(dot_h * max_pos / (max_pos + max_neg)))
-    neg_dots = dot_h - pos_dots
-    zero_dot = neg_dots  # dot index of the zero line (0 = very bottom)
-
-    # Layout: bar_w chars per bar, 1-char gap, centred
-    gap   = 1
-    bar_w = max(1, (width - gap * (n - 1)) // n)
-    left_pad = (width - (bar_w * n + gap * (n - 1))) // 2
-
-    def _bar_cxs(i: int) -> tuple[int, int]:
-        s = left_pad + i * (bar_w + gap)
-        return s, s + bar_w
-
-    # Dot height per bar (positive = above zero, negative = below zero)
-    dot_sizes: list[int] = []
-    for _, pct in months:
-        if pct > 0:
-            dot_sizes.append(max(1, round(pct / max_pos * (pos_dots - 1))))
-        elif pct < 0:
-            dot_sizes.append(-max(1, round(-pct / max_neg * (neg_dots - 1))))
-        else:
-            dot_sizes.append(0)
-
-    rows: list[Text] = []
-    for cy in range(height):
-        dot_base     = (height - 1 - cy) * 4  # lowest dot index in this char row
-        is_zero_cell = dot_base <= zero_dot <= dot_base + 3
-        t = Text()
-
-        for cx in range(width):
-            bar_idx: int | None = None
-            for i in range(n):
-                bs, be = _bar_cxs(i)
-                if bs <= cx < be:
-                    bar_idx = i
-                    break
-
-            if bar_idx is None:
-                # Gap or outer padding — draw axis tick on zero row
-                t.append("─" if is_zero_cell else " ", style="dim")
-                continue
-
-            ds   = dot_sizes[bar_idx]
-            bits = 0
-            if ds > 0:
-                bar_top = zero_dot + ds
-                for dy in range(dot_base, dot_base + 4):
-                    if zero_dot <= dy < bar_top:
-                        r = 3 - (dy - dot_base)
-                        bits |= _BR_LEFT[r] | _BR_RIGHT[r]
-            elif ds < 0:
-                bar_bot = max(0, zero_dot + ds)
-                for dy in range(dot_base, dot_base + 4):
-                    if bar_bot <= dy < zero_dot:
-                        r = 3 - (dy - dot_base)
-                        bits |= _BR_LEFT[r] | _BR_RIGHT[r]
-
-            if not bits:
-                if is_zero_cell:
-                    zr   = 3 - (zero_dot - dot_base)
-                    bits = _BR_LEFT[zr] | _BR_RIGHT[zr]
-                    t.append(chr(0x2800 + bits), style="dim")
-                else:
-                    t.append(chr(0x2800), style="dim")
-                continue
-
-            # Gradient: bright at peak end, dim near zero
-            cell_mid = dot_base + 1
-            if ds > 0:
-                frac = (cell_mid - zero_dot) / ds
-            else:
-                frac = (zero_dot - 1 - cell_mid) / (-ds)
-            frac = max(0.0, min(1.0, frac))
-
-            if ds > 0:
-                style = f"bold {PERF_GREAT}" if frac > 0.70 else PERF_GOOD if frac > 0.35 else f"dim {PERF_GOOD}"
-            else:
-                style = f"bold {PERF_TERRIBLE}" if frac > 0.70 else PERF_POOR if frac > 0.35 else f"dim {PERF_POOR}"
-
-            t.append(chr(0x2800 + bits), style=style)
-
-        rows.append(t)
-
-    # X-axis: 3-char month abbreviations centred under each bar
-    line = [" "] * width
-    for i, (label, _) in enumerate(months):
-        bs, be = _bar_cxs(i)
-        cx = bs + max(0, (be - bs - 3) // 2)
-        for j, c in enumerate(label[:3]):
-            if 0 <= cx + j < width:
-                line[cx + j] = c
-
-    return rows, Text("".join(line), style="dim")
 
 
 # ── rendering ──────────────────────────────────────────────────────────────────
@@ -475,31 +344,91 @@ def _perf_cell(label: str, s: PerfStats, cur: str, privacy: bool) -> Text:
     color = PERF_GOOD if s.pct >= 0 else PERF_POOR
     arrow = "▲" if s.pct >= 0 else "▼"
     t = Text()
-    t.append(f"{label}\n", style="dim")
+    t.append(f"{label}\n", style=f"bold {ACCENT}")
     t.append(f"{arrow} {abs(s.pct):.2f}%\n", style=f"bold {color}")
     t.append(_MASK if privacy else _fmt_delta(s.abs, cur), style=f"dim {color}")
     return t
 
 
-class _FluidBar:
-    """ACCENT progress bar that fills its Table column at Rich render time."""
-    def __init__(self, pct: float) -> None:
-        self._pct = pct
+# ── P&L bar gradient stops ─────────────────────────────────────────────────────
+# Hardcoded hex (like weather temperature bars) — semantic colours, not palette-driven.
+
+_PNL_POS_STOPS: list[tuple[float, tuple[int, int, int]]] = [
+    (0.0, (0x22, 0x77, 0x44)),  # dark green  (small gain)
+    (0.5, (0x33, 0xbb, 0x55)),  # mid green
+    (1.0, (0x55, 0xff, 0x77)),  # bright lime (large gain)
+]
+_PNL_NEG_STOPS: list[tuple[float, tuple[int, int, int]]] = [
+    (0.0, (0xaa, 0x99, 0x22)),  # yellow      (small loss)
+    (0.5, (0xdd, 0x55, 0x22)),  # orange-red
+    (1.0, (0xff, 0x22, 0x22)),  # bright red  (large loss)
+]
+
+
+def _pnl_color(pos: float, stops: list[tuple[float, tuple[int, int, int]]]) -> str:
+    if pos <= stops[0][0]:
+        r, g, b = stops[0][1]
+    elif pos >= stops[-1][0]:
+        r, g, b = stops[-1][1]
+    else:
+        for i in range(len(stops) - 1):
+            t0, c0 = stops[i]
+            t1, c1 = stops[i + 1]
+            if t0 <= pos < t1:
+                frac = (pos - t0) / (t1 - t0)
+                r = round(c0[0] + (c1[0] - c0[0]) * frac)
+                g = round(c0[1] + (c1[1] - c0[1]) * frac)
+                b = round(c0[2] + (c1[2] - c0[2]) * frac)
+                break
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+class _ActivityBar:
+    """Diverging ■-bar anchored at the centre: positives right, negatives left.
+
+    Each side is scaled to its own maximum so the zero line stays fixed.
+    Gradient brightens away from centre (dark near zero, vivid at tip).
+    """
+    def __init__(self, value: float, max_pos: float, max_neg: float) -> None:
+        self._value   = value
+        self._max_pos = max_pos
+        self._max_neg = max_neg
+
     def __rich_console__(self, console, options):
-        w = options.max_width
-        filled = round(self._pct / 100 * w)
-        t = Text()
-        t.append("█" * filled, style=ACCENT)
-        t.append("░" * (w - filled), style="dim")
+        w     = options.max_width
+        total = self._max_pos + self._max_neg
+        if total == 0:
+            yield Text("■" * w, style=BAR_BG)
+            return
+
+        # Place zero proportionally so both sides share the same chars-per-unit scale.
+        left_w  = round(self._max_neg / total * w)
+        right_w = w - left_w
+        t       = Text()
+
+        if self._value >= 0:
+            filled = round(self._value / self._max_pos * right_w) if self._max_pos and right_w else 0
+            t.append("■" * left_w, style=BAR_BG)
+            for i in range(filled):
+                t.append("■", style=_pnl_color(i / max(filled - 1, 1), _PNL_POS_STOPS))
+            t.append("■" * (right_w - filled), style=BAR_BG)
+        else:
+            filled = round(abs(self._value) / self._max_neg * left_w) if self._max_neg and left_w else 0
+            t.append("■" * (left_w - filled), style=BAR_BG)
+            for i in range(filled):
+                t.append("■", style=_pnl_color((filled - 1 - i) / max(filled - 1, 1), _PNL_NEG_STOPS))
+            t.append("■" * right_w, style=BAR_BG)
+
         yield t
+
     def __rich_measure__(self, console, options):
         return Measurement(1, options.max_width)
 
 
+
 def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
-    cur  = data.base_currency
-    sym  = _CURRENCY_SYMBOLS.get(cur, f"{cur} ")
-    wide = width >= 52
+    cur = data.base_currency
+    sym = _CURRENCY_SYMBOLS.get(cur, f"{cur} ")
 
     # ── net worth + goal bar ──────────────────────────────────────────────────
     dot_color = (
@@ -512,18 +441,21 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     nw_left.append("● ", style=f"bold {dot_color}")
     nw_left.append(sym, style="bold dim")
     nw_left.append(_MASK if privacy else f"{data.total_value:,.0f}", style="bold")
+    if not privacy and data.today.abs != 0:
+        sign = "+" if data.today.abs >= 0 else "−"
+        nw_left.append(f"  {sign}{sym}{abs(data.today.abs):,.0f}", style=f"dim {dot_color}")
     nw_left.append("  ")
 
     nw_right = Text()
     nw_right.append(f"  {progress_pct:.1f}%", style="dim")
-    nw_right.append(f"  → {sym}", style="dim")
-    nw_right.append(_MASK if privacy else _fmt_goal(data.goal), style="dim")
+    nw_right.append(f"  → {sym}", style=f"dim {ACCENT}")
+    nw_right.append(_MASK if privacy else _fmt_goal(data.goal), style=ACCENT)
 
     nw_line = Table.grid(expand=True, padding=0)
     nw_line.add_column(no_wrap=True)
     nw_line.add_column(ratio=1)
     nw_line.add_column(no_wrap=True)
-    nw_line.add_row(nw_left, _FluidBar(progress_pct), nw_right)
+    nw_line.add_row(nw_left, _FluidSquareBar(progress_pct), nw_right)
 
     # ── performance grid ─────────────────────────────────────────────────────
     perf_cells = [("Today", data.today), ("WTD", data.wtd), ("MTD", data.mtd), ("YTD", data.ytd)]
@@ -532,18 +464,9 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         perf.add_column(ratio=1)
     perf.add_row(*[_perf_cell(lbl, s, cur, privacy) for lbl, s in perf_cells])
 
-    # ── 1Y monthly bar chart ──────────────────────────────────────────────────
-    chart_h  = 6 if wide else 4
-    cw       = max(4, width - 2)
     yr_up    = data.one_year.pct >= 0
     yr_arrow = "▲" if yr_up else "▼"
     yr_color = PERF_GOOD if yr_up else PERF_POOR
-
-    yr_line = Text()
-    yr_line.append(f"{yr_arrow} {abs(data.one_year.pct):.2f}%", style=f"bold {yr_color}")
-    yr_line.append(f"  {_fmt_delta(data.one_year.abs, cur)}", style=yr_color)
-
-    chart_rows, x_axis = _braille_monthly_bars(data.chart_monthly, cw, chart_h)
 
     # ── top movers today ──────────────────────────────────────────────────────
     movers_parts: list[Any] = []
@@ -568,13 +491,13 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
             cells.append(c)
         if cells:
             mv_grid.add_row(*cells)
-            movers_parts = [Rule(title=" TODAY'S MOVERS", style="dim", align="left"), mv_grid, Text("")]
+            movers_parts = [Rule(title=f" [{ACCENT}]TODAY'S MOVERS[/]", style="dim", align="left"), mv_grid, Text("")]
 
     # ── holdings table ────────────────────────────────────────────────────────
     _S = Text(" ")  # separator cell
     hdg = Table(
         show_header=True,
-        header_style="bold dim",
+        header_style=f"bold {ACCENT}",
         show_edge=False,
         pad_edge=False,
         padding=(0, 0),
@@ -626,17 +549,15 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         filled2 = max(1, round(ac.pct / 100 * bar_area))
         row = Text()
         row.append(f"{ac.label:<{label_w}}", style="dim")
-        row.append("[", style="dim")
-        row.append("█" * filled2,              style=ac.color or ACCENT)
-        row.append("░" * (bar_area - filled2), style="dim")
-        row.append("]", style="dim")
+        row.append("■" * filled2,              style=ac.color or ACCENT)
+        row.append("■" * (bar_area - filled2), style=BAR_BG)
         row.append(f" {ac.pct:.0f}%",          style="dim")
         alloc_rows.append(row)
 
     # ── accounts table ────────────────────────────────────────────────────────
     acct_tbl = Table(
         show_header=True,
-        header_style="bold dim",
+        header_style=f"bold {ACCENT}",
         show_edge=False,
         pad_edge=False,
         box=None,
@@ -647,13 +568,17 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     acct_tbl.add_column("Positions", no_wrap=True, justify="right", width=10)
     acct_tbl.add_column("Total",     no_wrap=True, justify="right", width=10)
 
-    for a in data.accounts:
+    n_acct = len(data.accounts)
+    for i, a in enumerate(data.accounts):
+        frac     = i / max(n_acct - 1, 1)
+        v        = round(0xdd - (0xdd - 0x55) * frac)
+        shade    = f"#{v:02x}{v:02x}{v:02x}"
         name_str = (a.name[:20] + "…") if len(a.name) > 21 else a.name
         acct_tbl.add_row(
-            Text(name_str, style="dim"),
-            Text(_MASK if privacy else f"{sym}{a.cash:,.0f}",      style="dim"),
-            Text(_MASK if privacy else f"{sym}{a.positions:,.0f}", style="dim"),
-            Text(_MASK if privacy else f"{sym}{a.total:,.0f}",     style="bold"),
+            Text(name_str,                                          style=shade),
+            Text(_MASK if privacy else f"{sym}{a.cash:,.0f}",      style=shade),
+            Text(_MASK if privacy else f"{sym}{a.positions:,.0f}", style=shade),
+            Text(_MASK if privacy else f"{sym}{a.total:,.0f}",     style=f"bold {shade}"),
         )
     if not data.accounts:
         acct_tbl.add_row(Text("—", style="dim"), Text(""), Text(""), Text(""))
@@ -661,7 +586,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     # ── activity table ────────────────────────────────────────────────────────
     act_tbl = Table(
         show_header=True,
-        header_style="bold dim",
+        header_style=f"bold {ACCENT}",
         show_edge=False,
         pad_edge=False,
         box=None,
@@ -671,7 +596,10 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
     act_tbl.add_column("Trades", no_wrap=True, justify="right", width=7)
     act_tbl.add_column("Perf",   no_wrap=True, justify="right", width=9)
     act_tbl.add_column("Value",  no_wrap=True, justify="right", width=10)
+    act_tbl.add_column("",       no_wrap=True, ratio=3)
 
+    act_max_pos = max((ma.perf_abs  for ma in data.activity if ma.perf_abs > 0), default=0.0)
+    act_max_neg = max((-ma.perf_abs for ma in data.activity if ma.perf_abs < 0), default=0.0)
     for ma in data.activity:
         color = PERF_GOOD if ma.perf_pct >= 0 else PERF_POOR
         arrow = "▲" if ma.perf_pct >= 0 else "▼"
@@ -680,27 +608,36 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
             Text(str(ma.trades), style="dim"),
             Text(f"{arrow}{abs(ma.perf_pct):.2f}%", style=color),
             Text(_MASK if privacy else _fmt_delta(ma.perf_abs, cur), style=f"dim {color}"),
+            _ActivityBar(ma.perf_abs, act_max_pos, act_max_neg),
         )
 
     n = len(data.holdings)
+    alloc_parts: list = []
+    if data.allocation:
+        alloc_parts = [
+            Rule(title=f" [{ACCENT}]ALLOCATION[/]", style="dim", align="left"),
+            *alloc_rows,
+            Text(""),
+        ]
     return Group(
         nw_line,
         Rule(style="dim"),
         perf,
         Text(""),
-        Rule(title=" 1 YEAR", style="dim", align="left"),
-        yr_line,
-        *chart_rows,
-        x_axis,
-        Text(""),
         *movers_parts,
-        Rule(title=" ACTIVITY", style="dim", align="left"),
+        Rule(title=(
+            f" [{ACCENT}]ACTIVITY[/]  "
+            f"[bold {yr_color}]{yr_arrow} {abs(data.one_year.pct):.2f}%[/]  "
+            f"[dim {yr_color}]{_MASK if privacy else _fmt_delta(data.one_year.abs, cur)}[/]  "
+            f"[dim]{data.yearly_trades} trades[/]"
+        ), style="dim", align="left"),
         act_tbl,
         Text(""),
-        Rule(title=f" HOLDINGS ({n})", style="dim", align="left"),
+        *alloc_parts,
+        Rule(title=f" [{ACCENT}]HOLDINGS ({n})[/]", style="dim", align="left"),
         hdg,
         Text(""),
-        Rule(title=" ACCOUNTS", style="dim", align="left"),
+        Rule(title=f" [{ACCENT}]ACCOUNTS[/]", style="dim", align="left"),
         acct_tbl,
     )
 
