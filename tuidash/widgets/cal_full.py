@@ -18,7 +18,7 @@ from textual import work
 
 from .. import config, ics
 from ..scroll import SCROLL_INTERVAL, current_tick, scroll_window
-from ..theme import BORDER
+from ..theme import ACCENT, BORDER, HEADER_BG
 from .base import DashWidget
 
 
@@ -32,14 +32,17 @@ class _Event:
 
 def _day_style(d: date, today: date, events: list[_Event]) -> str:
     is_weekend = d.weekday() >= 5
+    is_past = d < today
     top = next((e for e in events if e.color), None)
     if top:
-        return f"bold {top.color} reverse" if d == today else f"bold {top.color}"
+        if d == today:
+            return f"bold {HEADER_BG} on {ACCENT}"
+        return top.color if is_past else f"bold {top.color}"
     if d == today:
-        return "bold reverse"
+        return f"bold {HEADER_BG} on {ACCENT}"
     if is_weekend:
         return "bright_black"
-    return ""
+    return "bright_black" if is_past else ""
 
 
 def _make_day_cell(
@@ -56,8 +59,9 @@ def _make_day_cell(
     if in_month:
         t.append(f"{d.day:>{cell_width}}", style=_day_style(d, today, events))
     else:
-        t.append(f"{d.day:>{cell_width}}", style="bright_black")
+        t.append(f"{d.day:>{cell_width}}", style="dim bright_black")
 
+    is_past = d < today
     if mobile:
         shown = 0
         if in_month and events:
@@ -69,26 +73,32 @@ def _make_day_cell(
                     seen.add(ev.priority)
                     if not first:
                         t.append(" ")
-                    t.append("■", style=ev.color)
+                    t.append("■", style=ev.color if not is_past else "bright_black")
                     first = False
             shown = 1
         t.append("\n" * (cell_height - 1 - shown))
     else:
         max_ev = cell_height - 1
         shown = min(len(events), max_ev)
+        overflow = len(events) - max_ev
         for ev_idx, ev in enumerate(events[:max_ev]):
             time_pfx = f"{ev.start_time.hour}:{ev.start_time.minute:02d} " if ev.start_time else ""
-            avail = max(1, cell_width - len(time_pfx))
+            overflow_sfx = f"+{overflow}" if ev_idx == max_ev - 1 and overflow > 0 else ""
+            avail = max(1, cell_width - len(time_pfx) - len(overflow_sfx))
             phase = (d.day * 37 + ev_idx * 13) % 200
             name = scroll_window(ev.summary, avail, tick, phase)
             t.append("\n")
             if in_month:
-                ev_style = ev.color if ev.color else ""
+                ev_style = "bright_black" if is_past else (ev.color if ev.color else "")
                 if time_pfx:
-                    t.append(time_pfx, style="dim")
+                    t.append(time_pfx, style=f"dim {ACCENT}" if not is_past else "bright_black")
                 t.append(name, style=ev_style)
+                if overflow_sfx:
+                    t.append(overflow_sfx, style="dim")
             else:
-                t.append(time_pfx + name, style="bright_black")
+                t.append(time_pfx + name, style="dim bright_black")
+                if overflow_sfx:
+                    t.append(overflow_sfx, style="dim bright_black")
         t.append("\n" * (cell_height - 1 - shown))
 
     return t
@@ -120,11 +130,10 @@ def _render_full_month(
     num_weeks = (first_wd + num_days + 6) // 7
 
     # Layout constants
-    WN_WIDTH = 4
     PADDING  = 1   # chars per side
-    # Total non-content cols: WN + 8 cols × 2-pad + 7 dividers (│)
+    # Total non-content cols: 7 cols × 2-pad + 6 dividers (│)
     _min_col = 2 if mobile else 6
-    day_col_w = max(_min_col, (content_width - WN_WIDTH - 8 * PADDING * 2 - 7) // 7)
+    day_col_w = max(_min_col, (content_width - 7 * PADDING * 2 - 6) // 7)
     # Fixed lines: 1 header row + 1 header-sep + (num_weeks-1) row-seps + 1 closing line = num_weeks + 2
     avail_h  = content_height - num_weeks - 2
     ch_base  = max(2, avail_h // num_weeks)
@@ -137,8 +146,8 @@ def _render_full_month(
         show_lines=True,
         expand=True,
         padding=(0, PADDING),
+        border_style="dim",
     )
-    grid.add_column("", width=WN_WIDTH, no_wrap=True)
     day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     for i, name in enumerate(day_names):
         is_we = i >= 5
@@ -161,32 +170,25 @@ def _render_full_month(
     for wi_idx, wi in enumerate(range(0, len(cells), 7)):
         ch   = ch_base + (1 if wi_idx < ch_extra else 0)
         week = cells[wi : wi + 7]
-        first_curr = next((d for d in week if d.month == month), None)
 
-        wn = Text()
-        if first_curr:
-            wn.append(f"W{first_curr.isocalendar()[1]:02d}", style="dim")
-        wn.append("\n" * (ch - 1))
-
-        row_cells = [wn] + [
+        row_cells = [
             _make_day_cell(d, today, events_by_date.get(d, []), ch, day_col_w, d.month == month, tick, mobile)
             for d in week
         ]
         grid.add_row(*row_cells)
 
     # Build a closing line that exactly mirrors the internal separator rows:
-    # WN segment of ─, then (┴ + day segment) × 7.
+    # (day segment + ┴) × 6 + day segment.
     # Rich distributes ratio=1 columns as: base = avail//7, first (avail%7)
     # columns get base+1.  We replicate that to keep ┴ markers aligned.
-    wn_w   = WN_WIDTH + 2 * PADDING           # = 6
-    avail  = content_width - wn_w - 7         # 7 × divider chars (┴)
+    avail  = content_width - 6         # 6 × divider chars (┴)
     base   = avail // 7
     extra  = avail % 7
-    closing = Text()
-    closing.append("─" * wn_w)
+    closing = Text(style="dim")
     for i in range(7):
-        closing.append("┴")
         closing.append("─" * (base + (1 if i < extra else 0)))
+        if i < 6:
+            closing.append("┴")
 
     return Group(grid, closing)
 
