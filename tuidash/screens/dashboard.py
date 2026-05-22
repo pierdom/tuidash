@@ -146,25 +146,31 @@ class DashboardPage(BasePage):
         self.query_one(GhostfolioWidget).set_privacy(value)
 
     def set_refresh_interval(self, value: int) -> None:
-        try:
-            self.query_one(WeatherWidget).set_refresh_interval(value)
-            self.query_one(CalendarWidget).set_refresh_interval(value)
-            self.query_one(GhostfolioWidget).set_refresh_interval(value)
-            self.query_one(ConnectivityWidget).set_refresh_interval(value)
-            self.query_one(HostsWidget).set_refresh_interval(value)
-            self.query_one(EventsWidget).set_refresh_interval(value)
-            self.query_one(NewsTickerWidget).set_refresh_interval(value)
-        except Exception:
-            pass
+        for call in [
+            lambda: self.query_one(WeatherWidget).set_refresh_interval(value),
+            lambda: self.query_one(CalendarWidget).set_refresh_interval(value),
+            lambda: self.query_one(GhostfolioWidget).set_refresh_interval(value),
+            lambda: self.query_one(ConnectivityWidget).set_refresh_interval(value),
+            lambda: self.query_one(HostsWidget).set_refresh_interval(value),
+            lambda: self.query_one(EventsWidget).set_refresh_interval(value),
+            lambda: self.query_one(NewsTickerWidget).set_refresh_interval(value),
+        ]:
+            try:
+                call()
+            except Exception:
+                pass
 
     def refresh_all(self) -> None:
-        try:
-            self.query_one(WeatherWidget)._load()
-            self.query_one(CalendarWidget)._load()
-            self.query_one(GhostfolioWidget)._load()
-            self.query_one(ConnectivityWidget)._load()
-            self.query_one(HostsWidget)._load()
-            self.query_one(EventsWidget)._load()
-            self.query_one(NewsTickerWidget)._load()
-        except Exception:
-            pass
+        for call in [
+            lambda: self.query_one(WeatherWidget)._load(),
+            lambda: self.query_one(CalendarWidget)._load(),
+            lambda: self.query_one(GhostfolioWidget)._load(),
+            lambda: self.query_one(ConnectivityWidget)._load(),
+            lambda: self.query_one(HostsWidget)._load(),
+            lambda: self.query_one(EventsWidget)._load(),
+            lambda: self.query_one(NewsTickerWidget)._load(),
+        ]:
+            try:
+                call()
+            except Exception:
+                pass

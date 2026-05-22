@@ -6,6 +6,7 @@ import socket
 import struct
 import subprocess
 import time
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
@@ -396,5 +397,6 @@ class ConnectivityWidget(DashWidget):
     def watch_data(self, data: ConnectivityData | None) -> None:
         if data is None or self._err:
             return
-        self.border_subtitle = "OK" if data.overall_ok else "FAIL"
+        ts = datetime.now().strftime("%H:%M")
+        self.border_subtitle = f"{'OK' if data.overall_ok else 'FAIL'}  {ts}"
         self.query_one("#conn-body", Static).update(_render_connectivity(data))
