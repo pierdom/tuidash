@@ -332,7 +332,7 @@ def _holding_line(h: Holding) -> Text:
     arrow = "▲︎" if h.perf_pct >= 0 else "▼︎"
     t = Text()
     t.append(f"{h.symbol[:8]:<8}", style="bold")
-    t.append(f"{arrow}{abs(h.perf_pct):.2f}%", style=color)
+    t.append(f"{arrow} {abs(h.perf_pct):.2f}%", style=color)
     return t
 
 
@@ -440,6 +440,31 @@ def _ticker_color(pct: float) -> str:
     return PERF_POOR
 
 
+_VS15 = "︎"  # variation selector 15 — forces text presentation, zero display width
+
+
+def _disp_len(s: str) -> int:
+    """Display column width: U+FE0E variation selectors are zero-width."""
+    return len(s.replace(_VS15, ""))
+
+
+def _disp_slice(s: str, start: int, end: int) -> str:
+    """Slice string by display columns [start, end), keeping U+FE0E attached to its preceding char."""
+    result: list[str] = []
+    col = 0
+    for ch in s:
+        if ch == _VS15:
+            if result:
+                result.append(ch)
+        else:
+            if col >= end:
+                break
+            if col >= start:
+                result.append(ch)
+            col += 1
+    return "".join(result)
+
+
 def _render_ticker(items: list[TickerItem], tick: int, width: int) -> Text:
     if not items:
         return Text()
@@ -453,13 +478,13 @@ def _render_ticker(items: list[TickerItem], tick: int, width: int) -> Text:
         segments.append((_TICKER_SEP, "dim"))
         segments.append((item.symbol, f"bold {color}"))
         segments.append((" ", ""))
-        segments.append((f"{arrow}{abs(pct):.2f}%", color))
+        segments.append((f"{arrow} {abs(pct):.2f}%", color))
         if item.price is not None:
             segments.append((f"  {item.price:.2f}", "dim"))
 
     segments.append((_TICKER_SEP, "dim"))   # trailing sep → seamless loop
 
-    full_len = sum(len(s) for s, _ in segments)
+    full_len = sum(_disp_len(s) for s, _ in segments)
     if full_len <= width:
         t = Text()
         for seg, style in segments:
@@ -470,11 +495,11 @@ def _render_ticker(items: list[TickerItem], tick: int, width: int) -> Text:
     t        = Text()
     char_pos = 0
     for seg, style in (segments + segments):   # doubled for wrap-around
-        seg_end = char_pos + len(seg)
+        seg_end = char_pos + _disp_len(seg)
         vis_s   = max(offset, char_pos)
         vis_e   = min(offset + width, seg_end)
         if vis_s < vis_e:
-            t.append(seg[vis_s - char_pos : vis_e - char_pos], style=style)
+            t.append(_disp_slice(seg, vis_s - char_pos, vis_e - char_pos), style=style)
         char_pos = seg_end
         if char_pos >= offset + width:
             break

@@ -520,12 +520,12 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         _, cls_color = _ASSET_CLASS.get(h.asset_class.upper(), ("", ""))
         ret_color = PERF_GOOD if h.total_return_pct >= 0 else PERF_POOR
         ret_arrow = "▲︎" if h.total_return_pct >= 0 else "▼︎"
-        ret_str   = f"{ret_arrow}{abs(h.total_return_pct):.1f}%"
+        ret_str   = f"{ret_arrow} {abs(h.total_return_pct):.1f}%"
 
         day_t = Text()
         if h.today_pct is not None:
             arr   = "▲︎" if h.today_pct > 0.05 else ("▼︎" if h.today_pct < -0.05 else "─")
-            day_t = Text(f"{arr}{abs(h.today_pct):.2f}%", style=_ticker_color(h.today_pct))
+            day_t = Text(f"{arr} {abs(h.today_pct):.2f}%", style=_ticker_color(h.today_pct))
         val_str  = _MASK if privacy else f"{sym}{h.value:,.0f}"
         hdg.add_row(
             Text(h.symbol,  style=f"bold {cls_color}"),
@@ -606,7 +606,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         act_tbl.add_row(
             Text(ma.label, style="dim"),
             Text(str(ma.trades), style="dim"),
-            Text(f"{arrow}{abs(ma.perf_pct):.2f}%", style=color),
+            Text(f"{arrow} {abs(ma.perf_pct):.2f}%", style=color),
             Text(_MASK if privacy else _fmt_delta(ma.perf_abs, cur), style=f"dim {color}"),
             _ActivityBar(ma.perf_abs, act_max_pos, act_max_neg),
         )

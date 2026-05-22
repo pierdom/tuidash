@@ -19,6 +19,27 @@ from .rss import _COLORS, FeedData, _fetch_feed, _parse_dt
 _TICKER_INTERVAL = 0.125   # seconds per step (≈8 chars/sec)
 _SEP             = "   ◆︎   "
 _MAX_AGE_HOURS   = 6
+_VS15            = "︎"  # variation selector 15 — zero display width
+
+
+def _disp_len(s: str) -> int:
+    return len(s.replace(_VS15, ""))
+
+
+def _disp_slice(s: str, start: int, end: int) -> str:
+    result: list[str] = []
+    col = 0
+    for ch in s:
+        if ch == _VS15:
+            if result:
+                result.append(ch)
+        else:
+            if col >= end:
+                break
+            if col >= start:
+                result.append(ch)
+            col += 1
+    return "".join(result)
 
 
 def _is_recent(pub_date: str) -> bool:
@@ -48,7 +69,7 @@ def _render_ticker(feeds: list[FeedData], tick: int, width: int) -> Text:
 
     segments.append((_SEP, "dim"))   # trailing sep → seamless loop
 
-    full_len = sum(len(s) for s, _ in segments)
+    full_len = sum(_disp_len(s) for s, _ in segments)
     if full_len <= width:
         t = Text()
         for seg, style in segments:
@@ -59,11 +80,11 @@ def _render_ticker(feeds: list[FeedData], tick: int, width: int) -> Text:
     t        = Text()
     char_pos = 0
     for seg, style in (segments + segments):   # doubled for wrap-around
-        seg_end = char_pos + len(seg)
+        seg_end = char_pos + _disp_len(seg)
         vis_s   = max(offset, char_pos)
         vis_e   = min(offset + width, seg_end)
         if vis_s < vis_e:
-            t.append(seg[vis_s - char_pos : vis_e - char_pos], style=style)
+            t.append(_disp_slice(seg, vis_s - char_pos, vis_e - char_pos), style=style)
         char_pos = seg_end
         if char_pos >= offset + width:
             break

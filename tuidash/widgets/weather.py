@@ -377,7 +377,7 @@ def _render_weather(d: WeatherData, width: int = 999) -> Table:
     left.append(f"{d.temp:.0f}{d.unit_temp}", style="bold white")
     desc = _DESC.get(d.condition, "")
     left.append(f"  {desc}\n" if desc else "\n", style="dim")
-    left.append(f"{d.feels_like:.0f}{d.unit_temp}  ↗︎{d.wind_speed:.0f}{d.unit_wind}", style="dim")
+    left.append(f"{d.feels_like:.0f}{d.unit_temp}  ↗︎ {d.wind_speed:.0f}{d.unit_wind}", style="dim")
 
     # ── right: 3-day forecast (today / +1 / +2) as horizontal range bars ──
     # Layout overhead: 22 chars (art col 16 + sep col 4 + per-col padding 2).
