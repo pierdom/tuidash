@@ -432,10 +432,15 @@ class DashHeader(Widget):
     }}
     DashHeader > #nav-prev,
     DashHeader > #nav-next {{
-        width: 3;
+        width: 5;
         height: 1;
         content-align: center middle;
         color: {ACCENT};
+        text-style: bold;
+    }}
+    .mobile DashHeader > #nav-prev,
+    .mobile DashHeader > #nav-next {{
+        width: 6;
     }}
     DashHeader > #nav-prev:hover,
     DashHeader > #nav-next:hover,
