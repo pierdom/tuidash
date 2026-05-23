@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -168,7 +169,7 @@ def _download_cover(pd: PodcastData) -> None:
 class _MpvPlayer:
     """Thin wrapper around mpv --input-ipc-server for gapless seek/pause."""
 
-    _SOCK = "/tmp/tuidash-mpv.sock"
+    _SOCK = str(Path.home() / ".local" / "share" / "tuidash" / "mpv.sock")
 
     def __init__(self) -> None:
         self._proc: subprocess.Popen | None = None

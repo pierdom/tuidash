@@ -104,3 +104,5 @@ Key variables:
 ## Serve mode
 
 `tuidash --serve` starts a web server so the dashboard can be viewed in a browser or on a tablet. The public URL (used for the WebSocket connection) is auto-detected in this order: `TUIDASH_SERVE_URL` env var → Tailscale IP → LAN IP (`192.168.x.x`) → private IP (`10.x.x.x`) → `localhost`. Set `TUIDASH_SERVE_URL` explicitly when running inside Docker or when auto-detection picks the wrong interface.
+
+> **Security note:** `--serve` has no built-in authentication. The dashboard exposes personal data (finances, calendar, network topology). Do not expose the port directly to the internet — place it behind an authenticated reverse proxy (nginx, Caddy, Tailscale Serve) or restrict access at the firewall level.
