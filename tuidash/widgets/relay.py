@@ -143,8 +143,9 @@ class RelayWidget(DashWidget):
         self._title      = title or f"Relay ({topic})"
         self._show_title = show_title
         self._posts:   list[RelayPost] = []
-        self._last_id: int | None      = None
-        self._err:     str | None      = None
+        self._post_idx: int           = 0
+        self._last_id: int | None     = None
+        self._err:     str | None     = None
         self._data_timer: Timer | None = None
         self._stop     = threading.Event()
         self._sse_resp: requests.Response | None = None
@@ -201,10 +202,27 @@ class RelayWidget(DashWidget):
         self._err = msg
         self.query_one(Static).update(f"[red]Error:[/red] {msg}")
 
+    def prev_post(self) -> None:
+        if self._posts and self._post_idx < len(self._posts) - 1:
+            self._post_idx += 1
+            self.data = list(self._posts)
+
+    def next_post(self) -> None:
+        if self._post_idx > 0:
+            self._post_idx -= 1
+            self.data = list(self._posts)
+
     def watch_data(self, posts: list[RelayPost] | None) -> None:
         if posts is None or self._err:
             return
-        self.query_one(Static).update(_render_posts(posts, self._show_title))
+        if not posts:
+            self.query_one(Static).update(_render_posts([], self._show_title))
+            self.border_subtitle = ""
+            return
+        idx = min(self._post_idx, len(posts) - 1)
+        self.query_one(Static).update(_render_posts([posts[idx]], self._show_title))
+        dot = f"[{ACCENT}]●[/{ACCENT}] " if idx == 0 else ""
+        self.border_subtitle = f"{dot}{idx + 1}/{len(posts)}"
 
     # ── SSE listener (real-time push) ──────────────────────────────────────────
 
@@ -280,4 +298,5 @@ class RelayWidget(DashWidget):
             return
         self._posts.insert(0, post)
         self._last_id = max(self._last_id or 0, post.id)
+        self._post_idx = 0
         self.data = list(self._posts)

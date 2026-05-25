@@ -139,8 +139,8 @@ class TuidashApp(App):
         Binding("left",      "prev_page",        "Prev page",  priority=True),
         Binding("right",     "next_page",        "Next page",  priority=True),
         Binding("space",     "toggle_playback",  "⏯ Play/Pause", priority=True),
-        Binding("comma",     "prev_month",       "Prev month",  priority=True),
-        Binding("full_stop", "next_month",       "Next month",  priority=True),
+        Binding("comma",     "prev_month",       "‹ Prev",  priority=True),
+        Binding("full_stop", "next_month",       "Next ›",  priority=True),
         Binding("pageup",    "scroll_up",        "Scroll up",   show=False, priority=True),
         Binding("pagedown",  "scroll_down",      "Scroll down", show=False, priority=True),
         Binding("up",        "scroll_up_line",   "",            show=False),
@@ -357,9 +357,12 @@ class TuidashApp(App):
         except Exception:
             pass
 
+    _RELAY_PAGES = {"page-news", "page-portfolio"}
+
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         if action in ("prev_month", "next_month"):
-            return _PAGES[self._page_idx][1] == "page-calendar"
+            page_id = _PAGES[self._page_idx][1]
+            return page_id == "page-calendar" or page_id in self._RELAY_PAGES
         if action == "toggle_playback":
             from .widgets.podcasts import player as _p
             return _p.running or None
@@ -388,16 +391,32 @@ class TuidashApp(App):
         menu.focus()
 
     def action_prev_month(self) -> None:
-        try:
-            self.query_one("#page-calendar", CalendarPage).action_prev_month()
-        except Exception:
-            pass
+        page_id = _PAGES[self._page_idx][1]
+        if page_id == "page-calendar":
+            try:
+                self.query_one("#page-calendar", CalendarPage).action_prev_month()
+            except Exception:
+                pass
+        elif page_id in self._RELAY_PAGES:
+            try:
+                from .widgets.relay import RelayWidget
+                self.query_one(f"#{page_id}").query_one(RelayWidget).prev_post()
+            except Exception:
+                pass
 
     def action_next_month(self) -> None:
-        try:
-            self.query_one("#page-calendar", CalendarPage).action_next_month()
-        except Exception:
-            pass
+        page_id = _PAGES[self._page_idx][1]
+        if page_id == "page-calendar":
+            try:
+                self.query_one("#page-calendar", CalendarPage).action_next_month()
+            except Exception:
+                pass
+        elif page_id in self._RELAY_PAGES:
+            try:
+                from .widgets.relay import RelayWidget
+                self.query_one(f"#{page_id}").query_one(RelayWidget).next_post()
+            except Exception:
+                pass
 
     def _switch_page(self, idx: int) -> None:
         self._page_idx = idx
