@@ -362,7 +362,7 @@ class TuidashApp(App):
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         if action in ("prev_month", "next_month"):
             page_id = _PAGES[self._page_idx][1]
-            return page_id == "page-calendar" or page_id in self._RELAY_PAGES
+            return page_id in ("page-calendar", "page-dashboard") or page_id in self._RELAY_PAGES
         if action == "toggle_playback":
             from .widgets.podcasts import player as _p
             return _p.running or None
@@ -403,6 +403,12 @@ class TuidashApp(App):
                 self.query_one(f"#{page_id}").query_one(RelayWidget).prev_post()
             except Exception:
                 pass
+        elif page_id == "page-dashboard":
+            try:
+                from .widgets.events import EventsWidget
+                self.query_one("#page-dashboard").query_one(EventsWidget).prev_col()
+            except Exception:
+                pass
 
     def action_next_month(self) -> None:
         page_id = _PAGES[self._page_idx][1]
@@ -415,6 +421,12 @@ class TuidashApp(App):
             try:
                 from .widgets.relay import RelayWidget
                 self.query_one(f"#{page_id}").query_one(RelayWidget).next_post()
+            except Exception:
+                pass
+        elif page_id == "page-dashboard":
+            try:
+                from .widgets.events import EventsWidget
+                self.query_one("#page-dashboard").query_one(EventsWidget).next_col()
             except Exception:
                 pass
 

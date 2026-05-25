@@ -16,6 +16,7 @@ from textual import work
 
 from .. import config, ics
 from ..scroll import SCROLL_INTERVAL, current_tick, scroll_window
+from ..theme import ACCENT
 from .base import DashWidget
 
 
@@ -86,12 +87,13 @@ def _render_events_mobile(
             t.append("\n")
         delta = (day - today).days
         if delta == 0:
-            label = "Today"
+            dot_on = (tick // 2) % 2 == 0
+            t.append("● ", style=f"bold {ACCENT}" if dot_on else f"dim {ACCENT}")
+            t.append("Today", style=f"bold {ACCENT}")
         elif delta == 1:
-            label = "Tomorrow"
+            t.append("Tomorrow", style=f"bold {ACCENT}")
         else:
-            label = day.strftime("%A")
-        t.append(label, style="bold")
+            t.append(day.strftime("%A"), style=f"bold {ACCENT}")
         t.append("  " + day.strftime("%d %b"), style="dim")
 
         if not pairs:
@@ -144,14 +146,14 @@ def _render_events(
         else:
             day = slot.day
             delta = (day - today).days
-            if delta == 0:
-                label = "Today"
-            elif delta == 1:
-                label = "Tomorrow"
-            else:
-                label = day.strftime("%A")
             h = Text()
-            h.append(label, style="bold")
+            if delta == 0:
+                dot_on = (tick // 2) % 2 == 0
+                h.append("● ", style=f"bold {ACCENT}" if dot_on else f"dim {ACCENT}")
+                h.append("Today", style=f"bold {ACCENT}")
+            else:
+                label = "Tomorrow" if delta == 1 else day.strftime("%A")
+                h.append(label, style=f"bold {ACCENT}")
             h.append("  " + day.strftime("%d %b"), style="dim")
             headers.append(h)
     t.add_row(*headers)
@@ -217,6 +219,7 @@ class EventsWidget(DashWidget):
         self._scroll_timer: Timer | None = None
         self._tick: int = 0
         self._scroll_epoch: int = 0
+        self._col_offset: int = 0
 
     def compose(self) -> ComposeResult:
         yield Static("[dim]Loading…[/dim]", id="events-body")
@@ -267,11 +270,19 @@ class EventsWidget(DashWidget):
         if self.data is not None:
             self._redraw()
 
+    def prev_col(self) -> None:
+        self._col_offset -= 1
+        self._redraw()
+
+    def next_col(self) -> None:
+        self._col_offset += 1
+        self._redraw()
+
     def _redraw(self) -> None:
         if self.data is None:
             return
         today = date.today()
-        days = [today + timedelta(days=i) for i in range(6)]
+        days = [today + timedelta(days=i + self._col_offset) for i in range(6)]
 
         mobile = self.screen.has_class("mobile")
         if mobile:
