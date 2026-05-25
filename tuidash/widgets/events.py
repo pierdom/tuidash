@@ -105,12 +105,9 @@ def _render_events_mobile(
         timed   = [(c, ev) for c, ev in pairs if ev.start_time is not None]
 
         for ei, (color, ev) in enumerate(all_day):
-            prefix = "· "
-            available = max(3, col_w - len(prefix))
             phase = (di * 31 + ei * 17) % 60
             t.append("\n")
-            t.append(prefix, style="dim")
-            t.append(scroll_window(ev.summary, available, tick, phase), style=color)
+            t.append(scroll_window(ev.summary, col_w, tick, phase), style=color)
 
         for ei, (color, ev) in enumerate(timed):
             t_str = ev.start_time.strftime("%H:%M")  # type: ignore[union-attr]
@@ -177,11 +174,8 @@ def _render_events(
             if not first:
                 col.append("\n")
             first = False
-            prefix = "· "
-            available = max(3, col_w - len(prefix))
             phase = (ci * 31 + ei * 17) % 60
-            col.append(prefix, style="dim")
-            col.append(scroll_window(ev.summary, available, tick, phase), style=color)
+            col.append(scroll_window(ev.summary, col_w, tick, phase), style=color)
 
         for ei, (color, ev) in enumerate(timed):
             if not first:
