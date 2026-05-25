@@ -133,66 +133,53 @@ def _render_events(
     for _ in slots:
         t.add_column(ratio=1)
 
-    # Header row
-    headers: list[Text] = []
-    for slot in slots:
+    cells: list[Text] = []
+    for ci, slot in enumerate(slots):
+        cell = Text()
+
+        # Header
         if slot.is_overflow:
-            h = Text()
-            h.append("  ↳", style="dim")
-            headers.append(h)
+            cell.append("  ↳", style="dim")
         else:
             day = slot.day
             delta = (day - today).days
-            h = Text()
             if delta == 0:
                 dot_on = (tick // 2) % 2 == 0
-                h.append("● ", style=f"bold {ACCENT}" if dot_on else f"dim {ACCENT}")
-                h.append("Today", style=f"bold {ACCENT}")
+                cell.append("● ", style=f"bold {ACCENT}" if dot_on else f"dim {ACCENT}")
+                cell.append("Today", style=f"bold {ACCENT}")
             else:
                 label = "Tomorrow" if delta == 1 else day.strftime("%A")
-                h.append(label, style=f"bold {ACCENT}")
-            h.append("  " + day.strftime("%d %b"), style="dim")
-            headers.append(h)
-    t.add_row(*headers)
+                cell.append(label, style=f"bold {ACCENT}")
+            cell.append("  " + day.strftime("%d %b"), style="dim")
 
-    # Content column per slot
-    col_texts: list[Text] = []
-    for ci, slot in enumerate(slots):
+        # Events
         pairs = slot.events
-        col = Text()
-
         if not pairs:
-            col.append("—", style="dim")
-            col_texts.append(col)
-            continue
+            cell.append("\n")
+            cell.append("—", style="dim")
+        else:
+            all_day = [(c, ev) for c, ev in pairs if ev.start_time is None]
+            timed   = [(c, ev) for c, ev in pairs if ev.start_time is not None]
 
-        all_day = [(c, ev) for c, ev in pairs if ev.start_time is None]
-        timed   = [(c, ev) for c, ev in pairs if ev.start_time is not None]
+            for ei, (color, ev) in enumerate(all_day):
+                cell.append("\n")
+                phase = (ci * 31 + ei * 17) % 60
+                cell.append(scroll_window(ev.summary, col_w, tick, phase), style=color)
 
-        first = True
-        for ei, (color, ev) in enumerate(all_day):
-            if not first:
-                col.append("\n")
-            first = False
-            phase = (ci * 31 + ei * 17) % 60
-            col.append(scroll_window(ev.summary, col_w, tick, phase), style=color)
+            for ei, (color, ev) in enumerate(timed):
+                cell.append("\n")
+                t_str = ev.start_time.strftime("%H:%M")  # type: ignore[union-attr]
+                if ev.end_time:
+                    t_str += "–" + ev.end_time.strftime("%H:%M")
+                prefix = t_str + " "
+                available = max(3, col_w - len(prefix))
+                phase = (ci * 31 + (len(all_day) + ei) * 17) % 60
+                cell.append(prefix, style="dim")
+                cell.append(scroll_window(ev.summary, available, tick, phase), style=color)
 
-        for ei, (color, ev) in enumerate(timed):
-            if not first:
-                col.append("\n")
-            first = False
-            t_str = ev.start_time.strftime("%H:%M")  # type: ignore[union-attr]
-            if ev.end_time:
-                t_str += "–" + ev.end_time.strftime("%H:%M")
-            prefix = t_str + " "
-            available = max(3, col_w - len(prefix))
-            phase = (ci * 31 + (len(all_day) + ei) * 17) % 60
-            col.append(prefix, style="dim")
-            col.append(scroll_window(ev.summary, available, tick, phase), style=color)
+        cells.append(cell)
 
-        col_texts.append(col)
-
-    t.add_row(*col_texts)
+    t.add_row(*cells)
     return t
 
 
