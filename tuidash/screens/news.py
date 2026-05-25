@@ -30,7 +30,7 @@ class NewsPage(BasePage):
 
     def compose(self) -> ComposeResult:
         with Horizontal():
-            yield RelayWidget("news")
+            yield RelayWidget("news-digest")
             yield NewsReaderWidget()
 
     def on_mount(self) -> None:
