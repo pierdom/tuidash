@@ -22,20 +22,34 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
-from ..theme import ACCENT
+from ..theme import ACCENT, BORDER, HEADER_BG
 from .base import DashWidget
 
 
 # ── palette-aware Markdown ──────────────────────────────────────────────────────
 
 _MD_THEME = Theme({
-    "markdown.h1":        Style(bold=True, color=ACCENT, underline=True),
-    "markdown.h1.border": Style(color=ACCENT),
-    "markdown.h2":        Style(bold=True, color=ACCENT),
-    "markdown.h3":        Style(bold=True, color=ACCENT),
-    "markdown.h4":        Style(bold=True, color=ACCENT),
-    "markdown.code":      Style(bold=True, color=ACCENT),
-    "markdown.link":      Style(color=ACCENT),
+    # headings
+    "markdown.h1":           Style(bold=True, color=ACCENT, underline=True),
+    "markdown.h1.border":    Style(color=ACCENT),
+    "markdown.h2":           Style(bold=True, color=ACCENT),
+    "markdown.h3":           Style(bold=True, color=ACCENT),
+    "markdown.h4":           Style(bold=True, color=ACCENT),
+    "markdown.h5":           Style(bold=True, color=ACCENT),
+    "markdown.h6":           Style(color=ACCENT),
+    # inline
+    "markdown.code":         Style(bold=True, color=ACCENT),
+    "markdown.link":         Style(color=ACCENT),
+    "markdown.link_url":     Style(underline=True, dim=True),
+    # block elements
+    "markdown.code_block":   Style(bgcolor=HEADER_BG),
+    "markdown.hr":           Style(color=BORDER),
+    "markdown.block_quote":  Style(italic=True, dim=True),
+    # lists
+    "markdown.item.bullet":  Style(bold=True, color=ACCENT),
+    "markdown.item.number":  Style(bold=True, color=ACCENT),
+    # tables
+    "markdown.table.header": Style(bold=True, color=ACCENT),
 })
 
 
