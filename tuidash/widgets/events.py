@@ -38,6 +38,8 @@ def _events_for_day(sources: list[_Source], day: date) -> list[tuple[str, ics.Ca
     result: list[tuple[int, str, ics.CalEvent]] = []
     for src in sources:
         for ev in src.events:
+            if not ev.summary:
+                continue
             end = ev.end_date or ev.date
             if ev.date <= day <= end:
                 result.append((src.priority, src.color, ev))
@@ -131,7 +133,7 @@ def _render_events(
 ) -> Table:
     t = Table.grid(expand=True, padding=(0, 1))
     for _ in slots:
-        t.add_column(ratio=1)
+        t.add_column(ratio=1, no_wrap=True)
 
     # Build each column as a list of single-line Text objects (no embedded \n).
     col_lines: list[list[Text]] = []
