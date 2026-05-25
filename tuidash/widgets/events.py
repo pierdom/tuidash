@@ -133,53 +133,66 @@ def _render_events(
     for _ in slots:
         t.add_column(ratio=1)
 
-    cells: list[Text] = []
+    # Build each column as a list of single-line Text objects (no embedded \n).
+    col_lines: list[list[Text]] = []
     for ci, slot in enumerate(slots):
-        cell = Text()
+        lines: list[Text] = []
 
-        # Header
+        # Header line
+        h = Text()
         if slot.is_overflow:
-            cell.append("  ↳", style="dim")
+            h.append("  ↳", style="dim")
         else:
             day = slot.day
             delta = (day - today).days
             if delta == 0:
                 dot_on = (tick // 2) % 2 == 0
-                cell.append("● ", style=f"bold {ACCENT}" if dot_on else f"dim {ACCENT}")
-                cell.append("Today", style=f"bold {ACCENT}")
+                h.append("● ", style=f"bold {ACCENT}" if dot_on else f"dim {ACCENT}")
+                h.append("Today", style=f"bold {ACCENT}")
             else:
                 label = "Tomorrow" if delta == 1 else day.strftime("%A")
-                cell.append(label, style=f"bold {ACCENT}")
-            cell.append("  " + day.strftime("%d %b"), style="dim")
+                h.append(label, style=f"bold {ACCENT}")
+            h.append("  " + day.strftime("%d %b"), style="dim")
+        lines.append(h)
 
-        # Events
+        # Event lines
         pairs = slot.events
         if not pairs:
-            cell.append("\n")
-            cell.append("—", style="dim")
+            ev_line = Text()
+            ev_line.append("—", style="dim")
+            lines.append(ev_line)
         else:
             all_day = [(c, ev) for c, ev in pairs if ev.start_time is None]
             timed   = [(c, ev) for c, ev in pairs if ev.start_time is not None]
 
             for ei, (color, ev) in enumerate(all_day):
-                cell.append("\n")
+                line = Text()
                 phase = (ci * 31 + ei * 17) % 60
-                cell.append(scroll_window(ev.summary, col_w, tick, phase), style=color)
+                line.append(scroll_window(ev.summary, col_w, tick, phase), style=color)
+                lines.append(line)
 
             for ei, (color, ev) in enumerate(timed):
-                cell.append("\n")
+                line = Text()
                 t_str = ev.start_time.strftime("%H:%M")  # type: ignore[union-attr]
                 if ev.end_time:
                     t_str += "–" + ev.end_time.strftime("%H:%M")
                 prefix = t_str + " "
                 available = max(3, col_w - len(prefix))
                 phase = (ci * 31 + (len(all_day) + ei) * 17) % 60
-                cell.append(prefix, style="dim")
-                cell.append(scroll_window(ev.summary, available, tick, phase), style=color)
+                line.append(prefix, style="dim")
+                line.append(scroll_window(ev.summary, available, tick, phase), style=color)
+                lines.append(line)
 
-        cells.append(cell)
+        col_lines.append(lines)
 
-    t.add_row(*cells)
+    # One add_row per display line; pad shorter columns with empty Text.
+    n_rows = max(len(c) for c in col_lines)
+    for ri in range(n_rows):
+        t.add_row(*[
+            col_lines[ci][ri] if ri < len(col_lines[ci]) else Text()
+            for ci in range(len(slots))
+        ])
+
     return t
 
 
