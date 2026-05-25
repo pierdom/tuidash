@@ -111,6 +111,13 @@ def _fetch_posts(topic: str, limit: int = _LIMIT) -> list[RelayPost]:
 
 # ── rendering ──────────────────────────────────────────────────────────────────
 
+def _sanitize(text: str) -> str:
+    # Strip VS16 (U+FE0F, emoji-presentation selector): it makes narrow symbols
+    # like ⚠ render as 2-wide emoji in the terminal while wcwidth still reports
+    # width 1, causing Textual's border to appear shifted on that line.
+    return text.replace("️", "")
+
+
 def _render_posts(posts: list[RelayPost], show_title: bool = True) -> Group:
     if not posts:
         return Group(Text("No posts yet", style="dim"))
@@ -122,11 +129,11 @@ def _render_posts(posts: list[RelayPost], show_title: bool = True) -> Group:
         if show_title:
             ts = post.created_at.astimezone().strftime("%Y-%m-%d %H:%M")
             header = Text()
-            header.append(post.title, style="bold")
+            header.append(_sanitize(post.title), style="bold")
             header.append(f"  {post.source}  {ts}", style="dim")
             items.append(header)
         if post.content.strip():
-            items.append(_PaletteMarkdown(post.content))
+            items.append(_PaletteMarkdown(_sanitize(post.content)))
 
     return Group(*items)
 
