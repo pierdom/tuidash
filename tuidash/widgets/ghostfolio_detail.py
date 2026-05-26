@@ -20,7 +20,7 @@ from textual import work
 
 from .. import config
 from ..theme import ACCENT, BAR_BG, PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE
-from .base import DashWidget
+from .base import DashWidget, color_gradient_bar
 from .ghostfolio import (
     GhostfolioClient,
     PerfStats,
@@ -43,8 +43,8 @@ _ASSET_CLASS: dict[str, tuple[str, str]] = {
     "FIXED_INCOME":   ("Bonds",       "bright_white"),
     "COMMODITY":      ("Commodities", ""),
     "REAL_ESTATE":    ("Real Estate", "magenta"),
-    "CASH":           ("Cash",        "dim"),
-    "LIQUIDITY":      ("Cash",        "dim"),
+    "CASH":           ("Cash",        "#888888"),
+    "LIQUIDITY":      ("Cash",        "#888888"),
 }
 
 _MASK = "•••••"
@@ -549,8 +549,7 @@ def _render_detail(data: DetailData, width: int, privacy: bool) -> Group:
         filled2 = max(1, round(ac.pct / 100 * bar_area))
         row = Text()
         row.append(f"{ac.label:<{label_w}}", style="dim")
-        row.append("■" * filled2,              style=ac.color or ACCENT)
-        row.append("■" * (bar_area - filled2), style=BAR_BG)
+        row.append_text(color_gradient_bar(filled2, bar_area, ac.color or ACCENT))
         row.append(f" {ac.pct:.0f}%",          style="dim")
         alloc_rows.append(row)
 

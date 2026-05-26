@@ -20,23 +20,22 @@ from textual import work
 
 from .. import config
 from ..theme import (
-    ACCENT, BAR_BG,
+    ACCENT,
     PERF_BAD, PERF_FLAT, PERF_GOOD, PERF_GREAT, PERF_POOR, PERF_TERRIBLE,
 )
-from .base import DashWidget
+from .base import DashWidget, accent_gradient_bar
 
 
 class _FluidSquareBar:
-    """Fluid-width ■ progress bar (ACCENT filled, BAR_BG empty), no gradient."""
+    """Fluid-width ■ progress bar with gradient from dim accent to full accent."""
     def __init__(self, pct: float) -> None:
         self._pct = pct
+
     def __rich_console__(self, console, options):
         w = options.max_width
         filled = round(self._pct / 100 * w)
-        t = Text()
-        t.append("■" * filled, style=ACCENT)
-        t.append("■" * (w - filled), style=BAR_BG)
-        yield t
+        yield accent_gradient_bar(filled, w)
+
     def __rich_measure__(self, console, options):
         return Measurement(1, options.max_width)
 

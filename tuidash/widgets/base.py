@@ -1,11 +1,35 @@
 from __future__ import annotations
 
+from rich.color import Color as _RichColor
 from rich.text import Text
 from textual import events
 from textual.containers import ScrollableContainer
 from textual.widget import Widget
 
-from ..theme import BAR_HIGH, BAR_LOW, BAR_MID, BORDER, ACCENT
+from ..theme import ACCENT, BAR_BG, BAR_HIGH, BAR_LOW, BAR_MID, BORDER
+
+
+def color_gradient_bar(filled: int, width: int, color: str) -> Text:
+    """■-block bar with a smooth 30%→100% gradient for any Rich color."""
+    t = Text()
+    if filled > 0:
+        try:
+            triplet = _RichColor.parse(color).get_truecolor()
+            r, g, b = triplet.red, triplet.green, triplet.blue
+            for i in range(filled):
+                frac = i / max(filled - 1, 1)
+                factor = 0.3 + 0.7 * frac
+                c = f"#{round(r * factor):02x}{round(g * factor):02x}{round(b * factor):02x}"
+                t.append("■", style=c)
+        except Exception:
+            t.append("■" * filled, style=color)
+    t.append("■" * (width - filled), style=BAR_BG)
+    return t
+
+
+def accent_gradient_bar(filled: int, width: int) -> Text:
+    """■-block bar with a gradient from dim accent to full accent."""
+    return color_gradient_bar(filled, width, ACCENT)
 
 
 def neon_bar(pct: float | None, width: int = 10) -> Text:

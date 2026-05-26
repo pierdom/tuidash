@@ -23,8 +23,8 @@ from textual.widgets import Static
 from textual import work
 
 from .. import config
-from ..theme import BAR_BG, PERF_BAD, PERF_GOOD, PERF_GREAT, PERF_TERRIBLE
-from .base import DashWidget
+from ..theme import PERF_GOOD, PERF_GREAT, PERF_TERRIBLE
+from .base import DashWidget, accent_gradient_bar
 
 
 _DEFAULT_IPS      = ["1.1.1.1", "8.8.8.8", "192.168.1.1"]
@@ -232,12 +232,7 @@ def _summary_col(
 def _speed_bar(actual: float, max_val: float) -> Text:
     pct    = min(actual / max_val * 100, 100.0) if max_val > 0 else 0.0
     filled = max(0, round(pct / 100 * _SPEED_BAR_W))
-    # High speed = good: invert the semantic vs CPU/mem bars
-    color  = PERF_GREAT if pct >= 80 else (PERF_GOOD if pct >= 50 else (PERF_BAD if pct >= 20 else PERF_TERRIBLE))
-    bar    = Text()
-    bar.append("■" * filled,                   style=color)
-    bar.append("■" * (_SPEED_BAR_W - filled),  style=BAR_BG)
-    return bar
+    return accent_gradient_bar(filled, _SPEED_BAR_W)
 
 
 def _render_speed(d: ConnectivityData) -> Group:
