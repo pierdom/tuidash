@@ -1,0 +1,27 @@
+# tuidash colour palette — phosphor
+# ─────────────────────────────────────────────────────────────────────────────
+# The warm amber glow of a 1970s P3-phosphor terminal, rendered on an
+# OLED-black screen. Every colour is rooted in authentic amber phosphor
+# warmth — except one: perf_great bleeds acid chartreuse, a nod to the
+# green-phosphor screens that predated amber, pushed into neon modernity.
+#
+# Select with:  TUIDASH_PALETTE=phosphor
+
+# ── Core palette ─────────────────────────────────────────────────────────────
+primary = "#ff9900"   # phosphor amber       — border titles, clock, nav, accents
+border  = "#5a2d00"   # dim amber shadow     — widget / button borders
+bg      = "#080501"   # OLED black (warm ε)  — header & footer background
+
+# ── Progress bar gradient (left → right as bar fills) ────────────────────────
+bar_low  = "#ffaa00"  # warm amber glow      — 0 – 60 % of bar width
+bar_mid  = "#e06000"  # deep amber ember     — 60 – 80 % of bar width
+bar_high = "#cc1400"  # phosphor overload    — 80 – 100 % of bar width
+bar_bg   = "#180d00"  # screen void          — unfilled bar background
+
+# ── Performance heatmap ───────────────────────────────────────────────────────
+perf_great    = "#b3ff00"  # acid chartreuse — > +10 %  ← the modern intruder
+perf_good     = "#ffdd44"  # amber-yellow    —   0 to +10 %
+perf_flat     = "#ff9900"  # phosphor amber  —  −5 to   0 %
+perf_bad      = "#cc5500"  # deep ember      — −10 to  −5 %
+perf_poor     = "#992200"  # char-burn       — −20 to −10 %
+perf_terrible = "#770000"  # screen death    — < −20 %

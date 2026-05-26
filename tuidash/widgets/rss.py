@@ -9,17 +9,9 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
+from ..theme import ACCENT, PERF_GREAT, PERF_GOOD, BAR_MID, PERF_BAD, BAR_HIGH, PERF_POOR, PERF_FLAT
 
-_COLORS = [
-    "cyan",
-    "yellow",
-    "magenta",
-    "green",
-    "bright_blue",
-    "orange1",
-    "deep_sky_blue1",
-    "light_salmon3",
-]
+_COLORS = [ACCENT, PERF_GREAT, PERF_GOOD, BAR_MID, PERF_BAD, BAR_HIGH, PERF_POOR, PERF_FLAT]
 
 _ATOM_NS  = "http://www.w3.org/2005/Atom"
 _MEDIA_NS = "http://search.yahoo.com/mrss/"
