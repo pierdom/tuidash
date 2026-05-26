@@ -18,7 +18,7 @@ class CalEvent:
 
 
 _cache: dict[str, tuple[float, list[CalEvent]]] = {}
-_TTL = 3600.0  # 1 hour
+_TTL = 10.0  # deduplicate simultaneous widget requests; real refresh rate is controlled by widget timers
 
 
 def _unfold(text: str) -> str:
