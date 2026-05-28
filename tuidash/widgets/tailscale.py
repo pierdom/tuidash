@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
@@ -37,8 +38,9 @@ class TsDevice:
 
 @dataclass
 class TsService:
-    name: str
-    ip:   str
+    name:   str
+    ip:     str
+    online: bool = False
 
 
 @dataclass
@@ -74,6 +76,17 @@ def _fmt_last_seen(iso: str) -> str:
         return f"{delta // 86400}d ago"
     except Exception:
         return iso[:10]
+
+
+def _tcp_reachable(ip: str, ports: list[str], timeout: float = 2.0) -> bool:
+    for port_spec in ports[:1]:
+        try:
+            port = int(port_spec.split(":")[-1])
+            with socket.create_connection((ip, port), timeout=timeout):
+                return True
+        except Exception:
+            pass
+    return False
 
 
 # ── fetch ─────────────────────────────────────────────────────────────────────
@@ -118,13 +131,21 @@ def _fetch_tailscale(api_key: str) -> TailscaleData:
     services: list[TsService] = []
     r_svc = f_svc.result()
     if r_svc.ok:
+        svc_raw: list[tuple[str, str, list[str]]] = []
         for s in r_svc.json().get("vipServices", []):
             name  = s.get("name", "").replace("svc:", "")
             addrs = s.get("addrs") or []
-            services.append(TsService(
-                name = name,
-                ip   = _ipv4(addrs),
+            ports = s.get("ports") or []
+            svc_raw.append((name, _ipv4(addrs), ports))
+
+        with ThreadPoolExecutor(max_workers=max(len(svc_raw), 1)) as pool:
+            online_flags = list(pool.map(
+                lambda t: _tcp_reachable(t[1], t[2]),
+                svc_raw,
             ))
+
+        for (name, ip, _), online in zip(svc_raw, online_flags):
+            services.append(TsService(name=name, ip=ip, online=online))
     services.sort(key=lambda s: s.name)
 
     return TailscaleData(devices=devices, services=services)
@@ -182,9 +203,9 @@ def _build_services_table(services: list[TsService]) -> Table:
 
     for s in services:
         tbl.add_row(
-            Text("◆︎",         style=f"bold {ACCENT}"),
-            Text(s.name[:16], style="bold"),
-            Text(s.ip,        style="dim"),
+            Text("◆", style=f"bold {ACCENT}" if s.online else "dim"),
+            Text(s.name[:16], style="bold" if s.online else "dim"),
+            Text(s.ip, style="dim"),
         )
     return tbl
 
