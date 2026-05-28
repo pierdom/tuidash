@@ -479,7 +479,7 @@ Missing values for widget-specific vars show an inline error — they do not cra
 
 - `_name_from_url` returns the first hostname label for FQDNs (e.g. `myserver` from `myserver.local`); returns the full IP string for bare IP addresses (e.g. `192.168.1.1`, not `192`)
 - Glances API: tries v4 (`/api/4/`) first, falls back to v3 (`/api/3/`)
-- Container colours: `PERF_GREAT` (healthy), `PERF_TERRIBLE` (unhealthy), `dim` (not running), `""` default (running, no healthcheck) — avoid `"blue"`, which renders as purple in dark themes
+- Container badges: `▪ dim` (not running), `● ACCENT` (running — with or without healthcheck), `● PERF_TERRIBLE` (unhealthy); a `✓ ACCENT` suffix is appended after the container name when the healthcheck reports healthy
 
 ### HomelabPage (`screens/homelab.py`)
 

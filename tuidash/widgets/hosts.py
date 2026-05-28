@@ -96,12 +96,14 @@ def _fetch_glances(base_url: str) -> tuple[float | None, float | None, list[Cont
                 for c in items:
                     if isinstance(c, dict):
                         status = c.get("status", "?")
-                        # Glances may expose health as a dedicated field or
-                        # Docker embeds it in status: "running (healthy)"
                         health = c.get("health", "")
+                        if isinstance(health, dict):
+                            health = health.get("Status", "")
                         if not health:
                             m = re.search(r"\((\w+)\)", status)
                             health = m.group(1) if m else ""
+                        if not health and status.lower() in ("healthy", "unhealthy", "starting"):
+                            health = status.lower()
                         containers.append(ContainerInfo(
                             name=c.get("name", "?"),
                             status=status,
@@ -135,8 +137,11 @@ def _pct_bar(pct: float | None) -> Text:
     return accent_gradient_bar(filled, _BAR_W)
 
 
+_STOPPED_STATES = {"exited", "dead", "created", "paused", "removing"}
+
+
 def _container_color(c: ContainerInfo) -> str:
-    if "running" not in c.status.lower():
+    if c.status.lower().split()[0] in _STOPPED_STATES:
         return "dim"
     if c.health == "healthy":
         return PERF_GREAT

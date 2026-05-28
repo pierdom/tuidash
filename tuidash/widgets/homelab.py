@@ -18,7 +18,7 @@ from textual.timer import Timer
 from textual.widgets import Static
 from textual import work
 
-from ..theme import ACCENT, BAR_HIGH, BAR_LOW, BAR_MID, PERF_BAD, PERF_GREAT, PERF_TERRIBLE
+from ..theme import ACCENT, BAR_HIGH, BAR_LOW, BAR_MID, PERF_TERRIBLE
 from .base import DashWidget, neon_bar
 from .hosts import _name_from_url, _ping_host
 
@@ -106,17 +106,22 @@ def _fmt_uptime(s: str) -> str:
     return s[:8]
 
 
+_STOPPED_STATES = {"exited", "dead", "created", "paused", "removing"}
+
+
+def _is_running(c: ContainerDetail) -> bool:
+    # Glances may surface health state ("healthy") as the status field instead
+    # of "running", so check against known stopped states rather than looking
+    # for "running" / "up ".
+    return c.status.lower().split()[0] not in _STOPPED_STATES
+
+
 def _container_badge(c: ContainerDetail) -> tuple[str, str]:
-    running = "running" in c.status.lower()
-    if not running:
+    if not _is_running(c):
         return "▪", "dim"
-    if c.health == "healthy":
-        return "✓", PERF_GREAT
     if c.health == "unhealthy":
-        return "✗", PERF_TERRIBLE
-    if c.health == "starting":
-        return "⚡", PERF_BAD
-    return "●︎", ACCENT
+        return "●", PERF_TERRIBLE
+    return "●", ACCENT
 
 
 # ── Glances fetch ─────────────────────────────────────────────────────────────
@@ -124,9 +129,13 @@ def _container_badge(c: ContainerDetail) -> tuple[str, str]:
 def _parse_container(c: dict[str, Any]) -> ContainerDetail:
     status = c.get("status", "?")
     health = c.get("health", "")
+    if isinstance(health, dict):
+        health = health.get("Status", "")
     if not health:
         m = re.search(r"\((\w+)\)", status)
         health = m.group(1) if m else ""
+    if not health and status.lower() in ("healthy", "unhealthy", "starting"):
+        health = status.lower()
 
     raw_cpu = c.get("cpu_percent")
     if raw_cpu is None:
@@ -321,12 +330,17 @@ def _build_container_col(containers: list[ContainerDetail], name_w: int) -> Tabl
     )
     for c in containers:
         badge, badge_style = _container_badge(c)
-        running = "running" in c.status.lower()
+        running = _is_running(c)
         cpu_str = f"{c.cpu_pct:.1f}%" if c.cpu_pct is not None else "—"
+        max_name = name_w - 2 if c.health == "healthy" else name_w
+        name_text = Text()
+        name_text.append(c.name[:max_name], style="" if running else "dim")
+        if c.health == "healthy":
+            name_text.append(" ✓", style=ACCENT)
         tbl.add_row(
-            Text(badge,           style=badge_style),
-            Text(c.name[:name_w], style="" if running else "dim"),
-            Text(cpu_str,         style="dim", justify="right"),
+            Text(badge, style=badge_style),
+            name_text,
+            Text(cpu_str, style="dim", justify="right"),
             Text(_fmt_mem_compact(c.mem_used), style="dim"),
         )
     return tbl
