@@ -228,7 +228,7 @@ class CalFullWidget(DashWidget):
         self._family_url   = config.get("TUIDASH_FAMILY_ICS")
         self._family_color = config.get("TUIDASH_FAMILY_COLOR") or ""
         self._personal_url   = config.get("TUIDASH_PERSONAL_ICS")
-        self._personal_color = config.get("TUIDASH_PERSONAL_COLOR") or ""
+        self._personal_color = config.get("TUIDASH_PERSONAL_COLOR") or "cyan"
         self._work_url   = config.get("TUIDASH_WORK_ICS")
         self._work_color = config.get("TUIDASH_WORK_COLOR") or ""
         self._data_timer = self.set_interval(3600.0, self._load)

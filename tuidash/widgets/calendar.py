@@ -167,7 +167,7 @@ class CalendarWidget(DashWidget):
             self._fetch_family()
 
         self._personal_url   = config.get("TUIDASH_PERSONAL_ICS")
-        self._personal_color = config.get("TUIDASH_PERSONAL_COLOR") or ""
+        self._personal_color = config.get("TUIDASH_PERSONAL_COLOR") or "cyan"
         if self._personal_url:
             self._fetch_personal()
 

@@ -227,17 +227,17 @@ class EventsWidget(DashWidget):
         work_url     = config.get("TUIDASH_WORK_ICS")
 
         family_color   = config.get("TUIDASH_FAMILY_COLOR")   or "yellow"
-        personal_color = config.get("TUIDASH_PERSONAL_COLOR") or "teal"
+        personal_color = config.get("TUIDASH_PERSONAL_COLOR") or "cyan"
         work_color     = config.get("TUIDASH_WORK_COLOR")     or "green"
 
         if holiday_url:
             self._sources.append((holiday_url, "red", 0))
         if family_url:
             self._sources.append((family_url, family_color, 1))
-        if work_url:
-            self._sources.append((work_url, work_color, 2))
         if personal_url:
-            self._sources.append((personal_url, personal_color, 3))
+            self._sources.append((personal_url, personal_color, 2))
+        if work_url:
+            self._sources.append((work_url, work_color, 3))
 
         if not self._sources:
             self.query_one("#events-body", Static).update(

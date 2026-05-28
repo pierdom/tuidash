@@ -425,7 +425,7 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_FAMILY_ICS` | — | ICS URL for family calendar events |
 | `TUIDASH_FAMILY_COLOR` | `yellow` | Rich color name for family event days |
 | `TUIDASH_PERSONAL_ICS` | — | ICS URL for personal calendar events |
-| `TUIDASH_PERSONAL_COLOR` | `teal` | Rich color name for personal event days |
+| `TUIDASH_PERSONAL_COLOR` | `cyan` | Rich color name for personal event days |
 | `TUIDASH_WORK_ICS` | — | ICS URL for work calendar events |
 | `TUIDASH_WORK_COLOR` | `green` | Rich color name for work event days |
 | `TUIDASH_RSS_FEEDS` | — | Comma-separated RSS feed URLs |
