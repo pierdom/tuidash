@@ -94,14 +94,22 @@ class RelayPost:
 
 # ── REST fetch ─────────────────────────────────────────────────────────────────
 
-def _fetch_posts(topic: str, limit: int = _LIMIT) -> list[RelayPost]:
+def _tag_params(topic: str | list[str], extra: dict | None = None) -> list[tuple[str, str]]:
+    tags = [topic] if isinstance(topic, str) else topic
+    params: list[tuple[str, str]] = [("tag", t) for t in tags]
+    if extra:
+        params += list(extra.items())
+    return params
+
+
+def _fetch_posts(topic: str | list[str], limit: int = _LIMIT) -> list[RelayPost]:
     if not _BASE_URL:
         raise RuntimeError("Missing required env var: TUIDASH_RELAY_URL")
     if not _TOKEN:
         raise RuntimeError("Missing required env var: TUIDASH_RELAY_TOKEN")
     resp = requests.get(
         f"{_BASE_URL}/posts",
-        params={"tag": topic, "limit": limit},
+        params=_tag_params(topic, {"limit": str(limit)}),
         headers=_auth(),
         timeout=15,
     )
@@ -158,10 +166,11 @@ class RelayWidget(DashWidget):
     RelayWidget Static               { height: auto; }
     """
 
-    def __init__(self, topic: str, title: str | None = None, show_title: bool = True, **kwargs: Any) -> None:
+    def __init__(self, topic: str | list[str], title: str | None = None, show_title: bool = True, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._topic      = topic
-        self._title      = title or f"Relay ({topic})"
+        _label           = topic if isinstance(topic, str) else "+".join(topic)
+        self._title      = title or f"Relay ({_label})"
         self._show_title = show_title
         self._posts:   list[RelayPost] = []
         self._post_idx: int           = 0
@@ -272,7 +281,7 @@ class RelayWidget(DashWidget):
         }
         with requests.get(
             f"{_BASE_URL}/events",
-            params={"tag": self._topic},
+            params=_tag_params(self._topic),
             headers=headers,
             stream=True,
             timeout=(10, 30),
