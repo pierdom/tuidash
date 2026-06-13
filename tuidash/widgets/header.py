@@ -17,7 +17,7 @@ from textual.widget import Widget
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
-from ..theme import ACCENT, BORDER, HEADER_BG, PERF_BAD, PERF_GREAT, PERF_TERRIBLE
+from ..theme import ACCENT, BORDER, HEADER_BG, SCREEN_BG, PERF_BAD, PERF_GREAT, PERF_TERRIBLE
 
 
 # ── data model ────────────────────────────────────────────────────────────────
@@ -408,7 +408,7 @@ class DashHeader(Widget):
     DashHeader {{
         dock: top;
         height: 1;
-        background: {HEADER_BG};
+        background: {SCREEN_BG};
         color: $text;
         layout: horizontal;
     }}

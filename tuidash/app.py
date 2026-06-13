@@ -27,7 +27,7 @@ from textual.widgets import ContentSwitcher, Footer
 
 from . import config
 from .screens import BasePage
-from .theme import ACCENT, BORDER, HEADER_BG, build_textual_theme
+from .theme import ACCENT, BORDER, HEADER_BG, SCREEN_BG, TRANSPARENT, build_textual_theme
 from .widgets.base import DashWidget
 from .screens.dashboard import DashboardPage
 from .screens.calendar import CalendarPage
@@ -36,6 +36,58 @@ from .screens.news import NewsPage
 from .screens.podcasts import PodcastsPage
 from .screens.portfolio import PortfolioPage
 from .widgets.header import DashHeader
+
+
+# ── terminal-transparency filter ──────────────────────────────────────────────
+# Textual renders in truecolor, and its built-in ANSIToTruecolor line filter
+# rewrites any "terminal default" background into a concrete RGB colour pulled
+# from the ANSI terminal theme — which makes the canvas opaque and defeats the
+# `ansi_default` backgrounds set when TUIDASH_TRANSPARENT is on.  This subclass
+# leaves a default *background* untouched (so it is emitted as SGR 49 and the
+# terminal's own background / transparency shows through) while still converting
+# ANSI foreground colours to truecolor like the stock filter.
+if TRANSPARENT:
+    from functools import lru_cache
+
+    from rich.color import Color as _RichColor, ColorType as _ColorType
+    from rich.style import Style as _RichStyle
+    from textual.filter import ANSIToTruecolor as _ANSIToTruecolor, NO_DIM, dim_color
+
+    class _TransparentANSIToTruecolor(_ANSIToTruecolor):
+        @lru_cache(1024)
+        def truecolor_style(self, style: "_RichStyle", background: "_RichColor") -> "_RichStyle":
+            terminal_theme = self._terminal_theme
+            changed = False
+
+            color = style.color
+            if color is not None and color.triplet is None:
+                color = _RichColor.from_triplet(
+                    color.get_truecolor(terminal_theme, foreground=True)
+                )
+                changed = True
+
+            bgcolor = style.bgcolor
+            keep_default_bg = bgcolor is not None and bgcolor.type == _ColorType.DEFAULT
+            if bgcolor is not None and bgcolor.triplet is None and not keep_default_bg:
+                bgcolor = _RichColor.from_triplet(
+                    bgcolor.get_truecolor(terminal_theme, foreground=False)
+                )
+                changed = True
+
+            if style.dim and color is not None:
+                if bgcolor is not None and bgcolor.triplet is not None:
+                    dim_bg = bgcolor
+                elif background.triplet is not None:
+                    dim_bg = background
+                else:
+                    dim_bg = _RichColor.from_triplet(
+                        _RichColor.default().get_truecolor(terminal_theme, foreground=False)
+                    )
+                color = dim_color(dim_bg, color)
+                style += NO_DIM
+                changed = True
+
+            return style + _RichStyle.from_color(color, bgcolor) if changed else style
 
 
 # Ordered list of pages: (label, widget-id, class).
@@ -57,17 +109,17 @@ class TuidashApp(App):
 
     CSS = f"""
     Screen {{
-        background: $background;
+        background: {SCREEN_BG};
         layers: base overlay;
     }}
     Widget {{
-        scrollbar-background: {HEADER_BG};
-        scrollbar-background-hover: {HEADER_BG};
-        scrollbar-background-active: {HEADER_BG};
+        scrollbar-background: {SCREEN_BG};
+        scrollbar-background-hover: {SCREEN_BG};
+        scrollbar-background-active: {SCREEN_BG};
         scrollbar-color: {BORDER};
         scrollbar-color-hover: {ACCENT};
         scrollbar-color-active: {ACCENT};
-        scrollbar-corner-color: {HEADER_BG};
+        scrollbar-corner-color: {SCREEN_BG};
     }}
     ContentSwitcher {{
         height: 1fr;
@@ -115,9 +167,9 @@ class TuidashApp(App):
     .scroll-captured {{ border: heavy $accent; }}
 
     /* btop-style footer */
-    Footer {{ background: {HEADER_BG}; }}
+    Footer {{ background: {SCREEN_BG}; }}
     FooterKey .footer-key--key {{ background: {BORDER}; color: {ACCENT}; }}
-    FooterKey .footer-key--description {{ color: {ACCENT}; background: {HEADER_BG}; }}
+    FooterKey .footer-key--description {{ color: {ACCENT}; background: {SCREEN_BG}; }}
     """
 
     privacy:          reactive[bool] = reactive(False)
@@ -154,6 +206,17 @@ class TuidashApp(App):
     # Add "mobile" class to Screen when terminal width < 100 columns.
     # Textual handles both startup and subsequent resizes automatically.
     HORIZONTAL_BREAKPOINTS = [(0, "mobile"), (100, "wide")]
+
+    def _refresh_truecolor_filter(self, theme) -> None:
+        # Textual reinstalls a stock ANSIToTruecolor filter whenever the theme
+        # changes.  In transparent mode, swap in our subclass that preserves the
+        # terminal-default background instead.
+        if not TRANSPARENT or self.native_ansi_color:
+            return super()._refresh_truecolor_filter(theme)
+        for index, flt in enumerate(self._filters):
+            if isinstance(flt, _ANSIToTruecolor):
+                self._filters[index] = _TransparentANSIToTruecolor(theme, enabled=True)
+                return
 
     async def _shutdown(self) -> None:
         # Terminal is already restored by _process_messages → driver.stop_application_mode()

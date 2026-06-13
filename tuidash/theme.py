@@ -41,6 +41,14 @@ ACCENT    = _c("primary", "#00d4aa")
 BORDER    = _c("border",  "#005f4e")
 HEADER_BG = _c("bg",      "#0d2018")
 
+# When TUIDASH_TRANSPARENT is set, the base canvas (Screen, header, footer,
+# scrollbars) uses the terminal's default background (ANSI 49) instead of the
+# palette's solid colour, so terminal transparency / background images show
+# through.  HEADER_BG itself stays a real colour — it's also used as a
+# foreground (e.g. dark text on accent), which must remain opaque.
+TRANSPARENT = os.environ.get("TUIDASH_TRANSPARENT", "").strip().lower() in ("1", "true", "yes")
+SCREEN_BG   = "ansi_default" if TRANSPARENT else HEADER_BG
+
 BAR_LOW  = _c("bar_low",  "bright_green")
 BAR_MID  = _c("bar_mid",  "yellow")
 BAR_HIGH = _c("bar_high", "bright_red")
