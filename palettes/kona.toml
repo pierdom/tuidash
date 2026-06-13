@@ -1,0 +1,27 @@
+# tuidash colour palette — Kona
+# ─────────────────────────────────────────────────────────────────────────────
+# Molokai's vibrant DNA recast around Tailwind's orange scale (as used by the
+# picast project): orange-500 accent, deep orange-800 borders, an orange resource
+# heat-ramp, and a smooth green→red performance heatmap built from Tailwind's
+# success / warning / danger colours. Warm near-black base so the orange pops.
+#
+# Select with:  TUIDASH_PALETTE=kona
+
+# ── Core palette ─────────────────────────────────────────────────────────────
+primary = "#f97316"   # orange-500      — border titles, clock, nav arrows, accents
+border  = "#9a3412"   # orange-800      — widget / button borders
+bg      = "#1a1916"   # warm near-black — header & footer background
+
+# ── Progress bar gradient (left → right as bar fills) ────────────────────────
+bar_low  = "#fb923c"  # orange-400      — 0 – 60 % of bar width
+bar_mid  = "#f97316"  # orange-500      — 60 – 80 % of bar width
+bar_high = "#f87171"  # red-400 (danger)— 80 – 100 % of bar width
+bar_bg   = "#3f2817"  # dark warm track — unfilled bar background
+
+# ── Performance heatmap (smooth green → red Tailwind ramp) ────────────────────
+perf_great    = "#4ade80"  # green-400 (success) — > +10 %
+perf_good     = "#a3e635"  # lime-400            —   0 to +10 %
+perf_flat     = "#facc15"  # yellow-400 (warning)—  −5 to   0 %
+perf_bad      = "#fb923c"  # orange-400          — −10 to  −5 %
+perf_poor     = "#ea580c"  # orange-600          — −20 to −10 %
+perf_terrible = "#f87171"  # red-400 (danger)    — < −20 %
