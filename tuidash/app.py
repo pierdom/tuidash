@@ -168,7 +168,7 @@ class TuidashApp(App):
 
     /* btop-style footer */
     Footer {{ background: {SCREEN_BG}; }}
-    FooterKey .footer-key--key {{ background: {BORDER}; color: {ACCENT}; }}
+    FooterKey .footer-key--key {{ background: {ACCENT}; color: {HEADER_BG}; }}
     FooterKey .footer-key--description {{ color: {ACCENT}; background: {SCREEN_BG}; }}
     """
 

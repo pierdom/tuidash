@@ -49,7 +49,7 @@ def _render_month(
         for _ in range(7):
             grid.add_column(width=3, justify="right")
 
-    _wd = f"bold {ACCENT} on {BORDER}"
+    _wd = f"bold {HEADER_BG} on {ACCENT}"   # footer-chip style: dark text on accent fill
     _we = f"dim {ACCENT} on {BORDER}"
     if trim:
         header = [
