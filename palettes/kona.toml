@@ -1,15 +1,16 @@
 # tuidash colour palette — Kona
 # ─────────────────────────────────────────────────────────────────────────────
 # Molokai's vibrant DNA recast around Tailwind's orange scale (as used by the
-# picast project): orange-500 accent, deep orange-800 borders, an orange resource
-# heat-ramp, and a smooth green→red performance heatmap built from Tailwind's
-# success / warning / danger colours. Warm near-black base so the orange pops.
+# picast project): orange-600 accent (picast's bottom-bar chip), deep orange-900
+# borders, an orange resource heat-ramp, and a smooth green→red performance
+# heatmap from Tailwind's success / warning / danger colours. Warm near-black
+# base so the orange pops.
 #
 # Select with:  TUIDASH_PALETTE=kona
 
 # ── Core palette ─────────────────────────────────────────────────────────────
-primary = "#f97316"   # orange-500      — border titles, clock, nav arrows, accents
-border  = "#9a3412"   # orange-800      — widget / button borders
+primary = "#ea580c"   # orange-600      — border titles, clock, nav arrows, accents
+border  = "#7c2d12"   # orange-900      — widget / button borders
 bg      = "#1a1916"   # warm near-black — header & footer background
 
 # ── Progress bar gradient (left → right as bar fills) ────────────────────────
