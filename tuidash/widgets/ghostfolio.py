@@ -154,18 +154,21 @@ class GhostfolioClient:
         return (market_price - prev) / prev * 100
 
     def _fetch_ticker(self, holdings_raw: list[dict]) -> list[TickerItem]:
+        def _p(h: dict) -> dict:
+            return h.get("assetProfile") or {}
+
         equities = [
             (
-                h.get("symbol", ""),
-                h.get("dataSource", "YAHOO"),
-                h.get("name", h.get("symbol", "?")),
-                h.get("currency", ""),
+                _p(h).get("symbol") or h.get("symbol", ""),
+                _p(h).get("dataSource") or h.get("dataSource", "YAHOO"),
+                _p(h).get("name") or h.get("name") or _p(h).get("symbol") or h.get("symbol", "?"),
+                _p(h).get("currency") or h.get("currency", ""),
                 h.get("marketPrice"),
             )
             for h in holdings_raw
-            if h.get("assetClass") not in ("CASH", "LIQUIDITY")
-            and h.get("symbol") != h.get("currency")
-            and h.get("dataSource", "YAHOO") != "MANUAL"
+            if (_p(h).get("assetClass") or h.get("assetClass")) not in ("CASH", "LIQUIDITY")
+            and (_p(h).get("symbol") or h.get("symbol")) != (_p(h).get("currency") or h.get("currency"))
+            and (_p(h).get("dataSource") or h.get("dataSource", "YAHOO")) != "MANUAL"
         ]
         if not equities:
             return []
@@ -196,14 +199,14 @@ class GhostfolioClient:
             f_mtd      = pool.submit(self._get, "/api/v2/portfolio/performance", range="mtd")
             f_1y       = pool.submit(self._get, "/api/v2/portfolio/performance", range="1y")
             f_holdings = pool.submit(self._get, "/api/v1/portfolio/holdings")
-            f_orders   = pool.submit(self._get, "/api/v1/order")
+            f_orders   = pool.submit(self._get, "/api/v1/activities")
             f_user     = pool.submit(self._get, "/api/v1/user")
 
         chart_1d     = f_1d.result().get("chart", [])
         chart_1y     = f_1y.result().get("chart", [])
         holdings_raw = f_holdings.result().get("holdings", [])
         if isinstance(holdings_raw, dict):
-            holdings_raw = list(holdings_raw.values())
+            holdings_raw = [{"symbol": k, **v} for k, v in holdings_raw.items()]
         orders_raw = f_orders.result().get("activities", [])
 
         def _read_perf(chart: list[dict]) -> PerfStats:
@@ -230,14 +233,19 @@ class GhostfolioClient:
         perf_1y  = _read_perf(chart_1y)
 
         # ── holdings: sort by total return ────────────────────────────────────
-        currency = holdings_raw[0].get("currency", "") if holdings_raw else ""
+        def _p(h: dict) -> dict:
+            return h.get("assetProfile") or {}
+
+        currency = _p(holdings_raw[0]).get("currency") or holdings_raw[0].get("currency", "") if holdings_raw else ""
         holdings: list[Holding] = []
         for h in holdings_raw:
+            p = _p(h)
+            sym = p.get("symbol") or h.get("symbol", "?")
             holdings.append(Holding(
-                name=h.get("name", h.get("symbol", "?")),
-                symbol=h.get("symbol", "?"),
+                name=p.get("name") or h.get("name") or sym,
+                symbol=sym,
                 value=h.get("valueInBaseCurrency", 0.0),
-                currency=h.get("currency", currency),
+                currency=p.get("currency") or h.get("currency", currency),
                 perf_pct=h.get("netPerformancePercent", 0.0) * 100,
             ))
 

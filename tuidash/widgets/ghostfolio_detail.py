@@ -142,7 +142,7 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
         f_1y       = pool.submit(client._get, "/api/v2/portfolio/performance", range="1y")
         f_holdings = pool.submit(client._get, "/api/v1/portfolio/holdings")
         f_accounts = pool.submit(client._get, "/api/v1/account")
-        f_orders   = pool.submit(client._get, "/api/v1/order")
+        f_orders   = pool.submit(client._get, "/api/v1/activities")
         f_user     = pool.submit(client._get, "/api/v1/user")
 
     chart_1d = f_1d.result().get("chart", [])
@@ -194,17 +194,22 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
 
     raw = f_holdings.result().get("holdings", [])
     if isinstance(raw, dict):
-        raw = list(raw.values())
+        raw = [{"symbol": k, **v} for k, v in raw.items()]
+
+    def _p(h: dict) -> dict:
+        return h.get("assetProfile") or {}
 
     holdings: list[HoldingDetail] = []
     for h in raw:
+        p = _p(h)
+        sym = p.get("symbol") or h.get("symbol", "?")
         holdings.append(HoldingDetail(
-            symbol=h.get("symbol", "?"),
-            name=h.get("name", h.get("symbol", "?")),
+            symbol=sym,
+            name=p.get("name") or h.get("name") or sym,
             value=h.get("valueInBaseCurrency", 0.0),
             allocation_pct=0.0,
             total_return_pct=h.get("netPerformancePercent", 0.0) * 100,
-            asset_class=h.get("assetClass", ""),
+            asset_class=p.get("assetClass") or h.get("assetClass", ""),
         ))
 
     if total_value > 0:
@@ -226,13 +231,17 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
 
     # Daily change per equity + attach to holdings
     equities = [
-        (h.get("symbol", ""), h.get("dataSource", "YAHOO"),
-         h.get("name", h.get("symbol", "?")), h.get("currency", ""),
-         float(h.get("marketPrice") or 0.0))
+        (
+            _p(h).get("symbol") or h.get("symbol", ""),
+            _p(h).get("dataSource") or h.get("dataSource", "YAHOO"),
+            _p(h).get("name") or h.get("name") or _p(h).get("symbol") or h.get("symbol", "?"),
+            _p(h).get("currency") or h.get("currency", ""),
+            float(h.get("marketPrice") or 0.0),
+        )
         for h in raw
-        if h.get("assetClass") not in ("CASH", "LIQUIDITY")
-        and h.get("symbol") != h.get("currency")
-        and h.get("dataSource", "YAHOO") != "MANUAL"
+        if (_p(h).get("assetClass") or h.get("assetClass")) not in ("CASH", "LIQUIDITY")
+        and (_p(h).get("symbol") or h.get("symbol")) != (_p(h).get("currency") or h.get("currency"))
+        and (_p(h).get("dataSource") or h.get("dataSource", "YAHOO")) != "MANUAL"
     ]
     ticker: list[TickerItem] = []
     if equities:
