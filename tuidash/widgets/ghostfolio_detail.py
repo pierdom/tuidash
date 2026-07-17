@@ -275,10 +275,9 @@ def _fetch_detail(client: GhostfolioClient) -> DetailData:
                 end_entry = entry
         if not end_entry:
             return PerfStats(0.0, 0.0)
-        base_r = 1.0 + prev_entry.get("netPerformanceInPercentage", 0.0)
-        end_r  = 1.0 + end_entry.get("netPerformanceInPercentage", 0.0)
-        pct    = (end_r / base_r - 1.0) * 100 if base_r else 0.0
-        abs_v  = end_entry.get("netPerformance", 0.0) - prev_entry.get("netPerformance", 0.0)
+        abs_v    = end_entry.get("netPerformance", 0.0) - prev_entry.get("netPerformance", 0.0)
+        inv_base = prev_entry.get("totalInvestment") or end_entry.get("totalInvestment", 0.0)
+        pct      = abs_v / inv_base * 100 if inv_base else 0.0
         return PerfStats(pct=pct, abs=abs_v)
 
     orders_raw: list[dict] = []
