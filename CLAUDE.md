@@ -338,7 +338,7 @@ Write no comments unless the **why** is non-obvious. Section separators (`# ─�
 
 ### Marquee / ticker scrolling
 
-**Boomerang (RssWidget, HostsWidget):**
+**Boomerang (RssWidget):**
 ```
 _SCROLL_INTERVAL = 0.24   # seconds per step
 _PAUSE_L_TICKS   = round(15 / _SCROLL_INTERVAL)   # ≈15 s pause at left end
@@ -432,7 +432,7 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_WORK_COLOR` | `green` | Rich color name for work event days |
 | `TUIDASH_RSS_FEEDS` | — | Comma-separated RSS feed URLs |
 | `TUIDASH_NEWS_PICTURES` | `false` | Show article thumbnails in the News page; `true` enables image downloads |
-| `TUIDASH_HOSTS` | — | Comma-separated Glances URLs (widget title: "Servers"; Dashboard page only — unrelated to the Homelab page below) |
+| `TUIDASH_HOSTS` | — | Comma-separated Glances URLs (widget title: "Servers"; Dashboard page only — unrelated to the Homelab page below). `TUIDASH_HOMELAB_CENTRAL` is always prepended before these, sourced from InfluxDB instead of Glances. |
 | `TUIDASH_INFLUXDB_URL` | — | InfluxDB base URL for the Homelab page (v1 query API, e.g. `http://192.168.1.101:8086`) |
 | `TUIDASH_INFLUXDB_TOKEN` | — | InfluxDB API token — read-only on the bucket below is sufficient |
 | `TUIDASH_INFLUXDB_ORG` | `geonlab` | InfluxDB org |
@@ -487,9 +487,10 @@ Missing values for widget-specific vars show an inline error — they do not cra
 
 ### HostsWidget (border title: "Servers")
 
+- One row per host, CPU + MEM bar only — no per-container list (removed 2026-09-19; it was a scrolling marquee line that cost a second row per host for no signal Portainer/Glances didn't already show better elsewhere).
 - `_name_from_url` returns the first hostname label for FQDNs (e.g. `myserver` from `myserver.local`); returns the full IP string for bare IP addresses (e.g. `192.168.1.1`, not `192`)
-- Glances API: tries v4 (`/api/4/`) first, falls back to v3 (`/api/3/`)
-- Container badges: `▪ dim` (not running), `● ACCENT` (running — with or without healthcheck), `● PERF_TERRIBLE` (unhealthy); a `✓ ACCENT` suffix is appended after the container name when the healthcheck reports healthy
+- Two data sources, chosen per host by `HostData.source`: `"glances"` (the `TUIDASH_HOSTS` list — tries Glances API v4 first, falls back to v3) and `"influx"` (`TUIDASH_HOMELAB_CENTRAL`, scarif by default — bare-metal Proxmox, no Glances agent, so CPU/mem is pulled via `_fetch_host_stats` reused straight from `widgets/homelab.py`). Both are still ICMP-pinged directly for reachability/RTT — only the CPU/mem source differs.
+- The central host is always prepended first, so with the defaults (`TUIDASH_HOMELAB_CENTRAL=scarif`, `TUIDASH_HOSTS=bespin,endor`) the list renders scarif, bespin, endor in that order.
 
 ### HomelabPage (`screens/homelab.py`)
 
