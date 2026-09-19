@@ -439,6 +439,8 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_INFLUXDB_BUCKET` | `homelab` | InfluxDB bucket queried by `tuidash/influx.py` |
 | `TUIDASH_HOMELAB_CENTRAL` | `scarif` | The featured host card on the Homelab page — gets ZFS pools, backup freshness, and containers merged across every `scarif-*` Portainer environment |
 | `TUIDASH_HOMELAB_HOSTS` | — | Comma-separated InfluxDB host tags for the other Homelab-page host cards (not URLs) |
+| `TUIDASH_PORTAINER_HOST` | — | Portainer base URL (e.g. `https://portainer.example.com`) — container status for host cards + `FleetStatusWidget`, queried live, not via InfluxDB |
+| `TUIDASH_PORTAINER_TOKEN` | — | Portainer API key (user settings → Access tokens), sent as `X-API-Key` |
 | `TUIDASH_REACHABILITY_IPS` | `1.1.1.1,8.8.8.8,192.168.1.1` | IPs to ping |
 | `TUIDASH_RESOLVE_HOSTS` | `google.com,amazon.com,facebook.com` | Hosts to DNS-resolve |
 | `TUIDASH_DNS_RESOLVER` | system resolver | Custom DNS server IP for DNS checks (raw UDP on port 53) |
@@ -497,7 +499,8 @@ Missing values for widget-specific vars show an inline error — they do not cra
 
 ### HomelabHostWidget (`widgets/homelab.py`)
 
-- Data comes from InfluxDB (`tuidash/influx.py`, bucket `homelab`), not Glances/ping — rebuilt 2026-09-18 once scarif (bare-metal Proxmox, no Glances agent) became the fleet's central host. See relay #319 for how the measurements are produced (Telegraf, Portainer aggregation, Tailscale/speedtest scripts).
+- CPU/mem/disk/ZFS/backups come from InfluxDB (`tuidash/influx.py`, bucket `homelab`), not Glances/ping — rebuilt 2026-09-18 once scarif (bare-metal Proxmox, no Glances agent) became the fleet's central host. See relay #319 for how those measurements are produced (Telegraf, Tailscale/speedtest scripts).
+- Container status is **not** from InfluxDB — `_fetch_containers` hits the Portainer API live (`TUIDASH_PORTAINER_HOST`/`TOKEN`, added 2026-09-19), because the InfluxDB-side Portainer collector had silently died for hours and nobody noticed (0 unhealthy looked identical to "no data"). One `GET /api/endpoints` call maps environment name → id, then one `GET /api/endpoints/{id}/docker/containers/json?all=true` per environment; health is parsed out of Docker's `Status` string (`"(healthy)"`/`"(unhealthy)"`/`"health: starting"`) since the Portainer JSON doesn't surface it as its own field.
 - `reachable` means "has sent a `cpu` point in the last 3 minutes", not ICMP reachability.
 - `central=True` (the `TUIDASH_HOMELAB_CENTRAL` host, scarif by default) additionally shows: the `tank`/`scratch` ZFS pools (reusing the `DiskInfo` bar rendering — same visual treatment as a root filesystem), a backup-freshness block (sanoid snapshot / borg offsite / vzdump, one canary dataset each — full per-dataset detail lives on the Scarif v3 Grafana dashboard, not here), and containers aggregated across every `scarif-*` Portainer environment (prefixed `env/container`, e.g. `apps/searxng`) with the ever-present `portainer_agent` filtered out as noise.
 - Non-central hosts (`TUIDASH_HOMELAB_HOSTS`) show just CPU/mem/root-disk gauges and that host's own Portainer environment containers, unprefixed.
@@ -506,10 +509,10 @@ Missing values for widget-specific vars show an inline error — they do not cra
 
 ### FleetStatusWidget (`widgets/homelab.py`)
 
-- A simplified TUI condensation of the Grafana "Homelab" dashboard's Connectivity + Docker services rows, added 2026-09-19 — same InfluxDB measurements as `HomelabHostWidget` (`cpu`, `portainer_container`, `speedtest`), just aggregated fleet-wide instead of per-host.
-- Three columns (`Table.grid`, ratio 2:2:3): **Connectivity** — one `●`/`○` dot per host in `_FLEET_HOSTS` (scarif, bespin, endor, malachor), laid out as a fixed 2-column grid (not a wrapped `Text` line — wrapping mid-badge looked broken at narrow widths); **Docker** — fleet-wide unhealthy/stopped counts across every environment in `_FLEET_ENVIRONMENTS` (bespin, endor, all `scarif-*`); **Speed** — latest `speedtest` measurement (`download_bits`/`upload_bits`/`ping`, written natively by speedtest-tracker — queried directly, no HTTP API call), ↓/↑ stacked as separate lines (not side-by-side cells — side-by-side overflowed to `…` when the outer column got squeezed by its neighbours).
+- A simplified TUI condensation of the Grafana "Homelab" dashboard's Connectivity + Docker services rows, added 2026-09-19 — aggregated fleet-wide instead of per-host.
+- Three columns (`Table.grid`, ratio 2:2:3): **Connectivity** — one `●`/`○` dot per host in `_FLEET_HOSTS` (scarif, bespin, endor, malachor) from InfluxDB, laid out as a fixed 2-column grid (not a wrapped `Text` line — wrapping mid-badge looked broken at narrow widths); **Docker** — unhealthy/stopped/running counts summed straight from every endpoint's `Snapshots[0]` in one `GET /api/endpoints` Portainer call (cheap — no per-container fetch, so it can't hit the old bespin 502); **Speed** — latest `speedtest` InfluxDB measurement (`download_bits`/`upload_bits`/`ping`, written natively by speedtest-tracker — queried directly, no HTTP API call), ↓/↑ stacked as separate lines (not side-by-side cells — side-by-side overflowed to `…` when the outer column got squeezed by its neighbours).
 - Bar colour on the speed lines is `PERF_GREAT`/`PERF_GOOD`/`PERF_TERRIBLE` (green-family, high-is-good), not `BAR_HIGH`/`MID`/`LOW` (which mean high-is-bad, e.g. CPU load) — a real bug caught during review, since the two palettes share the same "gradient bar" shape but opposite semantics.
-- bespin never appears in `portainer_container` (the per-container Portainer call 502s for it — see relay #319); its Docker containers are silently absent from the fleet count, which is expected, not a bug.
+- The old "bespin's per-container Portainer call always 502s" issue (relay #319) turned out to be transient/since-fixed, not permanent — confirmed 2026-09-19, bespin's containers now fetch fine like every other environment.
 
 ### TailscaleWidget (`widgets/tailscale.py`)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+import requests
 from rich.console import Group
 from rich.measure import Measurement
 from rich.table import Table
@@ -26,12 +27,12 @@ _SCARIF_ENVIRONMENTS = ["scarif-apps", "scarif-files", "scarif-monitoring", "sca
 _NOISY_CONTAINERS = {"portainer_agent"}
 # every host that reports to InfluxDB — used by the fleet connectivity strip
 _FLEET_HOSTS = ["scarif", "bespin", "endor", "malachor"]
-# every Portainer environment fleet-wide (bespin currently never reports — see relay #319)
-_FLEET_ENVIRONMENTS = ["bespin", "endor", *_SCARIF_ENVIRONMENTS]
 _DEFAULT_MAX_MBPS = 600.0
 _SPEED_BAR_W = 9
 _PING_BUDGET_MS = 50.0  # "reasonable ping" ceiling for the budget gauge — not an alert threshold
 _PING_BAR_W = 6
+_PORTAINER_TIMEOUT = 10.0
+_PORTAINER_CONTAINER_TIMEOUT = 20.0
 
 # ── data model ────────────────────────────────────────────────────────────────
 
@@ -160,27 +161,56 @@ def _fetch_pool(name: str) -> DiskInfo | None:
     return DiskInfo(mountpoint=name, used_pct=used / total * 100, used_bytes=used, total_bytes=total)
 
 
-def _fetch_containers(environments: list[str], prefix_env: bool) -> list[ContainerDetail]:
-    env_filter = " OR ".join(f'"environment" = \'{e}\'' for e in environments)
-    group = '"environment", "container", "state", "health"' if prefix_env else '"container", "state", "health"'
-    rows = influx.query(
-        f'SELECT last("present") FROM "portainer_container" '
-        f"WHERE ({env_filter}) AND time > now() - 10m GROUP BY {group}"
+def _portainer_headers() -> dict[str, str]:
+    return {"X-API-Key": config.require("TUIDASH_PORTAINER_TOKEN")}
+
+
+def _fetch_portainer_endpoints() -> list[dict]:
+    host = config.require("TUIDASH_PORTAINER_HOST").rstrip("/")
+    r = requests.get(f"{host}/api/endpoints", headers=_portainer_headers(), timeout=_PORTAINER_TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+
+def _container_health(status: str) -> str:
+    if "(unhealthy)" in status:
+        return "unhealthy"
+    if "(healthy)" in status:
+        return "healthy"
+    if "health: starting" in status:
+        return "starting"
+    return ""
+
+
+def _fetch_portainer_containers(host: str, endpoint_id: int) -> list[ContainerDetail]:
+    r = requests.get(
+        f"{host}/api/endpoints/{endpoint_id}/docker/containers/json",
+        params={"all": "true"},
+        headers=_portainer_headers(),
+        timeout=_PORTAINER_CONTAINER_TIMEOUT,
     )
+    r.raise_for_status()
     out: list[ContainerDetail] = []
-    for row in rows:
-        name = row.get("container", "?")
+    for c in r.json():
+        name = (c.get("Names") or ["?"])[0].lstrip("/")
         if name in _NOISY_CONTAINERS:
             continue
-        if prefix_env:
-            env_short = row.get("environment", "").removeprefix("scarif-")
-            name = f"{env_short}/{name}"
-        health = row.get("health", "")
-        out.append(ContainerDetail(
-            name=name,
-            status=row.get("state", "?"),
-            health="" if health in ("none", "") else health,
-        ))
+        out.append(ContainerDetail(name=name, status=c.get("State", "?"), health=_container_health(c.get("Status", ""))))
+    return out
+
+
+def _fetch_containers(environments: list[str], prefix_env: bool) -> list[ContainerDetail]:
+    """Live per-container status straight from the Portainer API — one call per environment."""
+    host = config.require("TUIDASH_PORTAINER_HOST").rstrip("/")
+    by_name = {e["Name"]: e["Id"] for e in _fetch_portainer_endpoints()}
+    out: list[ContainerDetail] = []
+    for env in environments:
+        endpoint_id = by_name.get(env)
+        if endpoint_id is None:
+            continue
+        for c in _fetch_portainer_containers(host, endpoint_id):
+            name = f"{env.removeprefix('scarif-')}/{c.name}" if prefix_env else c.name
+            out.append(ContainerDetail(name=name, status=c.status, health=c.health))
     out.sort(key=lambda c: c.name)
     return out
 
@@ -253,29 +283,21 @@ def _fetch_connectivity() -> list[FleetHost]:
 
 
 def _fetch_fleet_docker() -> tuple[int, int, int, bool]:
-    """(unhealthy, stopped, running, has_data).
+    """(unhealthy, stopped, running, has_data), summed from each endpoint's own Portainer snapshot.
 
-    InfluxDB returns zero rows both when everything's fine and stopped, and when the
-    Portainer collector itself has died — those must not look the same, so `has_data`
-    tells the caller whether the counts mean anything (see relay #319's `noValue` note).
+    `has_data` distinguishes "Portainer confirmed zero problems" from "couldn't reach
+    Portainer at all" — those must not look the same (see relay #319's `noValue` note).
     """
-    env_filter = " OR ".join(f'"environment" = \'{e}\'' for e in _FLEET_ENVIRONMENTS)
-    rows = influx.query(
-        f'SELECT last("present") FROM "portainer_container" '
-        f"WHERE ({env_filter}) AND time > now() - 10m "
-        f'GROUP BY "environment", "container", "state", "health"'
-    )
+    endpoints = _fetch_portainer_endpoints()
+    if not endpoints:
+        return 0, 0, 0, False
     unhealthy = stopped = running = 0
-    for row in rows:
-        if row.get("container", "?") in _NOISY_CONTAINERS:
-            continue
-        if row.get("state", "?").lower() in _STOPPED_STATES:
-            stopped += 1
-        else:
-            running += 1
-            if row.get("health", "") == "unhealthy":
-                unhealthy += 1
-    return unhealthy, stopped, running, bool(rows)
+    for e in endpoints:
+        snap = (e.get("Snapshots") or [{}])[0]
+        running   += snap.get("RunningContainerCount", 0)
+        stopped   += snap.get("StoppedContainerCount", 0)
+        unhealthy += snap.get("UnhealthyContainerCount", 0)
+    return unhealthy, stopped, running, True
 
 
 def _fetch_fleet_status() -> FleetStatus:
