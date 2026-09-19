@@ -164,9 +164,12 @@ class TuidashApp(App):
     .mobile #homelab-scarif {{ height: auto; }}
     .mobile #homelab-others {{ layout: vertical; height: auto; }}
     .mobile #homelab-top HomelabHostWidget {{ width: 100%; height: 9; }}
-    /* ...and Tailscale is capped instead of 1fr, so it stops eating all the space
-       the host cards above need — it stays internally scrollable past this height. */
-    .mobile #homelab-bottom TailscaleWidget {{ height: 14; }}
+    /* ...and #homelab-bottom itself must shrink to fit (was 1fr — stretched to fill
+       all remaining screen space regardless of children, leaving dead space below
+       Hetzner once Tailscale was capped). Tailscale stays internally scrollable
+       past its cap — this is "smaller", not "cut off". */
+    .mobile #homelab-bottom {{ height: auto; }}
+    .mobile #homelab-bottom TailscaleWidget {{ height: 10; }}
 
     /* Scroll-captured widget highlight (mobile pointer lock) */
     .scroll-captured {{ border: heavy $accent; }}
