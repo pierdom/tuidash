@@ -12,15 +12,16 @@ from ..widgets.tailscale import TailscaleWidget
 
 
 class HomelabPage(BasePage):
-    """Top: scarif (central, full width) above the other hosts side-by-side.
-    Middle: fleet-wide connectivity/Docker/speedtest strip. Bottom: Tailscale + Hetzner.
+    """Top: scarif (central, full height) beside the other hosts stacked in a
+    narrower column. Middle: fleet-wide connectivity/Docker/speedtest strip.
+    Bottom: Tailscale + Hetzner.
     """
 
     DEFAULT_CSS = """
     HomelabPage               { height: 100%; }
     #homelab-top              { height: 60%; }
-    #homelab-scarif           { height: 78%; }
-    #homelab-others           { height: 22%; }
+    #homelab-scarif           { width: 68%; }
+    #homelab-others           { width: 32%; }
     #homelab-strip            { height: auto; }
     #homelab-bottom           { height: 1fr; }
     """
@@ -30,10 +31,9 @@ class HomelabPage(BasePage):
         raw     = config.get("TUIDASH_HOMELAB_HOSTS", "") or ""
         others  = [h.strip() for h in raw.split(",") if h.strip()]
 
-        with Vertical(id="homelab-top"):
-            with Horizontal(id="homelab-scarif"):
-                yield HomelabHostWidget(host=central, central=True)
-            with Horizontal(id="homelab-others"):
+        with Horizontal(id="homelab-top"):
+            yield HomelabHostWidget(host=central, central=True, id="homelab-scarif")
+            with Vertical(id="homelab-others"):
                 if not others:
                     yield Static("[dim]No additional hosts — set TUIDASH_HOMELAB_HOSTS[/dim]")
                 else:

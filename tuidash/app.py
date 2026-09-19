@@ -159,10 +159,13 @@ class TuidashApp(App):
     .mobile PortfolioPage RelayWidget            {{ width: 100%; height: 30%; }}
     .mobile PortfolioPage GhostfolioDetailWidget {{ width: 100%; height: 70%; }}
 
-    /* Homelab page — host widgets stack vertically in mobile mode */
+    /* Homelab page — host widgets stack vertically in mobile mode.
+       #homelab-top and #homelab-scarif are Horizontal/full-width by default
+       (scarif takes full height beside a narrower bespin/endor column) — both
+       reset here since mobile stacks everything in one column instead. */
     .mobile #homelab-top {{ layout: vertical; height: auto; }}
-    .mobile #homelab-scarif {{ height: auto; }}
-    .mobile #homelab-others {{ layout: vertical; height: auto; }}
+    .mobile #homelab-scarif {{ width: 100%; }}
+    .mobile #homelab-others {{ layout: vertical; height: auto; width: 100%; }}
     .mobile #homelab-top HomelabHostWidget {{ width: 100%; height: 9; }}
     /* ...and #homelab-bottom itself must shrink to fit (was 1fr — stretched to fill
        all remaining screen space regardless of children, leaving dead space below
