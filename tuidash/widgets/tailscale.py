@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import socket
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from typing import Any
@@ -37,17 +35,9 @@ class TsDevice:
 
 
 @dataclass
-class TsService:
-    name:   str
-    ip:     str
-    online: bool = False
-
-
-@dataclass
 class TailscaleData:
-    devices:  list[TsDevice]  = field(default_factory=list)
-    services: list[TsService] = field(default_factory=list)
-    error:    str              = ""
+    devices: list[TsDevice] = field(default_factory=list)
+    error:   str            = ""
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -78,38 +68,17 @@ def _fmt_last_seen(iso: str) -> str:
         return iso[:10]
 
 
-def _tcp_reachable(ip: str, ports: list[str], timeout: float = 2.0) -> bool:
-    for port_spec in ports[:1]:
-        try:
-            port = int(port_spec.split(":")[-1])
-            with socket.create_connection((ip, port), timeout=timeout):
-                return True
-        except Exception:
-            pass
-    return False
-
-
 # ── fetch ─────────────────────────────────────────────────────────────────────
 
 def _fetch_tailscale(api_key: str) -> TailscaleData:
     headers = {"Authorization": f"Bearer {api_key}"}
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        f_dev = pool.submit(
-            requests.get,
-            f"{_API_BASE}/tailnet/-/devices",
-            headers=headers,
-            params={"fields": "all"},
-            timeout=10,
-        )
-        f_svc = pool.submit(
-            requests.get,
-            f"{_API_BASE}/tailnet/-/services",
-            headers=headers,
-            timeout=10,
-        )
-
-    r_dev = f_dev.result()
+    r_dev = requests.get(
+        f"{_API_BASE}/tailnet/-/devices",
+        headers=headers,
+        params={"fields": "all"},
+        timeout=10,
+    )
     r_dev.raise_for_status()
 
     devices: list[TsDevice] = []
@@ -128,27 +97,7 @@ def _fetch_tailscale(api_key: str) -> TailscaleData:
         ))
     devices.sort(key=lambda d: (not d.online, d.name))
 
-    services: list[TsService] = []
-    r_svc = f_svc.result()
-    if r_svc.ok:
-        svc_raw: list[tuple[str, str, list[str]]] = []
-        for s in r_svc.json().get("vipServices", []):
-            name  = s.get("name", "").replace("svc:", "")
-            addrs = s.get("addrs") or []
-            ports = s.get("ports") or []
-            svc_raw.append((name, _ipv4(addrs), ports))
-
-        with ThreadPoolExecutor(max_workers=max(len(svc_raw), 1)) as pool:
-            online_flags = list(pool.map(
-                lambda t: _tcp_reachable(t[1], t[2]),
-                svc_raw,
-            ))
-
-        for (name, ip, _), online in zip(svc_raw, online_flags):
-            services.append(TsService(name=name, ip=ip, online=online))
-    services.sort(key=lambda s: s.name)
-
-    return TailscaleData(devices=devices, services=services)
+    return TailscaleData(devices=devices)
 
 
 # ── rendering ─────────────────────────────────────────────────────────────────
@@ -188,53 +137,29 @@ def _build_devices_table(devices: list[TsDevice]) -> Table:
     return tbl
 
 
-def _build_services_table(services: list[TsService]) -> Table:
-    tbl = Table.grid(padding=(0, 1, 0, 0))
-    tbl.pad_edge = False
-    tbl.add_column(width=2,  no_wrap=True)
-    tbl.add_column(width=16, no_wrap=True)
-    tbl.add_column(no_wrap=True)
-
-    tbl.add_row(
-        Text(""),
-        Text("SERVICE", style="bold dim"),
-        Text("VIP",     style="bold dim"),
-    )
-
-    for s in services:
-        tbl.add_row(
-            Text("◆", style=f"bold {ACCENT}" if s.online else "dim"),
-            Text(s.name[:16], style="bold" if s.online else "dim"),
-            Text(s.ip, style="dim"),
-        )
-    return tbl
-
-
 def _render_tailscale(td: TailscaleData, mobile: bool = False) -> Group:
     if td.error:
         return Group(Text(td.error, style=f"dim {PERF_TERRIBLE}"))
 
-    dev_tbl = _build_devices_table(td.devices)
-    svc_tbl = _build_services_table(td.services)
+    if mobile or len(td.devices) <= 1:
+        return Group(_build_devices_table(td.devices))
 
-    if mobile or not td.services:
-        parts: list[Any] = [dev_tbl]
-        if td.services:
-            parts += [Text(""), svc_tbl]
-        return Group(*parts)
-
-    outer = Table.grid(expand=True, padding=(0, 1, 0, 0))
+    half = (len(td.devices) + 1) // 2
+    outer = Table.grid(expand=True, padding=(0, 2, 0, 0))
     outer.pad_edge = False
     outer.add_column(ratio=1)
     outer.add_column(ratio=1)
-    outer.add_row(dev_tbl, svc_tbl)
+    outer.add_row(
+        _build_devices_table(td.devices[:half]),
+        _build_devices_table(td.devices[half:]),
+    )
     return Group(outer)
 
 
 # ── widget ────────────────────────────────────────────────────────────────────
 
 class TailscaleWidget(DashWidget):
-    """Tailscale network: devices and VIP services."""
+    """Tailscale network: devices, two columns wide when there's room."""
 
     _mobile_scrollable = True
     data: reactive[TailscaleData | None] = reactive(None, always_update=True)
@@ -299,7 +224,7 @@ class TailscaleWidget(DashWidget):
         else:
             online = sum(1 for d in td.devices if d.online)
             total  = len(td.devices)
-            self.border_subtitle = f"{online}/{total} online · {len(td.services)} services"
+            self.border_subtitle = f"{online}/{total} online"
         self.query_one(Static).update(_render_tailscale(td, mobile=mobile))
 
     def watch_data(self, td: TailscaleData | None) -> None:

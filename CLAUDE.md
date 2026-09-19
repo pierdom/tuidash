@@ -72,7 +72,7 @@ tuidash/
     ├── podcasts.py     # Podcast feed viewer + mpv player (PodcastIndex API)
     ├── header.py       # App header bar: nav buttons (‹/›), net status, title (tap → page menu), play status, privacy lock (◉/○), clock
     ├── homelab.py      # HomelabHostWidget (per-host InfluxDB card) + FleetStatusWidget (fleet-wide connectivity/Docker/speed strip)
-    ├── tailscale.py    # TailscaleWidget — device list from Tailscale API
+    ├── tailscale.py    # TailscaleWidget — device list from Tailscale API, 2 columns when there's room
     ├── hetzner.py      # HetznerWidget — server + storage list from Hetzner Cloud API
     ├── ghostfolio_detail.py  # GhostfolioDetailWidget — full portfolio breakdown + monthly activity
     └── rss.py          # RSS feed-fetching library (FeedData, _fetch_feed, _parse_dt)
@@ -513,6 +513,8 @@ Missing values for widget-specific vars show an inline error — they do not cra
 
 ### TailscaleWidget (`widgets/tailscale.py`)
 
+- Devices only — the VIP services table (and its `_tcp_reachable` TCP-probe fetch) was dropped 2026-09-19 to keep the widget shorter, freeing vertical space on the Homelab page for the host cards.
+- Non-mobile with >1 device: devices split into two side-by-side columns (first half / second half of the sorted list, not round-robin), each with its own header row — halves the height a 16-device tailnet needs.
 - Exit-node devices show a ` ↗` suffix in bold accent colour; name truncated to 13 chars to fit within the 16-char column
 - `TsDevice.exit_node` is derived from `advertisedRoutes` containing `"0.0.0.0/0"`
 - `on_resize` uses `call_after_refresh(self._redraw)` to ensure `.mobile` class is already applied before checking it
