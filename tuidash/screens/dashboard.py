@@ -125,6 +125,7 @@ class DashboardPage(BasePage):
         self._sync_scroll_mode()
         try:
             self.query_one(EventsWidget).reset_scroll()
+            self.query_one(HostsWidget).reset_scroll()
         except Exception:
             pass
 

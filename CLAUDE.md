@@ -338,7 +338,7 @@ Write no comments unless the **why** is non-obvious. Section separators (`# ─�
 
 ### Marquee / ticker scrolling
 
-**Boomerang (RssWidget):**
+**Boomerang (RssWidget, HostsWidget):**
 ```
 _SCROLL_INTERVAL = 0.24   # seconds per step
 _PAUSE_L_TICKS   = round(15 / _SCROLL_INTERVAL)   # ≈15 s pause at left end
@@ -487,10 +487,12 @@ Missing values for widget-specific vars show an inline error — they do not cra
 
 ### HostsWidget (border title: "Servers")
 
-- One row per host, CPU + MEM bar only — no per-container list (removed 2026-09-19; it was a scrolling marquee line that cost a second row per host for no signal Portainer/Glances didn't already show better elsewhere).
+- One row per host, CPU + MEM bar only — the old per-host scrolling container list (removed 2026-09-19) is gone for good; what replaced it is one shared line, see below.
 - `_name_from_url` returns the first hostname label for FQDNs (e.g. `myserver` from `myserver.local`); returns the full IP string for bare IP addresses (e.g. `192.168.1.1`, not `192`)
 - Two data sources, chosen per host by `HostData.source`: `"glances"` (the `TUIDASH_HOSTS` list — tries Glances API v4 first, falls back to v3) and `"influx"` (`TUIDASH_HOMELAB_CENTRAL`, scarif by default — bare-metal Proxmox, no Glances agent, so CPU/mem is pulled via `_fetch_host_stats` reused straight from `widgets/homelab.py`). Both are still ICMP-pinged directly for reachability/RTT — only the CPU/mem source differs.
 - The central host is always prepended first, so with the defaults (`TUIDASH_HOMELAB_CENTRAL=scarif`, `TUIDASH_HOSTS=bespin,endor`) the list renders scarif, bespin, endor in that order.
+- Below the host rows, one boomerang-scrolling line (added 2026-09-19) shows a curated `_CRITICAL_SERVICES` shortlist (currently pihole@endor, proxy-manager@bespin, proxy-manager@scarif-proxy, ghostfolio/relay/pocket-id@bespin) — deliberately not "every container" (that's the Homelab page's job), just the ones worth a glance at all times. Sourced live from the Portainer API (`_fetch_portainer_endpoints`/`_fetch_portainer_containers`, reused from `widgets/homelab.py`), one call per unique environment in the list, not one per service. A container name in `_CRITICAL_SERVICES` that doesn't match Portainer's actual name renders as `status="missing"` (red) rather than silently vanishing — caught "npm" vs the real name `proxy-manager` this way during initial setup.
+- Labels are `name@env` (`scarif-` prefix stripped, e.g. `proxy-manager@proxy`) since the same service name can legitimately exist in two environments (`proxy-manager` on both bespin and scarif-proxy).
 
 ### HomelabPage (`screens/homelab.py`)
 
