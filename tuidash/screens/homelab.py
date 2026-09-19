@@ -12,24 +12,30 @@ from ..widgets.tailscale import TailscaleWidget
 
 
 class HomelabPage(BasePage):
-    """Top 25%: host widgets side-by-side. Bottom 75%: Tailscale + Hetzner."""
+    """Top: scarif (central, full width) above the other hosts side-by-side. Bottom: Tailscale + Hetzner."""
 
     DEFAULT_CSS = """
     HomelabPage               { height: 100%; }
-    #homelab-top              { height: 45%; }
+    #homelab-top              { height: 55%; }
+    #homelab-scarif           { height: 65%; }
+    #homelab-others           { height: 35%; }
     #homelab-bottom           { height: 1fr; }
     """
 
     def compose(self) -> ComposeResult:
-        raw  = config.get("TUIDASH_HOSTS", "") or ""
-        urls = [u.strip() for u in raw.split(",") if u.strip()]
+        central = config.get("TUIDASH_HOMELAB_CENTRAL", "scarif") or "scarif"
+        raw     = config.get("TUIDASH_HOMELAB_HOSTS", "") or ""
+        others  = [h.strip() for h in raw.split(",") if h.strip()]
 
-        with Horizontal(id="homelab-top"):
-            if not urls:
-                yield Static("[dim]No hosts configured — set TUIDASH_HOSTS[/dim]")
-            else:
-                for url in urls:
-                    yield HomelabHostWidget(url=url)
+        with Vertical(id="homelab-top"):
+            with Horizontal(id="homelab-scarif"):
+                yield HomelabHostWidget(host=central, central=True)
+            with Horizontal(id="homelab-others"):
+                if not others:
+                    yield Static("[dim]No additional hosts — set TUIDASH_HOMELAB_HOSTS[/dim]")
+                else:
+                    for host in others:
+                        yield HomelabHostWidget(host=host, central=False)
 
         with Vertical(id="homelab-bottom"):
             yield TailscaleWidget()

@@ -161,6 +161,8 @@ class TuidashApp(App):
 
     /* Homelab page — host widgets stack vertically in mobile mode */
     .mobile #homelab-top {{ layout: vertical; height: auto; }}
+    .mobile #homelab-scarif {{ height: auto; }}
+    .mobile #homelab-others {{ layout: vertical; height: auto; }}
     .mobile #homelab-top HomelabHostWidget {{ width: 100%; height: 5; }}
 
     /* Scroll-captured widget highlight (mobile pointer lock) */

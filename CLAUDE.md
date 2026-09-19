@@ -47,6 +47,7 @@ tuidash/
 ├── ics.py              # ICS calendar parser (events)
 ├── scroll.py           # Shared boomerang-scroll helper (scroll_offset, scroll_window, current_tick)
 ├── theme.py            # Colour palette loader — reads palettes/<name>.toml, exports named constants + build_textual_theme()
+├── influx.py           # InfluxDB v1 query API client (query/last) — backs the Homelab page
 ├── podcast_progress.py # ProgressStore — episode playback state persisted to ~/.local/share/tuidash/podcast_progress.json
 ├── screens/
 │   ├── dashboard.py    # Page 1 — overview dashboard (all widgets)
@@ -431,7 +432,13 @@ All variables are prefixed `TUIDASH_`. Copy `.env.example` to `.env` to configur
 | `TUIDASH_WORK_COLOR` | `green` | Rich color name for work event days |
 | `TUIDASH_RSS_FEEDS` | — | Comma-separated RSS feed URLs |
 | `TUIDASH_NEWS_PICTURES` | `false` | Show article thumbnails in the News page; `true` enables image downloads |
-| `TUIDASH_HOSTS` | — | Comma-separated Glances URLs (widget title: "Servers") |
+| `TUIDASH_HOSTS` | — | Comma-separated Glances URLs (widget title: "Servers"; Dashboard page only — unrelated to the Homelab page below) |
+| `TUIDASH_INFLUXDB_URL` | — | InfluxDB base URL for the Homelab page (v1 query API, e.g. `http://192.168.1.101:8086`) |
+| `TUIDASH_INFLUXDB_TOKEN` | — | InfluxDB API token — read-only on the bucket below is sufficient |
+| `TUIDASH_INFLUXDB_ORG` | `geonlab` | InfluxDB org |
+| `TUIDASH_INFLUXDB_BUCKET` | `homelab` | InfluxDB bucket queried by `tuidash/influx.py` |
+| `TUIDASH_HOMELAB_CENTRAL` | `scarif` | The featured host card on the Homelab page — gets ZFS pools, backup freshness, and containers merged across every `scarif-*` Portainer environment |
+| `TUIDASH_HOMELAB_HOSTS` | — | Comma-separated InfluxDB host tags for the other Homelab-page host cards (not URLs) |
 | `TUIDASH_REACHABILITY_IPS` | `1.1.1.1,8.8.8.8,192.168.1.1` | IPs to ping |
 | `TUIDASH_RESOLVE_HOSTS` | `google.com,amazon.com,facebook.com` | Hosts to DNS-resolve |
 | `TUIDASH_DNS_RESOLVER` | system resolver | Custom DNS server IP for DNS checks (raw UDP on port 53) |
@@ -489,7 +496,11 @@ Missing values for widget-specific vars show an inline error — they do not cra
 
 ### HomelabHostWidget (`widgets/homelab.py`)
 
-- When widget width ≥ 62 columns and there are ≥ 2 containers, splits into two side-by-side columns filled left-to-right (even indices left, odd right); single column otherwise
+- Data comes from InfluxDB (`tuidash/influx.py`, bucket `homelab`), not Glances/ping — rebuilt 2026-09-18 once scarif (bare-metal Proxmox, no Glances agent) became the fleet's central host. See relay #319 for how the measurements are produced (Telegraf, Portainer aggregation, Tailscale/speedtest scripts).
+- `reachable` means "has sent a `cpu` point in the last 3 minutes", not ICMP reachability.
+- `central=True` (the `TUIDASH_HOMELAB_CENTRAL` host, scarif by default) additionally shows: the `tank`/`scratch` ZFS pools (reusing the `DiskInfo` bar rendering — same visual treatment as a root filesystem), a backup-freshness block (sanoid snapshot / borg offsite / vzdump, one canary dataset each — full per-dataset detail lives on the Scarif v3 Grafana dashboard, not here), and containers aggregated across every `scarif-*` Portainer environment (prefixed `env/container`, e.g. `apps/searxng`) with the ever-present `portainer_agent` filtered out as noise.
+- Non-central hosts (`TUIDASH_HOMELAB_HOSTS`) show just CPU/mem/root-disk gauges and that host's own Portainer environment containers, unprefixed.
+- Containers render via `_render_containers_grid`: column count scales with available width (`width // _COL_W`, capped at `_MAX_COLS = 6`), filled left-to-right round-robin — not a fixed 2 columns. Portainer gives no per-container CPU/mem, so there are no bar columns to size around; a badge + name is all each column needs, which is what lets a wide terminal fit scarif's 21 containers in ~3-4 rows instead of 11.
 - `_render_host_body(hd, width)` receives `self.size.width` from `_redraw()` so the column layout responds to resize
 
 ### TailscaleWidget (`widgets/tailscale.py`)
