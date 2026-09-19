@@ -7,18 +7,21 @@ from textual.widgets import Static
 from . import BasePage
 from .. import config
 from ..widgets.hetzner import HetznerWidget
-from ..widgets.homelab import HomelabHostWidget
+from ..widgets.homelab import FleetStatusWidget, HomelabHostWidget
 from ..widgets.tailscale import TailscaleWidget
 
 
 class HomelabPage(BasePage):
-    """Top: scarif (central, full width) above the other hosts side-by-side. Bottom: Tailscale + Hetzner."""
+    """Top: scarif (central, full width) above the other hosts side-by-side.
+    Middle: fleet-wide connectivity/Docker/speedtest strip. Bottom: Tailscale + Hetzner.
+    """
 
     DEFAULT_CSS = """
     HomelabPage               { height: 100%; }
-    #homelab-top              { height: 55%; }
+    #homelab-top              { height: 48%; }
     #homelab-scarif           { height: 65%; }
     #homelab-others           { height: 35%; }
+    #homelab-strip            { height: auto; }
     #homelab-bottom           { height: 1fr; }
     """
 
@@ -37,6 +40,9 @@ class HomelabPage(BasePage):
                     for host in others:
                         yield HomelabHostWidget(host=host, central=False)
 
+        with Vertical(id="homelab-strip"):
+            yield FleetStatusWidget()
+
         with Vertical(id="homelab-bottom"):
             yield TailscaleWidget()
             yield HetznerWidget()
@@ -52,7 +58,7 @@ class HomelabPage(BasePage):
     def refresh_all(self) -> None:
         for w in self.query(HomelabHostWidget):
             w._load()
-        for cls in (TailscaleWidget, HetznerWidget):
+        for cls in (FleetStatusWidget, TailscaleWidget, HetznerWidget):
             try:
                 self.query_one(cls)._load()
             except Exception:
@@ -61,7 +67,7 @@ class HomelabPage(BasePage):
     def set_refresh_interval(self, seconds: int) -> None:
         for w in self.query(HomelabHostWidget):
             w.set_refresh_interval(seconds)
-        for cls in (TailscaleWidget, HetznerWidget):
+        for cls in (FleetStatusWidget, TailscaleWidget, HetznerWidget):
             try:
                 self.query_one(cls).set_refresh_interval(seconds)
             except Exception:

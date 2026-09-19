@@ -55,7 +55,7 @@ tuidash/
 │   ├── news.py         # Page 3 — RelayWidget (left) + NewsReaderWidget (right), side by side
 │   ├── podcasts.py     # Page 4 — Podcast feed viewer and player
 │   ├── portfolio.py    # Page 5 — RelayWidget (left) + GhostfolioDetailWidget (right), side by side
-│   └── homelab.py      # Page 6 — HomelabHostWidget + TailscaleWidget + HetznerWidget
+│   └── homelab.py      # Page 6 — HomelabHostWidget + FleetStatusWidget + TailscaleWidget + HetznerWidget
 └── widgets/
     ├── base.py         # DashWidget — base class for all widgets; also exports neon_bar()
     ├── clock.py        # Pixel-art half-block clock
@@ -71,7 +71,7 @@ tuidash/
     ├── relay.py        # Generic relay server feed widget (SSE + REST, per-topic)
     ├── podcasts.py     # Podcast feed viewer + mpv player (PodcastIndex API)
     ├── header.py       # App header bar: nav buttons (‹/›), net status, title (tap → page menu), play status, privacy lock (◉/○), clock
-    ├── homelab.py      # HomelabHostWidget — host card with Glances stats + container list
+    ├── homelab.py      # HomelabHostWidget (per-host InfluxDB card) + FleetStatusWidget (fleet-wide connectivity/Docker/speed strip)
     ├── tailscale.py    # TailscaleWidget — device list from Tailscale API
     ├── hetzner.py      # HetznerWidget — server + storage list from Hetzner Cloud API
     ├── ghostfolio_detail.py  # GhostfolioDetailWidget — full portfolio breakdown + monthly activity
@@ -491,7 +491,8 @@ Missing values for widget-specific vars show an inline error — they do not cra
 
 ### HomelabPage (`screens/homelab.py`)
 
-- All three widget types have `_mobile_scrollable = True` — their inner `ScrollableContainer` stays scrollable in mobile mode
+- Layout: host cards (`#homelab-top`, 48%) → `FleetStatusWidget` strip (`#homelab-strip`, auto height) → Tailscale + Hetzner (`#homelab-bottom`, 1fr)
+- All widgets except `FleetStatusWidget` have `_mobile_scrollable = True` — their inner `ScrollableContainer` stays scrollable in mobile mode; `FleetStatusWidget` has no `ScrollableContainer` (its content is always short enough to fit at `height: auto`)
 - TAB / SHIFT+TAB cycles focus across all scrollable containers; the focused widget's border turns accent colour via `DashWidget:focus-within`
 
 ### HomelabHostWidget (`widgets/homelab.py`)
@@ -502,6 +503,13 @@ Missing values for widget-specific vars show an inline error — they do not cra
 - Non-central hosts (`TUIDASH_HOMELAB_HOSTS`) show just CPU/mem/root-disk gauges and that host's own Portainer environment containers, unprefixed.
 - Containers render via `_render_containers_grid`: column count scales with available width (`width // _COL_W`, capped at `_MAX_COLS = 6`), filled left-to-right round-robin — not a fixed 2 columns. Portainer gives no per-container CPU/mem, so there are no bar columns to size around; a badge + name is all each column needs, which is what lets a wide terminal fit scarif's 21 containers in ~3-4 rows instead of 11.
 - `_render_host_body(hd, width)` receives `self.size.width` from `_redraw()` so the column layout responds to resize
+
+### FleetStatusWidget (`widgets/homelab.py`)
+
+- A simplified TUI condensation of the Grafana "Homelab" dashboard's Connectivity + Docker services rows, added 2026-09-19 — same InfluxDB measurements as `HomelabHostWidget` (`cpu`, `portainer_container`, `speedtest`), just aggregated fleet-wide instead of per-host.
+- Three columns (`Table.grid`, ratio 2:2:3): **Connectivity** — one `●`/`○` dot per host in `_FLEET_HOSTS` (scarif, bespin, endor, malachor), laid out as a fixed 2-column grid (not a wrapped `Text` line — wrapping mid-badge looked broken at narrow widths); **Docker** — fleet-wide unhealthy/stopped counts across every environment in `_FLEET_ENVIRONMENTS` (bespin, endor, all `scarif-*`); **Speed** — latest `speedtest` measurement (`download_bits`/`upload_bits`/`ping`, written natively by speedtest-tracker — queried directly, no HTTP API call), ↓/↑ stacked as separate lines (not side-by-side cells — side-by-side overflowed to `…` when the outer column got squeezed by its neighbours).
+- Bar colour on the speed lines is `PERF_GREAT`/`PERF_GOOD`/`PERF_TERRIBLE` (green-family, high-is-good), not `BAR_HIGH`/`MID`/`LOW` (which mean high-is-bad, e.g. CPU load) — a real bug caught during review, since the two palettes share the same "gradient bar" shape but opposite semantics.
+- bespin never appears in `portainer_container` (the per-container Portainer call 502s for it — see relay #319); its Docker containers are silently absent from the fleet count, which is expected, not a bug.
 
 ### TailscaleWidget (`widgets/tailscale.py`)
 

@@ -14,9 +14,9 @@ from textual.timer import Timer
 from textual.widgets import Static
 from textual import work
 
-from .. import influx
-from ..theme import ACCENT, BAR_HIGH, BAR_LOW, BAR_MID, PERF_TERRIBLE
-from .base import DashWidget, neon_bar
+from .. import config, influx
+from ..theme import ACCENT, BAR_HIGH, BAR_LOW, BAR_MID, PERF_GOOD, PERF_GREAT, PERF_TERRIBLE
+from .base import DashWidget, accent_gradient_bar, neon_bar
 
 _BAR_W = 20
 
@@ -24,6 +24,14 @@ _BAR_W = 20
 _SCARIF_ENVIRONMENTS = ["scarif-apps", "scarif-files", "scarif-monitoring", "scarif-sync", "scarif-proxy"]
 # present in every scarif environment, adds no signal
 _NOISY_CONTAINERS = {"portainer_agent"}
+# every host that reports to InfluxDB — used by the fleet connectivity strip
+_FLEET_HOSTS = ["scarif", "bespin", "endor", "malachor"]
+# every Portainer environment fleet-wide (bespin currently never reports — see relay #319)
+_FLEET_ENVIRONMENTS = ["bespin", "endor", *_SCARIF_ENVIRONMENTS]
+_DEFAULT_MAX_MBPS = 600.0
+_SPEED_BAR_W = 9
+_PING_BUDGET_MS = 50.0  # "reasonable ping" ceiling for the budget gauge — not an alert threshold
+_PING_BAR_W = 6
 
 # ── data model ────────────────────────────────────────────────────────────────
 
@@ -60,6 +68,25 @@ class HostDetail:
     containers:  list[ContainerDetail] = field(default_factory=list)
     backups:     list[BackupStatus]    = field(default_factory=list)
     fetch_err:   str                   = ""
+
+
+@dataclass
+class FleetHost:
+    name:      str
+    reporting: bool
+
+
+@dataclass
+class FleetStatus:
+    hosts:      list[FleetHost] = field(default_factory=list)
+    unhealthy:  int             = 0
+    stopped:    int             = 0
+    running:    int             = 0
+    docker_stale: bool          = False   # True if the Portainer collector itself has no recent data
+    down_mbps:  float | None    = None
+    up_mbps:    float | None    = None
+    ping_ms:    float | None    = None
+    fetch_err:  str             = ""
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -214,6 +241,62 @@ def _monitor_host_influx(host: str, central: bool) -> HostDetail:
     return hd
 
 
+def _fetch_connectivity() -> list[FleetHost]:
+    out: list[FleetHost] = []
+    for host in _FLEET_HOSTS:
+        reporting = influx.last(
+            f'SELECT count("usage_idle") AS "n" FROM "cpu" '
+            f"WHERE \"host\" = '{host}' AND \"cpu\" = 'cpu-total' AND time > now() - 3m"
+        ) is not None
+        out.append(FleetHost(name=host, reporting=reporting))
+    return out
+
+
+def _fetch_fleet_docker() -> tuple[int, int, int, bool]:
+    """(unhealthy, stopped, running, has_data).
+
+    InfluxDB returns zero rows both when everything's fine and stopped, and when the
+    Portainer collector itself has died — those must not look the same, so `has_data`
+    tells the caller whether the counts mean anything (see relay #319's `noValue` note).
+    """
+    env_filter = " OR ".join(f'"environment" = \'{e}\'' for e in _FLEET_ENVIRONMENTS)
+    rows = influx.query(
+        f'SELECT last("present") FROM "portainer_container" '
+        f"WHERE ({env_filter}) AND time > now() - 10m "
+        f'GROUP BY "environment", "container", "state", "health"'
+    )
+    unhealthy = stopped = running = 0
+    for row in rows:
+        if row.get("container", "?") in _NOISY_CONTAINERS:
+            continue
+        if row.get("state", "?").lower() in _STOPPED_STATES:
+            stopped += 1
+        else:
+            running += 1
+            if row.get("health", "") == "unhealthy":
+                unhealthy += 1
+    return unhealthy, stopped, running, bool(rows)
+
+
+def _fetch_fleet_status() -> FleetStatus:
+    fs = FleetStatus()
+    try:
+        fs.hosts = _fetch_connectivity()
+        fs.unhealthy, fs.stopped, fs.running, has_data = _fetch_fleet_docker()
+        fs.docker_stale = not has_data
+        row = influx.last(
+            'SELECT last("download_bits") AS "down", last("upload_bits") AS "up", last("ping") AS "ping" '
+            'FROM "speedtest"'
+        )
+        if row is not None:
+            fs.down_mbps = row["down"] / 1_000_000
+            fs.up_mbps   = row["up"] / 1_000_000
+            fs.ping_ms   = row["ping"]
+    except Exception as exc:
+        fs.fetch_err = str(exc)
+    return fs
+
+
 # ── rendering ─────────────────────────────────────────────────────────────────
 
 class _FluidNeonBar:
@@ -352,6 +435,91 @@ def _render_host_body(hd: HostDetail, width: int = 0) -> Group:
     return Group(*parts)
 
 
+def _render_hosts_col(hosts: list[FleetHost]) -> Group:
+    header = Text("Connectivity", style="bold dim")
+
+    def _cell(h: FleetHost) -> Text:
+        t = Text()
+        t.append("●︎" if h.reporting else "○︎", style=f"bold {ACCENT}" if h.reporting else f"dim {PERF_TERRIBLE}")
+        t.append(f" {h.name[:8]}", style="" if h.reporting else "dim")
+        return t
+
+    grid = Table.grid(padding=(0, 1, 0, 0))
+    grid.add_column(width=11, no_wrap=True)
+    grid.add_column(width=11, no_wrap=True)
+    for i in range(0, len(hosts), 2):
+        pair = [_cell(h) for h in hosts[i:i + 2]]
+        while len(pair) < 2:
+            pair.append(Text(""))
+        grid.add_row(*pair)
+    return Group(header, grid)
+
+
+def _render_docker_col(fs: FleetStatus) -> Text:
+    t = Text()
+    t.append("Docker", style="bold dim")
+    if fs.docker_stale:
+        t.append("  no data", style=f"dim {PERF_TERRIBLE}")
+        return t
+    t.append(f"  {fs.running} running", style="dim")
+    t.append("\n")
+    u_style = f"bold {PERF_TERRIBLE}" if fs.unhealthy else f"bold {ACCENT}"
+    t.append("●︎", style=u_style)
+    t.append(f" {fs.unhealthy} unhealthy", style="" if fs.unhealthy else "dim")
+    t.append("   ")
+    t.append("▪", style="dim")
+    t.append(f" {fs.stopped} stopped", style="dim")
+    return t
+
+
+def _ping_budget_bar(ping_ms: float) -> Text:
+    """Small btop/netwatch-style gauge: how much of a "reasonable ping" budget is used."""
+    pct    = min(ping_ms / _PING_BUDGET_MS, 1.0)
+    filled = max(0, round(pct * _PING_BAR_W))
+    color  = PERF_TERRIBLE if pct >= 0.8 else (PERF_GOOD if pct >= 0.4 else PERF_GREAT)
+    t = Text()
+    t.append("▪" * filled, style=color)
+    t.append("▪" * (_PING_BAR_W - filled), style="dim")
+    return t
+
+
+def _render_speed_col(fs: FleetStatus, max_down: float, max_up: float) -> Any:
+    header = Text()
+    header.append("Speed", style="bold dim")
+    if fs.down_mbps is None:
+        header.append("  unavailable", style=f"dim {PERF_TERRIBLE}")
+        return header
+    if fs.ping_ms is not None:
+        header.append(f"  ping {fs.ping_ms:.0f}ms ", style="dim")
+        header.append_text(_ping_budget_bar(fs.ping_ms))
+
+    def _line(arrow: str, actual: float, max_val: float) -> Text:
+        pct    = min(actual / max_val, 1.0) if max_val > 0 else 0.0
+        filled = max(0, round(pct * _SPEED_BAR_W))
+        color  = PERF_GREAT if pct >= 0.8 else (PERF_GOOD if pct >= 0.5 else PERF_TERRIBLE)
+        t = Text()
+        t.append(f"{arrow} {actual:4.0f} Mbps ", style=color)
+        t.append_text(accent_gradient_bar(filled, _SPEED_BAR_W))
+        return t
+
+    return Group(header, _line("↓", fs.down_mbps, max_down), _line("↑", fs.up_mbps, max_up))
+
+
+def _render_fleet_status(fs: FleetStatus, max_down: float, max_up: float) -> Any:
+    if fs.fetch_err:
+        return Text(f"error: {fs.fetch_err}", style=f"dim {PERF_TERRIBLE}")
+    grid = Table.grid(expand=True, padding=(0, 3, 0, 0))
+    grid.add_column(ratio=2)
+    grid.add_column(ratio=2)
+    grid.add_column(ratio=3)
+    grid.add_row(
+        _render_hosts_col(fs.hosts),
+        _render_docker_col(fs),
+        _render_speed_col(fs, max_down, max_up),
+    )
+    return grid
+
+
 # ── widget ────────────────────────────────────────────────────────────────────
 
 class HomelabHostWidget(DashWidget):
@@ -419,3 +587,69 @@ class HomelabHostWidget(DashWidget):
 
     def on_resize(self) -> None:
         self.call_after_refresh(self._redraw)
+
+
+class FleetStatusWidget(DashWidget):
+    """Compact fleet-wide strip: host connectivity, aggregate Docker health, speedtest throughput.
+
+    A simplified TUI condensation of the Grafana Homelab dashboard's Connectivity
+    and Docker services rows — all three figures read straight off the same
+    InfluxDB measurements the host cards use (`cpu`, `portainer_container`, `speedtest`).
+    """
+
+    data: reactive[FleetStatus | None] = reactive(None, always_update=True)
+
+    DEFAULT_CSS = """
+    FleetStatusWidget        { height: auto; }
+    FleetStatusWidget Static { height: auto; }
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._data_timer: Timer | None = None
+        self._initial_load_done: bool = False
+        self._max_down: float = _DEFAULT_MAX_MBPS
+        self._max_up: float = _DEFAULT_MAX_MBPS
+
+    def compose(self) -> ComposeResult:
+        yield Static("[dim]loading…[/dim]")
+
+    def on_mount(self) -> None:
+        self.border_title = "  Fleet"
+        try:
+            self._max_down = float(config.get("TUIDASH_NETSPEED_DOWN") or _DEFAULT_MAX_MBPS)
+        except ValueError:
+            pass
+        try:
+            self._max_up = float(config.get("TUIDASH_NETSPEED_UP") or _DEFAULT_MAX_MBPS)
+        except ValueError:
+            pass
+
+    def on_show(self) -> None:
+        if not self._initial_load_done:
+            self._initial_load_done = True
+            self._load()
+
+    def set_refresh_interval(self, seconds: int) -> None:
+        if self._data_timer is not None:
+            self._data_timer.stop()
+        self._data_timer = self.set_interval(float(seconds), self._load)
+
+    @work(thread=True)
+    def _load(self) -> None:
+        fs = _fetch_fleet_status()
+        self.app.call_from_thread(self._show_data, fs)
+
+    def _show_data(self, fs: FleetStatus) -> None:
+        self.data = fs
+
+    def watch_data(self, fs: FleetStatus | None) -> None:
+        if fs is None:
+            return
+        if fs.fetch_err:
+            self.border_subtitle = "error"
+        else:
+            up = sum(1 for h in fs.hosts if h.reporting)
+            docker = "docker: no data" if fs.docker_stale else f"{fs.unhealthy} unhealthy · {fs.stopped} stopped"
+            self.border_subtitle = f"{up}/{len(fs.hosts)} up · {docker}"
+        self.query_one(Static).update(_render_fleet_status(fs, self._max_down, self._max_up))
