@@ -12,18 +12,22 @@ from ..widgets.tailscale import TailscaleWidget
 
 
 class HomelabPage(BasePage):
-    """Top: scarif, bespin, endor stacked vertically. Scarif sizes to its own
-    content (auto, capped) instead of a fixed share, so bespin/endor's 1fr
-    naturally grows into whatever scarif doesn't need. Middle: fleet-wide
+    """Top: scarif, bespin, endor stacked vertically — scarif sizes to its own
+    content (auto, capped), and of the remainder bespin outranks endor (2fr vs
+    1fr), so whichever card has more to show gets first claim on extra room.
+    #homelab-top itself is 1fr (not a fixed %), and strip/bottom are auto, so
+    the whole page's real estate goes to whatever actually needs it rather
+    than leaving a dead gap below Hetzner. Middle: fleet-wide
     connectivity/Docker/speedtest strip. Bottom: Tailscale + Hetzner.
     """
 
     DEFAULT_CSS = """
-    HomelabPage               { height: 100%; }
-    #homelab-top              { height: 60%; }
-    #homelab-scarif           { height: auto; }
-    #homelab-strip            { height: auto; }
-    #homelab-bottom           { height: 1fr; }
+    HomelabPage                  { height: 100%; }
+    #homelab-top                 { height: 1fr; }
+    #homelab-scarif              { height: auto; }
+    .homelab-other-host-primary  { height: 2fr; }
+    #homelab-strip               { height: auto; }
+    #homelab-bottom              { height: auto; }
     """
 
     def compose(self) -> ComposeResult:
@@ -36,8 +40,9 @@ class HomelabPage(BasePage):
             if not others:
                 yield Static("[dim]No additional hosts — set TUIDASH_HOMELAB_HOSTS[/dim]")
             else:
-                for host in others:
-                    yield HomelabHostWidget(host=host, central=False, classes="homelab-other-host")
+                for i, host in enumerate(others):
+                    classes = "homelab-other-host" + (" homelab-other-host-primary" if i == 0 else "")
+                    yield HomelabHostWidget(host=host, central=False, classes=classes)
 
         with Vertical(id="homelab-strip"):
             yield FleetStatusWidget()
