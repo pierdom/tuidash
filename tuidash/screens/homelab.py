@@ -37,7 +37,7 @@ class HomelabPage(BasePage):
                 yield Static("[dim]No additional hosts — set TUIDASH_HOMELAB_HOSTS[/dim]")
             else:
                 for host in others:
-                    yield HomelabHostWidget(host=host, central=False)
+                    yield HomelabHostWidget(host=host, central=False, classes="homelab-other-host")
 
         with Vertical(id="homelab-strip"):
             yield FleetStatusWidget()

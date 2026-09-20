@@ -159,12 +159,15 @@ class TuidashApp(App):
     .mobile PortfolioPage RelayWidget            {{ width: 100%; height: 30%; }}
     .mobile PortfolioPage GhostfolioDetailWidget {{ width: 100%; height: 70%; }}
 
-    /* Homelab page — #homelab-top is already a vertical stack by default
-       (scarif tallest, then bespin/endor); mobile just caps every host card
-       to the same fixed height instead of scarif's larger 65% share, since
-       there's no room to spare on a phone screen. */
+    /* Homelab page — #homelab-top is already a vertical stack by default. Scarif
+       sizes to its own content on mobile too now (via HomelabHostWidget's
+       _sync_scroll_mode override, not CSS) — only bespin/endor (the
+       "homelab-other-host" class, deliberately NOT the bare HomelabHostWidget
+       type, so this can't also clip scarif) get a flat cap, since a phone has no
+       room for their content to grow the way scarif's is allowed to. */
     .mobile #homelab-top {{ height: auto; }}
-    .mobile #homelab-top HomelabHostWidget {{ width: 100%; height: 9; }}
+    .mobile #homelab-scarif {{ width: 100%; }}
+    .mobile .homelab-other-host {{ width: 100%; height: 9; }}
     /* ...and #homelab-bottom itself must shrink to fit (was 1fr — stretched to fill
        all remaining screen space regardless of children, leaving dead space below
        Hetzner once Tailscale was capped). Tailscale stays internally scrollable
