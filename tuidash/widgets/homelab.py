@@ -576,6 +576,21 @@ class HomelabHostWidget(DashWidget):
         self.border_title    = f"  {self._host}"
         self.border_subtitle = "loading…"
 
+    def _sync_scroll_mode(self) -> None:
+        """Central host (scarif) sizes to its own content on desktop instead of a
+        fixed share — bespin/endor's `1fr` then naturally absorbs whatever scarif
+        doesn't need, capped so a big container grid can't swallow the whole page."""
+        if self._central and not self.screen.has_class("mobile"):
+            try:
+                sc = self.query_one(ScrollableContainer)
+            except Exception:
+                return
+            sc.styles.height     = "auto"
+            sc.styles.max_height = 24
+            sc.styles.overflow_y = "auto"
+            return
+        super()._sync_scroll_mode()
+
     def on_show(self) -> None:
         if not self._initial_load_done:
             self._initial_load_done = True

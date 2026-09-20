@@ -12,15 +12,16 @@ from ..widgets.tailscale import TailscaleWidget
 
 
 class HomelabPage(BasePage):
-    """Top: scarif, bespin, endor stacked vertically (scarif tallest — the most
-    content: ZFS pools, backups, ~21 containers). Middle: fleet-wide
+    """Top: scarif, bespin, endor stacked vertically. Scarif sizes to its own
+    content (auto, capped) instead of a fixed share, so bespin/endor's 1fr
+    naturally grows into whatever scarif doesn't need. Middle: fleet-wide
     connectivity/Docker/speedtest strip. Bottom: Tailscale + Hetzner.
     """
 
     DEFAULT_CSS = """
     HomelabPage               { height: 100%; }
     #homelab-top              { height: 60%; }
-    #homelab-scarif           { height: 65%; }
+    #homelab-scarif           { height: auto; }
     #homelab-strip            { height: auto; }
     #homelab-bottom           { height: 1fr; }
     """
